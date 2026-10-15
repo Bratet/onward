@@ -3,7 +3,10 @@ import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 const BIN = process.env.CAREER_OPS_CODEX_BIN || 'codex'
 
 export interface CodexAppServerResult {
+  /** Every agent message of the turn, streamed back to back. */
   text: string
+  /** The last agent message alone: the answer, without any "I'll check…" preamble before a tool call. */
+  finalText: string
   threadId: string
 }
 
@@ -19,6 +22,8 @@ export function runCodexAppServer(opts: {
   threadId?: string | null
   persist?: boolean
   sandbox: 'read-only' | 'workspace-write'
+  /** Live web search for this thread; Codex leaves it off unless configured. */
+  webSearch?: boolean
   signal?: AbortSignal
   onDelta?: (text: string) => void
   onReasoning?: (text: string) => void
@@ -88,6 +93,7 @@ export function runCodexAppServer(opts: {
             model: opts.model || null,
             approvalPolicy: 'never',
             sandbox: opts.sandbox,
+            config: opts.webSearch ? { web_search: 'live' } : null,
             excludeTurns: true,
           },
         } : {
@@ -98,6 +104,7 @@ export function runCodexAppServer(opts: {
             model: opts.model || null,
             approvalPolicy: 'never',
             sandbox: opts.sandbox,
+            config: opts.webSearch ? { web_search: 'live' } : null,
             ephemeral: opts.persist !== true,
           },
         })
@@ -161,7 +168,7 @@ export function runCodexAppServer(opts: {
       if (settled || !threadId) return
       settled = true
       cleanup()
-      resolve({ text: streamedText || completedText, threadId })
+      resolve({ text: streamedText || completedText, finalText: completedText || streamedText, threadId })
       child.kill('SIGTERM')
     }
 

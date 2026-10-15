@@ -3,7 +3,7 @@ id: tailor-cv
 name: Tailor CV
 description: Tailor the general resume to a job using the full master as evidence for additions and replacements.
 runner: cv-operations
-version: 6
+version: 7
 scope: application
 capabilities:
   - read-job-analysis
@@ -16,14 +16,18 @@ capabilities:
 You are tailoring the general resume below for one job posting. The runtime also supplies the
 language-matched master and candidate preferences. The general resume is the editorial baseline;
 the master is the complete factual evidence source. Consult BOTH before proposing any changes.
-Preserve good existing wording and structure, but replace weaker projects when the master has
-stronger evidence for this role. Do not treat the master as merely an optional source of filler.
+The general resume is a starting layout, not a selection to defend. Its bullets were picked for
+no posting in particular, so re-select from the master for this one: for every bullet slot, ask
+whether a master bullet proves a higher-ranked requirement better, and replace or import when it
+does. Rewording the baseline's bullets around the edges while stronger master evidence stays out
+is the main failure to avoid. Keep good existing wording when a bullet stays.
 Facts absent from both sources must not be invented; flag conflicting source claims rather than
 silently choosing the stronger one. Keep unchanged content without generating no-op edits.
 
 ## My custom rules
 
-- Keep the finished CV to exactly one page and use the page well.
+- Keep the finished CV to one page. Readability beats fill: white space at the bottom is fine,
+  and fewer, stronger bullets beat a full page. Ask what can come out before what can go in.
 - Preserve the candidate's voice and factual meaning.
 - Treat the master as a complete evidence inventory, not a document to shorten in place.
   Select a focused application CV; leaving a skill or project out does not remove it from the master.
@@ -52,8 +56,15 @@ silently choosing the stronger one. Keep unchanged content without generating no
 2. For every requirement, find the strongest direct evidence in the master and classify it:
    - `lead`: decisive evidence for a top-ranked must; it belongs in the summary or first bullets.
    - `prove`: a concrete achievement or project directly demonstrates it.
-   - `support`: it is truthfully present only in skills, education, or adjacent experience.
-   - `gap`: the master contains no evidence. Do not manufacture an answer.
+   - `support`: adjacent experience, a skills entry, or education that genuinely meets the
+     requirement at the level asked. A skill the master lists, or a project that is a direct
+     instance of the duty, is `support`, not `gap`.
+   - `gap`: the master contains nothing that meets the requirement's core. Use it when the
+     posting asks for a level the evidence clearly does not reach ("strong experience in time
+     series" backed only by a coursework line) or for a thing the master never mentions. For a
+     two-part requirement, classify by the part the posting stresses. Do not upgrade a gap to
+     `support` to make the map look complete, and do not downgrade real evidence to `gap` to look
+     cautious; the notes list gaps so the candidate can prepare for them.
 3. Select content by coverage, not chronology alone. Cover the highest-ranked musts first, then
    remaining musts, then the highest-ranked nice requirements. Prefer one strong item that proves
    several related requirements over repetitive items.
@@ -64,21 +75,34 @@ silently choosing the stronger one. Keep unchanged content without generating no
 
 - If the real titles do not clearly connect to the target role, create a truthful professional
   headline that bridges the candidate's actual title and demonstrated target-role experience.
-- Retain an existing concise summary and explicitly chosen sections unless the user requests
-  their removal. Shorten the summary before dropping it merely to save space. Respect the
-  supplied section order by default. A missing summary may be imported from the master.
-  Reorder cv.sections only when useful for the role or explicitly requested.
-- Respect an explicitly chosen summary; do not force every posting keyword into it.
-  Use the first achievement bullets to demonstrate requirements the summary does not mention.
+- Tailor the summary when it does not already speak to the role: if it names areas the posting
+  does not ask for while leaving out the kind of work the posting is about, rewrite those parts.
+  Keep its shape (one or two plain sentences, the candidate's own register) and change what it
+  leads with: the kind of work the posting is about, backed by the master. Do not turn it into a
+  list of the posting's requirements, tools or languages. Shorten the summary before dropping it
+  merely to save space. Write it without first person, like the master. A missing summary may be
+  imported from the master.
+- Respect the supplied section order by default. Reorder cv.sections only when useful for the
+  role or explicitly requested.
+- Use the first achievement bullets to demonstrate requirements the summary does not mention.
 - Put the most relevant achievement bullets first in each retained entry.
 
 ## Keywords and wording
 
 - Use exact posting terminology only where the master already proves the underlying claim.
 - Put keywords inside natural statements tied to work, projects, outcomes, or existing skills.
+- Some ATS match exact words. When the posting spells out a term the CV only abbreviates, or the
+  reverse (Google Cloud Platform and GCP, retrieval-augmented generation and RAG), write the
+  posting's full form once with the abbreviation in brackets, for example "Google Cloud (GCP)",
+  and use the short form after that. Only for terms already proved.
 - Never create a keyword dump, stack trailer, or unsupported tool list.
 - Preserve useful numbers and outcomes. Every wording change must improve relevance, clarity,
   or keyword alignment for a ranked requirement.
+- A reword adds a fact from the master or the posting's exact term for something already shown.
+  It never bolts a label onto a bullet that already proves it. If a bullet needs more than a few
+  words to fit the posting, replace it with a master bullet instead.
+- Adding a coursework line or a Skills entry does not turn a gap into evidence. Do not edit
+  Education or Skills just to touch a requirement the work history cannot back.
 - Distinguish scale from outcome: a customer or record count establishes scope, not success.
   Do not turn customers covered into an exact count of IDs produced, exposure reviewed into
   money saved, or accuracy into precision. Retain metric names and evaluation qualifiers.
@@ -88,6 +112,18 @@ silently choosing the stronger one. Keep unchanged content without generating no
 - A gap stays a gap.
 
 ## Page budget
+
+Every bullet is at most two lines at the locked design (about 220 characters with markup
+removed). When importing a long master bullet, keep the clause that proves the ranked
+requirement and cut the rest in the `to`.
+
+When the page overflows, trim before you cut: first shorten bullets over two lines, then drop
+the least relevant projects, awards and older bullets. Never drop the only bullet that proves a
+must while another bullet still carries clauses that prove nothing.
+
+Before returning, check the requirement map against the plan: every `lead` or `prove` row must
+cite text that is on the final CV. If the best proof of a must is only in the master, import it
+or classify the row honestly; never cite master-only text as if it were on the page.
 
 Select for relevance and strength of evidence before rendering. One page is a hard limit;
 page-fill percentage is diagnostic, not a quality score or an objective. Do not add tools,
@@ -123,6 +159,10 @@ refer to the MASTER. Only import of a missing section and set of cv.headline may
 
 - `drop` — remove an entry, highlight, or whole section. Supply `path` and `why`.
 - `reword` — replace one text value. Supply `path`, `from` (exact current text), `to`, and `why`.
+  A reworded bullet (any `highlights` item) may only name tools and technologies the general
+  resume already contains; to bring a master detail into a bullet, `import` that same master
+  bullet with a faithful `to`. Summary, Skills and other profile-wide text may name anything
+  the master contains.
 - `reorder` — permute a sequence or the existing cv.sections mapping (indices follow source key order). Supply `path`, `order` (every index exactly once), and `why`.
 - `set` — create or replace `cv.headline` only. Supply `path`, `value`, and `why`.
 

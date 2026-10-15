@@ -10,19 +10,19 @@
 # HOW TO USE IT
 #   Replace the tailored copy's entire `design:` block with the contents below.
 #   Change exactly one thing: `page.size` (us-letter for US/Canada, else a4).
-#   Nothing else. generate-pdf.mjs enforces this by comparing the parsed design
+#   Nothing else. checkDesign in src/lib/validate.ts enforces this by comparing the parsed design
 #   object against this file and refusing to render a tailored copy that differs.
 #
-# WHY THESE NUMBERS
-#   9pt body was measured against the CURRENT master: the whole thing, every
-#   bullet, rendered to 1 page at 92% fill. That leaves real headroom for
-#   selection. profile.yml's old 9.5pt was tuned against cv.md, deleted
-#   2026-08-04, so its fit was no longer evidence of anything.
+# WHY THESE NUMBERS (revised 2026-10-12)
+#   The old 9pt body was sized to fit the WHOLE master on one page, which served
+#   the "fill the page" rule. That rule is withdrawn: outside reviews called the
+#   result dense and hard to scan. Readability now beats fill, so the CV carries
+#   fewer, stronger bullets in a larger face with real gaps between them.
 #
-#   The masters DO carry entries.highlights spacing (space_above 0.14cm,
-#   space_between_items 0.26cm). That is a reading affordance for a document
-#   nobody sends. It is deliberately absent here: the engineeringresumes theme
-#   defaults are tighter, and on a one-page submission tighter is correct.
+#   Measured 2026-10-12 against the general resume trimmed to a typical tailored
+#   selection (5 bullets for the current job, 1 per older role, Skills, Education, Research):
+#   exactly one page. Line spacing stays at 0.5em; the extra air comes from the
+#   gaps between bullets, entries and sections, which is what makes a page skimmable.
 
 design:
   # Locked by preference. Never switch themes for a JD, however much it asks.
@@ -42,26 +42,32 @@ design:
 
   typography:
     font_size:
-      body: 9pt
+      body: 10pt
       name: 24pt
       # A distinct subtitle, subordinate to the name and readable at print size.
       headline: 10.5pt
       # 8.5pt keeps email + phone + website + LinkedIn + GitHub on ONE header
       # line. At 9.5pt the header wraps and orphans the last connection.
       connections: 8.5pt
-      section_titles: 1.2em
+      section_titles: 1.3em
     bold:
       headline: false
     line_spacing: 0.5em
     # left, not justified. Justification turns on hyphenation, which was breaking
     # words across lines ("Share-Point", "prepro-cessing"). Found 2026-07-17.
     alignment: left
+    # Arial throughout (picked 2026-10-12): the clearest face on screen,
+    # one of the article-recommended ATS-safe fonts, and text extraction tested
+    # clean. Arial is a WINDOWS SYSTEM FONT, not bundled with rendercv: on a
+    # machine without it (Linux, the OSS copy) Typst silently falls back to
+    # another face. Arial is wide, so a full selection runs long; cut content
+    # before tightening spacing (see the tailor-cv skill's priority list).
     font_family:
-      headline: Source Sans 3
-      body: XCharter
-      name: XCharter
-      connections: XCharter
-      section_titles: XCharter
+      headline: Arial
+      body: Arial
+      name: Arial
+      connections: Arial
+      section_titles: Arial
 
   colors:
     # Navy on the name and section titles; the subtitle uses muted charcoal. Body stays black and metrics are
@@ -73,12 +79,18 @@ design:
     connections: rgb(60,60,60)
 
   section_titles:
-    space_above: 0.3cm
+    space_above: 0.35cm
     space_below: 0.2cm
 
   sections:
-    space_between_regular_entries: 0.35cm
-    space_between_text_based_entries: 0.15cm
+    space_between_regular_entries: 0.4cm
+    space_between_text_based_entries: 0.18cm
+
+  entries:
+    # A visible gap between bullets so each achievement reads as its own item.
+    highlights:
+      space_above: 0.1cm
+      space_between_items: 0.12cm
 
   header:
     # Keep the name, role, and contacts together as a compact header.
@@ -89,4 +101,3 @@ design:
       # code and renders e.g. +1 555 0100 as "555 0100" — undialable from abroad.
       # Never omit this key.
       phone_number_format: international
-  # entries.highlights is intentionally NOT set here. See WHY THESE NUMBERS above.

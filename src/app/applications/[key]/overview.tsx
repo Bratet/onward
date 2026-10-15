@@ -61,6 +61,14 @@ export function Overview({ analysis, workspace, onRetry, onOpenChat, eligibility
         </div>
         {!loading ? <button onClick={onRetry} className="rounded-md border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-accent)] hover:bg-[var(--color-surface-2)]">{fit.status === 'error' ? 'Retry fit analysis' : 'Analyze my fit'}</button> : null}
       </div>
+    </Card> : !loading && fit.stale ? <Card>
+      <div className="flex flex-wrap items-center justify-between gap-3 p-5" role="status">
+        <div>
+          <p className="text-sm font-medium">This is the saved assessment</p>
+          <p className="mt-1 text-xs text-[var(--color-muted)]">The posting, your master resume or your guidance changed since it ran. Re-run it if you want the assessment to reflect those changes.</p>
+        </div>
+        <button onClick={onRetry} className="rounded-md border border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-accent)] hover:bg-[var(--color-surface-2)]">Re-run fit analysis</button>
+      </div>
     </Card> : null}
 
     {report ? <>

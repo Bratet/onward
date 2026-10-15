@@ -14,6 +14,8 @@ import {
   letterAgentPrompt,
   letterAgentSchema,
   letterSalutation,
+  acceptHumanized,
+  humanizePrompt,
   letterInputs,
   senderFromResume,
   wordCount,
@@ -47,6 +49,20 @@ assert.equal(letterSalutation(''), '')
 const promptFor = (lang: 'en' | 'fr') => letterAgentPrompt({ skill: '', company: 'Example Co', role: 'Engineer', lang, resumeYaml: '', jd: null, guidance: '', letter: french, conversation: [], message: 'Draft it' })
 assert.match(promptFor('fr'), /application is in French, so write the letter in French/)
 assert.match(promptFor('en'), /application is in English, so write the letter in English/)
+// The letter turn sees the master and the analysis, so pluses the tailored resume cut stay usable.
+const withSources = letterAgentPrompt({ skill: '', company: 'Acme', role: 'AI Engineer', lang: 'en', resumeYaml: '', jd: null, guidance: '', masterYaml: 'Conference paper', analysis: '"weight": "nice"', letter, conversation: [], message: 'Draft it' })
+assert.match(withSources, /Master resume[\s\S]*Conference paper/)
+assert.match(withSources, /Job analysis[\s\S]*"weight": "nice"/)
+assert.match(promptFor('en'), /Master resume[^\n]*\nNot supplied/, 'a missing master is stated, not silently dropped')
+
+// The humanizer pass: its prompt carries the skill and body in the letter's language, and a heavy rewrite is refused.
+assert.match(humanizePrompt({ skill: 'SKILL', content: 'Body', lang: 'fr' }), /written in French[\s\S]*SKILL[\s\S]*Body/)
+const draft = 'I am applying for the role.\n\nI enjoy consulting a lot and want to stay in it.\n\nI would be happy to talk.'
+assert.equal(acceptHumanized(draft, draft.replace('a lot ', 'a lot, ')), true, 'a light edit is kept')
+assert.equal(acceptHumanized(draft, 'I am applying for the role.\n\nI would be happy to talk.'), false, 'a dropped paragraph is refused')
+assert.equal(acceptHumanized(draft, ''), false, 'an empty result is refused')
+assert.equal(acceptHumanized(draft, draft.replace('a lot', 'a lot '.repeat(40))), false, 'a much longer rewrite is refused')
+assert.equal(acceptHumanized(draft.replace(/\n/g, '\r\n'), draft), true, 'line endings do not count as a change')
 assert.equal(wordCount('  one two\n\nthree '), 3)
 assert.equal(wordCount(''), 0)
 

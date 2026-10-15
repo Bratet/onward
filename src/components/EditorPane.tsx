@@ -174,6 +174,21 @@ export function EditorPane({
     }
   }
 
+  // Ctrl/Cmd+S saves, as in any editor, instead of opening the browser's save dialog.
+  const saveRef = useRef(save)
+  saveRef.current = save
+  const canSave = Boolean(onSave) && !saving && !reviewPending
+  useEffect(() => {
+    if (!canSave) return
+    function onKey(event: KeyboardEvent) {
+      if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return
+      event.preventDefault()
+      void saveRef.current().catch(() => {})
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [canSave])
+
   const failures = state?.failures ?? []
   const blocking = failures.filter((f) => f.kind === 'yaml' || f.kind === 'render')
   const api: EditorApi = {
@@ -206,6 +221,7 @@ export function EditorPane({
             <button
               onClick={() => { void save().catch(() => {}) }}
               disabled={saving || reviewPending}
+              title="Save (Ctrl+S)"
               className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-bg)] hover:opacity-90 disabled:opacity-50"
             >
               {saving ? 'Saving…' : reviewPending ? 'Review proposal below' : saved ? 'Saved ✓' : 'Save'}

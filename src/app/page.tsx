@@ -8,6 +8,7 @@ import {
 import { Card, CardHeader, Badge, statusTone, Empty } from '@/components/ui/primitives'
 import { ActivityGrid, DailyChart, FunnelChart, ScoreChart } from '@/components/Charts'
 import { GoalCard, GoalHistory } from '@/components/GoalCard'
+import { UpNext } from '@/components/UpNext'
 import { goalProgress, readGoal } from '@/lib/goal'
 import { cn, fmtDate, pct, relDays } from '@/lib/utils'
 
@@ -63,6 +64,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </div>
         </Card>
       ) : null}
+
+      <UpNext apps={apps} />
 
       {/* The goal sits top-right on wide screens and first on narrow ones. */}
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">

@@ -28,7 +28,7 @@ const messages: Record<OutreachKind, { title: string; description: string; icon:
 }
 
 /** Step 3 of the application flow: pick one follow-up task at a time instead of facing every form at once. */
-export function NextStepsPanel({ app, status, onStatusSaved, initialDrafts, initialCoverLetter, savedCoverLetter, contact, letterFinalized, step, onStep, onGoToResume, onLocatePdf }: {
+export function NextStepsPanel({ sent = false, app, status, onStatusSaved, initialDrafts, initialCoverLetter, savedCoverLetter, contact, letterFinalized, step, onStep, onGoToResume, onLocatePdf }: {
   app: Application
   status: string
   onStatusSaved: (status: string) => void
@@ -41,6 +41,8 @@ export function NextStepsPanel({ app, status, onStatusSaved, initialDrafts, init
   onStep: (step: NextStep | null) => void
   onGoToResume: () => void
   onLocatePdf: (reveal: boolean) => void
+  /** After applying the same tools serve following up, so the wording changes. */
+  sent?: boolean
 }) {
   const [drafts, setDrafts] = useState(initialDrafts)
   const [savedDrafts, setSavedDrafts] = useState(initialDrafts)
@@ -80,8 +82,11 @@ export function NextStepsPanel({ app, status, onStatusSaved, initialDrafts, init
     },
     ...(['cover-letter', 'email', 'linkedin'] as const).map((kind) => ({
       id: kind,
-      title: messages[kind].title,
-      description: kind === 'cover-letter' && contact.coverLetter
+      title: sent && kind === 'email' ? 'Draft a follow-up email' : sent && kind === 'linkedin' ? 'Message the recruiter' : messages[kind].title,
+      description: sent && kind === 'email' ? `A short follow-up${contact.email ? ` to ${contact.name ?? contact.email}` : ''}, or a reply when they write back.`
+        : sent && kind === 'linkedin' ? 'A friendly note to the recruiter or hiring manager to stay on their radar.'
+        : sent && kind === 'cover-letter' ? 'The letter you sent, or one for a later stage if they ask.'
+        : kind === 'cover-letter' && contact.coverLetter
         ? `The posting asks for ${contact.coverLetter === 'short' ? 'a short' : 'a'} cover letter. Draft it with AI and edit it beside a live preview.`
         : kind === 'email' && contact.email ? `Send your application to ${contact.name ?? contact.email}, the contact in the posting.` : messages[kind].description,
       icon: messages[kind].icon,
@@ -95,8 +100,8 @@ export function NextStepsPanel({ app, status, onStatusSaved, initialDrafts, init
     <Card className="flex flex-wrap items-center gap-3 px-5 py-4">
       <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--color-ok-soft)] text-[var(--color-ok)]"><CircleCheck size={18} aria-hidden="true" /></span>
       <div className="min-w-48 flex-1">
-        <h2 className="text-sm font-semibold">Your resume is ready</h2>
-        <p className="mt-0.5 text-xs text-[var(--color-muted)]">{pdf.name} · attach it to your application, then pick what to do next.</p>
+        <h2 className="text-sm font-semibold">{sent ? 'The resume you applied with' : 'Your resume is ready'}</h2>
+        <p className="mt-0.5 text-xs text-[var(--color-muted)]">{pdf.name} · {sent ? 'keep it handy for calls and interviews.' : 'attach it to your application, then pick what to do next.'}</p>
       </div>
       <div className="flex flex-wrap gap-2">
         <a href={`${base}/file/${encodeURIComponent(pdf.name)}`} target="_blank" rel="noreferrer" className={secondary}>Open PDF</a>
@@ -105,16 +110,16 @@ export function NextStepsPanel({ app, status, onStatusSaved, initialDrafts, init
       </div>
     </Card>
     <div>
-      <h2 className="text-base font-semibold">What would you like to do next?</h2>
+      <h2 className="text-base font-semibold">{sent ? 'Keep the conversation going' : 'What would you like to do next?'}</h2>
       <p className="mt-1 text-xs text-[var(--color-muted)]">Choose one. You can come back here for the others anytime.</p>
     </div>
     <ul className="grid gap-3 sm:grid-cols-2">
-      {cards.map((card) => <li key={card.id}>
+      {cards.map((card, index) => <li key={card.id} className="anim-rise" style={{ ['--delay' as string]: `${index * 60}ms` }}>
         <button
           type="button"
           onClick={() => onStep(card.id)}
           className={cn(
-            'group flex h-full w-full flex-col gap-3 rounded-xl border bg-[var(--color-surface)] p-5 text-left transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]',
+            'lift group flex h-full w-full flex-col gap-3 rounded-xl border bg-[var(--color-surface)] p-5 text-left transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-surface-2)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]',
             card.recommended ? 'border-[var(--color-accent)]' : 'border-[var(--color-border)]',
           )}
         >

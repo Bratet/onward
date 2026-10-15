@@ -28,7 +28,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ key: st
     // revision. Claim the job from the latest server state and make duplicate
     // Strict Mode / Fast Refresh requests harmless.
     let current = await readWorkspace(key)
-    if (current.fit.status === 'running' || current.fit.status === 'ready') {
+    if (alreadyHandled(current)) {
       return NextResponse.json({ workspace: current })
     }
     let workspace: ApplicationWorkspace
@@ -37,7 +37,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ key: st
     } catch (error) {
       if (!(error instanceof WorkspaceRevisionConflict)) throw error
       current = await readWorkspace(key)
-      if (current.fit.status === 'running' || current.fit.status === 'ready') {
+      if (alreadyHandled(current)) {
         return NextResponse.json({ workspace: current })
       }
       workspace = await updateWorkspace(key, current.revision, markRunning)
@@ -92,6 +92,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ key: st
     } catch {}
     return NextResponse.json({ error: message }, { status: 400 })
   }
+}
+
+/** A run in flight, or a saved report that still matches its inputs. A stale report re-runs only on request. */
+function alreadyHandled(current: ApplicationWorkspace): boolean {
+  return current.fit.status === 'running' || (current.fit.status === 'ready' && !current.fit.stale)
 }
 
 function markRunning(current: ApplicationWorkspace): ApplicationWorkspace {

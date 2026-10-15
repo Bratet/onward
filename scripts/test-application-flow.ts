@@ -38,3 +38,14 @@ for (const id of ['analyze-job', 'tailor-cv', 'profile-fit']) {
 const unsupported = await learnSkill(new Request('http://localhost/api/skills/unknown/learn', { method: 'POST', body: '{}' }), { params: Promise.resolve({ id: 'unknown' }) })
 assert.match((await unsupported.json()).error, /Unsupported learning target/)
 console.log('Skill learning routes validate all supported targets before invoking an engine')
+
+const { isUnnamedCompany } = await import('../src/lib/tailoring/jd')
+for (const placeholder of ['', '  ', 'Not stated', 'not specified.', 'Unknown', 'Confidential', 'N/A', 'Non communiqué', 'Non précisé']) {
+  assert.equal(isUnnamedCompany(placeholder), true, `"${placeholder}" is not a company name`)
+}
+for (const name of ['Sotalent', 'eXalt', 'Sia', 'Not Stated Labs']) assert.equal(isUnnamedCompany(name), false, `${name} is a real name`)
+const { POST: createApplication } = await import('../src/app/api/applications/create/route')
+const unnamed = await createApplication(new Request('http://localhost/api/applications/create', { method: 'POST', body: JSON.stringify({ analysis: { ...job, company: 'Not stated' }, jd: 'A posting without the employer name.' }) }))
+assert.equal(unnamed.status, 400, 'an unnamed company is refused before any folder is written')
+assert.match((await unnamed.json()).error, /does not name the company/)
+console.log('Unnamed companies: placeholders detected, real names kept, and creation refused until a name is given')

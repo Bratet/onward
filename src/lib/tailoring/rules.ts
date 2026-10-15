@@ -67,7 +67,7 @@ export const tailorSchema = {
             description:
               'lead: decisive evidence for a top-ranked must and placed in the top third. prove: a concrete achievement or project directly demonstrates it. support: present only in skills, education, or adjacent evidence. gap: no evidence in the master.',
           },
-          evidence: { type: ['string', 'null'], description: 'The bullet or skill entry that proves it, quoted enough to identify. null for a gap.' },
+          evidence: { type: ['string', 'null'], description: 'The bullet or skill entry on the final CV that proves it, quoted enough to identify. Prefix master-only evidence with "Master only:". null for a gap.' },
         },
       },
     },
@@ -116,7 +116,7 @@ function rendererFeedback(history: TailorAttemptFeedback[]): string {
 
   let direction = 'Repair rejected operations or rendering failures without changing the locked design.'
   if (isVerifiedOnePage(best) && !latest.rejected.length) direction = 'Keep the verified one-page selection. Do not add content merely to increase fill.'
-  else if (latestState === 'overflow') direction = 'Cut or replace the least relevant evidence to fit one page. Preserve the concise summary and strongest proof.'
+  else if (latestState === 'overflow') direction = 'Trim before you cut: first shorten bullets over two lines by removing clauses that prove no ranked requirement, then cut in the skill cut order. Never drop the only bullet on the page that proves a must while a longer bullet still carries clauses that prove nothing. Preserve the concise summary.'
 
   const log = history.map((attempt) => (
     `- Attempt ${attempt.attempt}: ${pageFitLabel(attempt)}; ${attempt.ops.length} accepted operation${attempt.ops.length === 1 ? '' : 's'}` +

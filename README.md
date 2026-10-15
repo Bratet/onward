@@ -285,6 +285,18 @@ French language. The `write-cover-letter` and `write-outreach`
 skills are editable on the Skills page. The included versions contain generic
 instructions; add your own voice and preferences to your local workspace.
 
+Once an application is sent, its page switches to follow-up: reminders when a reply
+is overdue, an AI interview prep pack (likely questions, STAR stories, weak spots, a
+pitch) with feedback on practice answers, and a record tab with the saved posting and
+its link. The dashboard lists what needs attention today and the tracker filters by phase.
+
+Cover letters research the company automatically and finish with a `humanize-text`
+pass that removes AI-writing patterns without changing facts; the reply always says
+what that pass changed. Tailoring re-selects bullets from the master instead of
+padding the general resume, can start from optional AI, ML or DS variants of it, and
+the new-application form can fetch a posting from its link. `npm run co -- help`
+lists the command-line interface for applications, stats, the goal and saved searches.
+
 ## Optional browser extension
 
 `make extension` builds `extension/visa-badge/` for loading as an unpacked Chrome

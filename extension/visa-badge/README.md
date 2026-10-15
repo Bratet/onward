@@ -1,6 +1,6 @@
 # Visa Badge
 
-A Chrome extension (built with [WXT](https://wxt.dev)) that puts two labels above every LinkedIn job you open: visa sponsorship, and whether a remote job accepts people living outside Europe. Both come from one call to **Jev** (`typesafe/jev-1.13`), TypeSafe's "System One" classifier, called through OpenRouter's System One endpoint (`https://openrouter.ai/api/v1/systemone`).
+A Chrome extension (built with [WXT](https://wxt.dev)) that puts two labels above every LinkedIn job you open: visa sponsorship, and whether the job needs a language other than English, French, or Arabic. Both come from one call to **Jev** (`typesafe/jev-1.13`), TypeSafe's "System One" classifier, called through OpenRouter's System One endpoint (`https://openrouter.ai/api/v1/systemone`).
 
 | Badge | Meaning |
 |---|---|
@@ -9,17 +9,15 @@ A Chrome extension (built with [WXT](https://wxt.dev)) that puts two labels abov
 | 🟠 Likely no sponsorship | It doesn't say, but asks for existing right to work, a valid permit, a citizenship, or clearance |
 | ⚪ Visa not mentioned | Nothing about visas or right to work |
 
-| Remote badge | Meaning |
+| Language badge | Meaning |
 |---|---|
-| 🟢 Remote: open outside Europe | Worldwide, or regions beyond Europe (EMEA, Africa, MENA) |
-| 🟢 Remote: timezone overlap only | Only asks for working-hours overlap (e.g. CET ±2h), no residency |
-| 🔴 Remote: Europe residents only | Must live in Europe, the EU/EEA, the UK, or named European countries |
-| ⚪ Remote: location unclear | Remote, but doesn't say where you may live |
-| ⚪ Not remote (on-site/hybrid) | Not a remote job |
+| 🔴 Requires a language you don’t speak | Requires a language other than English, French, or Arabic, or the posting is written in one |
+| 🟠 A language you don’t speak is a plus | Another language is nice to have, not required |
+| 🟢 No other language needed | Only English, French, or Arabic, or no language named |
 
 Both badges always show; if you only see one, the tab is running an old version (reload the extension, then the tab).
 
-Each badge ends in "· Jev 87%". Below 60% confidence it reads "Unsure: …" with a dashed border. Hover for Jev's probability for each label; click to re-check. While Jev is working it shows "Checking visa & remote…".
+Each badge ends in "· Jev 87%". Below 60% confidence it reads "Unsure: …" with a dashed border. Hover for Jev's probability for each label; click to re-check. While Jev is working it shows "Checking visa & language…".
 
 ## Install
 
@@ -29,12 +27,12 @@ make extension          # from the repo root; builds dist/chrome/
 
 In Chrome: `chrome://extensions` → enable **Developer mode** → **Load unpacked** → pick `extension/visa-badge/dist/chrome`. After a rebuild, press the reload icon on the extension card.
 
-Then add your key: **Details** → **Extension options** (or click the "Add OpenRouter key" badge), paste an [OpenRouter key](https://openrouter.ai/settings/keys), **Save**, **Test**. The test makes a live call on a sample EU-only remote posting and shows both answers, latency, model, provider, input tokens, and cost.
+Then add your key: **Details** → **Extension options** (or click the "Add OpenRouter key" badge), paste an [OpenRouter key](https://openrouter.ai/settings/keys), **Save**, **Test**. The test makes a live call on a sample Dutch-required posting and shows both answers, latency, model, provider, input tokens, and cost.
 
 ## How the call is kept small
 
 - **One call per job.** Answers are keyed by LinkedIn's job id and cached in `chrome.storage.local` for 14 days, across tabs and restarts. Revisiting a job is instant and free (the tooltip says "cached"). Two tabs asking about the same job share one request.
-- **Only what Jev needs.** `state` is the job header (title, company, location such as "EMEA (Remote)", workplace type) plus the description, whitespace collapsed and the "About the job" heading removed. Both questions go in the same call, so the posting is billed once; the remote question adds about 150 tokens. Jev bills input only ($0.042 per million tokens), so a typical posting costs about $0.00004.
+- **Only what Jev needs.** `state` is the job header (title, company, location such as "EMEA (Remote)", workplace type) plus the description, whitespace collapsed and the "About the job" heading removed. Both questions go in the same call, so the posting is billed once; the language question adds about 80 tokens. Jev bills input only ($0.042 per million tokens), so a typical posting costs about $0.00004.
 - **No stale reads.** LinkedIn redraws the description several times while a job loads and switches the URL before the text. The script waits for the page to settle (0.5 s, capped at 1.5 s) and won't send the previous job's text under the new job id.
 - 429 and 5xx responses are retried twice with backoff; other errors show "Jev check failed", with the reason in the tooltip. Click to retry.
 

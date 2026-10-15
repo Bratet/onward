@@ -34,7 +34,7 @@ export const claudeEngine: Engine = {
       : { id: 'claude', ok: false, reason: `\`${BIN}\` not found on PATH. Install Claude Code and run \`claude login\`.` }
   },
 
-  async runStructured<T>({ prompt, schema, cwd, signal, onEvent, model, thread, streamSummary }: RunOptions): Promise<T> {
+  async runStructured<T>({ prompt, schema, cwd, signal, onEvent, model, thread, streamSummary, webResearch }: RunOptions): Promise<T> {
     onEvent?.({ type: 'start', message: `Asking Claude${model ? ` (${model})` : ''}…` })
 
     const existingThread = thread?.id ?? null
@@ -67,6 +67,8 @@ export const claudeEngine: Engine = {
         // Analysis only. The app writes every file itself; the model never does.
         '--permission-mode', 'plan',
         '--add-dir', cwd ?? PATHS.root,
+        // Read-only web tools, pre-approved because -p cannot prompt for them.
+        ...(webResearch ? ['--allowedTools', 'WebSearch,WebFetch'] : []),
         ...(threadId ? (existingThread ? ['--resume', threadId] : ['--session-id', threadId]) : []),
       ],
       {

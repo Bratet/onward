@@ -2,10 +2,27 @@
 
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
+import { CalendarDays } from 'lucide-react'
 import type { Application } from '@/lib/applications'
 import { Card, Badge, statusTone, Empty, Spinner } from '@/components/ui/primitives'
 import { DocDots } from '@/components/DocDots'
+import { CompanyAvatar, SegmentedNav } from '@/components/ui/flair'
+import { applicationPhase, type Phase } from '@/lib/applicationPhase'
+import { daysSince, FOLLOW_UP_AFTER_DAYS, FOLLOW_UP_UNTIL_DAYS } from '@/lib/postingSource'
+import { followUpDue, goneQuiet } from '@/lib/followUp'
 import { fmtDate, cn } from '@/lib/utils'
+
+type PhaseFilter = 'all' | 'follow-up' | Phase
+
+const PHASE_FILTERS: { value: PhaseFilter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'prepare', label: 'To apply' },
+  { value: 'waiting', label: 'Waiting' },
+  { value: 'talking', label: 'Replied' },
+  { value: 'interview', label: 'Interviewing' },
+  { value: 'offer', label: 'Offers' },
+  { value: 'closed', label: 'Closed' },
+]
 
 type SortKey = 'date' | 'company' | 'score' | 'status'
 
@@ -13,6 +30,7 @@ export function ApplicationsTable({ applications, folders }: { applications: App
   const router = useRouter()
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<string>('all')
+  const [phase, setPhase] = useState<PhaseFilter>('all')
   const [sort, setSort] = useState<SortKey>('date')
   const [asc, setAsc] = useState(false)
   const [linking, setLinking] = useState(false)
@@ -30,6 +48,7 @@ export function ApplicationsTable({ applications, folders }: { applications: App
     const needle = q.trim().toLowerCase()
     const filtered = applications.filter((a) => {
       if (status !== 'all' && a.row?.status !== status) return false
+      if (phase === 'follow-up' ? !followUpDue(a) : phase !== 'all' && applicationPhase(a.row?.status) !== phase) return false
       if (!needle) return true
       return [a.row?.company, a.row?.role, a.folder?.folder, a.row?.notes]
         .filter(Boolean)
@@ -52,7 +71,18 @@ export function ApplicationsTable({ applications, folders }: { applications: App
           return dir * (a.row?.date ?? a.folder?.date ?? '').localeCompare(b.row?.date ?? b.folder?.date ?? '')
       }
     })
-  }, [applications, q, status, sort, asc])
+  }, [applications, q, status, phase, sort, asc])
+
+  const phaseCounts = useMemo(() => {
+    const counts = new Map<PhaseFilter, number>([['all', applications.length]])
+    for (const a of applications) {
+      const key = applicationPhase(a.row?.status)
+      counts.set(key, (counts.get(key) ?? 0) + 1)
+    }
+    return counts
+  }, [applications])
+  const dueCount = useMemo(() => applications.filter((a) => followUpDue(a)).length, [applications])
+  const interviewing = useMemo(() => applications.filter((a) => a.workspace?.nextRound).sort((a, b) => (a.workspace!.nextRound!).localeCompare(b.workspace!.nextRound!)), [applications])
 
   const byKey = useMemo(() => new Map(applications.map((a) => [a.key, a])), [applications])
   const selectedShown = rows.filter((r) => selected.has(r.key)).map((r) => r.key)
@@ -140,6 +170,26 @@ export function ApplicationsTable({ applications, folders }: { applications: App
         </div>
       </div>
 
+      {dueCount || interviewing.length ? <div className="anim-rise grid gap-3 md:grid-cols-2">
+        {interviewing.length ? <button type="button" onClick={() => router.push(`/applications/${encodeURIComponent(interviewing[0].key)}?tab=prep`)} className="lift flex items-center gap-3 rounded-xl border border-[var(--color-warn)] bg-[var(--color-surface)] px-4 py-3 text-left">
+          <span className="anim-pulse grid size-9 shrink-0 place-items-center rounded-full bg-[var(--color-warn-soft)] text-[var(--color-warn)]"><CalendarDays size={16} aria-hidden="true" /></span>
+          <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Next interview: {label(interviewing[0])}</span><span className="block truncate text-xs text-[var(--color-muted)]" suppressHydrationWarning>{fmtDate(interviewing[0].workspace!.nextRound!.slice(0, 10))} · {interviewing[0].workspace?.prep ?? 0}% prepared. Open interview prep →</span></span>
+        </button> : null}
+        {dueCount ? <button type="button" onClick={() => { setPhase('follow-up'); setStatus('all') }} className="lift flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-left hover:border-[var(--color-accent)]">
+          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--color-accent-soft)] text-sm font-semibold text-[var(--color-accent)] tnum">{dueCount}</span>
+          <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{dueCount === 1 ? 'One application is' : `${dueCount} applications are`} ready for a follow-up</span><span className="block text-xs text-[var(--color-muted)]">Applied {FOLLOW_UP_AFTER_DAYS} to {FOLLOW_UP_UNTIL_DAYS} days ago with no reply. Show them →</span></span>
+        </button> : null}
+      </div> : null}
+
+      <SegmentedNav label="Filter by stage" value={phase} onChange={setPhase} items={[
+        ...PHASE_FILTERS.filter((entry) => entry.value === 'all' || phaseCounts.get(entry.value)).map((entry) => ({
+          value: entry.value,
+          label: entry.label,
+          badge: <span className="text-[10px] text-[var(--color-faint)] tnum">{phaseCounts.get(entry.value) ?? 0}</span>,
+        })),
+        ...(dueCount ? [{ value: 'follow-up' as PhaseFilter, label: 'Follow up', badge: <span className="rounded-full bg-[var(--color-accent-soft)] px-1.5 text-[10px] font-semibold text-[var(--color-accent)] tnum">{dueCount}</span> }] : []),
+      ]} />
+
       <div className="flex flex-wrap items-center gap-2">
         <input
           value={q}
@@ -219,14 +269,15 @@ export function ApplicationsTable({ applications, folders }: { applications: App
                   <Th w="w-16" onClick={() => toggle('score')} active={sort === 'score'} asc={asc}>Score</Th>
                   <Th w="w-28" onClick={() => toggle('status')} active={sort === 'status'} asc={asc}>Status</Th>
                   <Th w="w-20">Docs</Th>
-                  <Th w="w-32">Readiness</Th>
+                  <Th w="w-40">Where it stands</Th>
                   <Th w="w-16"><span className="sr-only">Actions</span></Th>
                 </tr>
               </thead>
               <tbody>
-                {rows.map((a) => (
+                {rows.map((a, index) => (
                   <tr
                     key={a.key}
+                    style={{ ['--delay' as string]: `${Math.min(index, 14) * 22}ms` }}
                     role="link"
                     tabIndex={0}
                     aria-label={`Open workspace for ${a.row?.company ?? a.folder?.slug ?? 'application'}`}
@@ -237,7 +288,7 @@ export function ApplicationsTable({ applications, folders }: { applications: App
                         router.push(`/applications/${encodeURIComponent(a.key)}`)
                       }
                     }}
-                    className="group cursor-pointer border-b border-[var(--color-border)] outline-none last:border-0 hover:bg-[var(--color-surface-2)] focus-visible:bg-[var(--color-accent-soft)]"
+                    className="anim-rise group cursor-pointer border-b border-[var(--color-border)] outline-none transition-colors last:border-0 hover:bg-[var(--color-surface-2)] focus-visible:bg-[var(--color-accent-soft)]"
                   >
                     <td className="px-3 py-2" onClick={(event) => event.stopPropagation()}>
                       <input
@@ -252,8 +303,8 @@ export function ApplicationsTable({ applications, folders }: { applications: App
                     <td className="px-3 py-2 text-[var(--color-muted)] tnum whitespace-nowrap">
                       {fmtDate(a.row?.date ?? a.folder?.date ?? '')}
                     </td>
-                    <td className="max-w-56 truncate px-3 py-2">
-                      <span>{a.row?.company ?? a.folder?.slug ?? '—'}</span>
+                    <td className="max-w-56 px-3 py-2">
+                      <span className="flex items-center gap-2.5"><CompanyAvatar name={a.row?.company ?? a.folder?.slug ?? '?'} size={26} /><span className="truncate font-medium">{a.row?.company ?? a.folder?.slug ?? '—'}</span></span>
                     </td>
                     <td className="max-w-80 truncate px-3 py-2 text-[var(--color-muted)]">
                       {a.row?.role ?? <span className="text-[var(--color-faint)]">folder only, no tracker row</span>}
@@ -264,11 +315,11 @@ export function ApplicationsTable({ applications, folders }: { applications: App
                     </td>
                     <td className="px-3 py-2"><DocDots has={a.folder?.has ?? null} /></td>
                     <td className="px-3 py-2">
-                      <div className="flex flex-wrap gap-1">
+                      {applicationPhase(a.row?.status) !== 'prepare' ? <Standing app={a} /> : <div className="flex flex-wrap gap-1">
                         {a.workspace?.fit ? <Badge tone={a.workspace.fit === 'Strong' ? 'ok' : a.workspace.fit === 'Partial' ? 'warn' : 'bad'}>{a.workspace.fit} fit</Badge> : null}
                         <Badge tone={a.workspace?.resume === 'finalized' ? 'ok' : a.workspace?.resume === 'draft' ? 'warn' : 'neutral'}>{a.workspace?.resume ?? 'missing'}</Badge>
                         {a.workspace?.pending ? <Badge tone="warn">review</Badge> : null}
-                      </div>
+                      </div>}
                     </td>
                     <td className="px-3 py-2 text-right" onClick={(event) => event.stopPropagation()}>
                       <button
@@ -290,6 +341,18 @@ export function ApplicationsTable({ applications, folders }: { applications: App
       </Card>
     </div>
   )
+}
+
+/** After applying: how long it has been, whether to follow up, and interview readiness. */
+function Standing({ app }: { app: Application }) {
+  const phase = applicationPhase(app.row?.status)
+  const days = daysSince(app.workspace?.appliedAt ?? app.row?.date)
+  return <div className="flex flex-wrap items-center gap-1" suppressHydrationWarning>
+    {phase !== 'closed' && days !== null ? <span className="text-[11px] text-[var(--color-faint)] tnum">day {days}</span> : null}
+    {followUpDue(app) ? <Badge tone="accent">follow up</Badge> : goneQuiet(app) ? <Badge>no reply</Badge> : null}
+    {app.workspace?.nextRound ? <Badge tone="warn">interview {fmtDate(app.workspace.nextRound.slice(0, 10)).replace(/ \d{4}$/, '')}</Badge> : null}
+    {app.workspace?.prep !== null && app.workspace?.prep !== undefined && phase !== 'closed' ? <Badge tone={app.workspace.prep >= 80 ? 'ok' : 'neutral'}>prep {app.workspace.prep}%</Badge> : null}
+  </div>
 }
 
 function label(a?: Application): string {

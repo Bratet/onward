@@ -49,6 +49,8 @@ export interface RunOptions {
   thread?: EngineThread
   /** Ask the CLI for safe, user-facing decision notes and stream them. */
   streamSummary?: boolean
+  /** Let the model search and read the web. Off everywhere except company research for cover letters. */
+  webResearch?: boolean
 }
 
 export interface Engine {

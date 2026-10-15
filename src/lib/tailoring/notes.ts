@@ -151,7 +151,8 @@ function describeTarget(op: Op): string {
 }
 
 function gapsList(gaps: string[]): string {
-  if (!gaps.length) return '_None. Every stated requirement has evidence somewhere in the profile._'
+  // Says only what was checked: thin `support` rows above can still be real gaps.
+  if (!gaps.length) return '_No requirement was classified as a gap. Check the `support` rows above for thin evidence._'
   return [
     ...gaps.map((g) => `- ${g.trim()}`),
     '',

@@ -232,3 +232,98 @@ input, textarea { caret-color: var(--color-accent); }
   --color-status-serious: #ec835a;
   --color-status-critical: #d03b3b;
 }
+
+/*
+ * Motion. Short, eased, and only on things that just appeared or changed:
+ * a view sliding in, a card flipping, a bar filling. Everything collapses to
+ * an instant change under prefers-reduced-motion.
+ */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pop-in {
+  0% { opacity: 0; transform: scale(0.6); }
+  70% { opacity: 1; transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+@keyframes slide-from-right {
+  from { opacity: 0; transform: translateX(28px) rotate(0.6deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes slide-from-left {
+  from { opacity: 0; transform: translateX(-28px) rotate(-0.6deg); }
+  to { opacity: 1; transform: none; }
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 color-mix(in oklch, var(--color-accent) 55%, transparent); }
+  100% { box-shadow: 0 0 0 10px transparent; }
+}
+@keyframes shimmer {
+  from { background-position: -200% 0; }
+  to { background-position: 200% 0; }
+}
+@keyframes confetti-fall {
+  0% { transform: translate3d(0, 0, 0) rotate(0); opacity: 1; }
+  100% { transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--rot)); opacity: 0; }
+}
+
+.anim-rise { animation: rise-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: var(--delay, 0ms); }
+.anim-fade { animation: fade-in 0.3s ease-out both; }
+.anim-pop { animation: pop-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: var(--delay, 0ms); }
+.anim-next { animation: slide-from-right 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.anim-prev { animation: slide-from-left 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.anim-pulse { animation: pulse-ring 1.6s ease-out infinite; }
+
+/* Cards lift a little on hover so clickable surfaces feel clickable. */
+.lift { transition: transform 0.18s ease, border-color 0.18s ease, background-color 0.18s ease, box-shadow 0.18s ease; }
+.lift:hover { transform: translateY(-2px); box-shadow: 0 8px 24px -14px color-mix(in oklch, var(--color-accent) 60%, transparent); }
+
+/* A loading placeholder that reads as "working" rather than "empty". */
+.shimmer {
+  background: linear-gradient(90deg, var(--color-surface-2) 0%, var(--color-border) 50%, var(--color-surface-2) 100%);
+  background-size: 200% 100%;
+  animation: shimmer 1.6s linear infinite;
+}
+
+/* A soft wash of the accent behind hero cards. */
+.hero-wash {
+  background:
+    radial-gradient(120% 140% at 0% 0%, color-mix(in oklch, var(--color-accent) 16%, transparent) 0%, transparent 55%),
+    radial-gradient(90% 120% at 100% 100%, color-mix(in oklch, var(--color-ok) 10%, transparent) 0%, transparent 60%),
+    var(--color-surface);
+}
+
+/* Segmented navigation with a sliding indicator positioned from JS. */
+.seg-nav { position: relative; display: flex; gap: 2px; padding: 4px; border-radius: 12px; background: var(--color-surface-2); border: 1px solid var(--color-border); overflow-x: auto; scrollbar-width: none; }
+.seg-nav::-webkit-scrollbar { display: none; }
+.seg-indicator { position: absolute; top: 4px; bottom: 4px; border-radius: 9px; background: var(--color-surface); box-shadow: 0 1px 2px rgb(0 0 0 / 0.18), 0 0 0 1px var(--color-border); transition: left 0.32s cubic-bezier(0.2, 0.8, 0.2, 1), width 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
+.seg-item { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; border-radius: 9px; padding: 8px 14px; font-size: 13px; color: var(--color-muted); transition: color 0.2s ease; }
+.seg-item:hover { color: var(--color-text); }
+.seg-item[aria-current='page'] { color: var(--color-text); font-weight: 600; }
+
+/* Journey bar: the milestones from preparing to an offer. */
+.journey-track { position: relative; height: 4px; border-radius: 999px; background: var(--color-surface-2); overflow: hidden; }
+.journey-fill { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, var(--color-accent), var(--color-ok)); transition: width 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+/* Flashcards: both faces share one grid cell, so the card is as tall as the taller face. */
+.flashcard { perspective: 1400px; }
+.flashcard-inner { display: grid; transition: transform 0.55s cubic-bezier(0.2, 0.8, 0.2, 1); transform-style: preserve-3d; }
+.flashcard-inner[data-flipped] { transform: rotateY(180deg); }
+.flashcard-face { grid-area: 1 / 1; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.flashcard-back { transform: rotateY(180deg); }
+
+/* Progress ring stroke animates when the value changes. */
+.ring-value { transition: stroke-dashoffset 0.8s cubic-bezier(0.2, 0.8, 0.2, 1); }
+
+.confetti-piece { position: fixed; z-index: 100; width: 8px; height: 12px; border-radius: 2px; pointer-events: none; animation: confetti-fall 1.4s cubic-bezier(0.15, 0.6, 0.3, 1) forwards; }
+
+kbd { font-family: var(--font-mono); font-size: 10px; padding: 1px 5px; border-radius: 4px; border: 1px solid var(--color-border); background: var(--color-bg); color: var(--color-muted); }
+
+@media (prefers-reduced-motion: reduce) {
+  .anim-rise, .anim-fade, .anim-pop, .anim-next, .anim-prev, .anim-pulse, .shimmer { animation: none; }
+  .lift, .lift:hover { transform: none; transition: none; }
+  .seg-indicator, .journey-fill, .flashcard-inner, .ring-value { transition: none; }
+  .confetti-piece { display: none; }
+}

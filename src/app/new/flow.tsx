@@ -5,7 +5,8 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Card, CardHeader, Badge, Spinner } from '@/components/ui/primitives'
 import { readNdjson } from '@/lib/ndjson'
-import type { JdAnalysis } from '@/lib/tailoring/jd'
+import { isUnnamedCompany, type JdAnalysis } from '@/lib/tailoring/jd'
+import { BASE_CVS, defaultBaseCv, type BaseCv } from '@/lib/tailoring/baseCv'
 import type { DuplicateMatch } from '@/lib/duplicates'
 import { cn } from '@/lib/utils'
 import type { SkillSummary } from '@/lib/skills/types'
@@ -30,6 +31,7 @@ export function NewApplicationFlow() {
   const [runId, setRunId] = useState<string | null>(null)
   const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([])
   const blocking = duplicates.filter((match) => match.reason !== 'same-company')
+  const missingCompany = !!analysis && isUnnamedCompany(analysis.company)
 
   useEffect(() => {
     fetch('/api/skills')
@@ -39,8 +41,32 @@ export function NewApplicationFlow() {
   }, [])
 
   const [createdKey, setCreatedKey] = useState<string | null>(null)
+  const [fetching, setFetching] = useState(false)
 
-  async function analyze() {
+  /** Read the posting from its link, fill the form, then analyze it straight away. */
+  async function fetchAndAnalyze() {
+    setFetching(true)
+    setError(null)
+    try {
+      const r = await fetch('/api/jd/fetch', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ url }),
+      })
+      const d = await r.json()
+      if (!r.ok) { setError(d.error ?? 'Could not fetch this posting. Paste the job description instead.'); return }
+      setJd(d.text)
+      setUrl(d.url)
+      setFetching(false)
+      await analyze(d.text)
+    } catch (e) {
+      setError((e as Error).message)
+    } finally {
+      setFetching(false)
+    }
+  }
+
+  async function analyze(posting = jd) {
     setStep('analyzing')
     setError(null)
     setProgress([])
@@ -50,7 +76,7 @@ export function NewApplicationFlow() {
       const r = await fetch('/api/jd', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ jd, skillId }),
+        body: JSON.stringify({ jd: posting, skillId }),
       })
 
       if (!r.ok) {
@@ -73,8 +99,14 @@ export function NewApplicationFlow() {
       })
       if (!failed && !completed) throw new Error('Analysis ended without a result. Please retry.')
       if (!failed && completed) {
+        // A placeholder like "Not stated" is not a name: clear it so the review asks for one.
+        const result: JdAnalysis = completed
+        if (isUnnamedCompany(result.company)) {
+          completed = { ...result, company: '' }
+          setAnalysis(completed)
+        }
         setStep('review')
-        void checkDuplicates(completed)
+        if (!isUnnamedCompany(completed.company)) void checkDuplicates(completed, posting)
       }
     } catch (e) {
       setError((e as Error).message)
@@ -82,13 +114,13 @@ export function NewApplicationFlow() {
     }
   }
 
-  async function checkDuplicates(result: JdAnalysis) {
+  async function checkDuplicates(result: JdAnalysis, posting?: string) {
     setDuplicates([])
     try {
       const r = await fetch('/api/applications/duplicates', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ company: result.company, role: result.role, jd }),
+        body: JSON.stringify({ company: result.company, role: result.role, jd: posting ?? jd }),
       })
       if (r.ok) setDuplicates((await r.json()).matches as DuplicateMatch[])
     } catch {
@@ -165,16 +197,33 @@ export function NewApplicationFlow() {
 
       {!noJd && (step === 'paste' || step === 'analyzing') ? (
         <Card>
-          <CardHeader title="Job posting" hint="Paste the full text so the analysis can read the requirements in context." />
+          <CardHeader title="Job posting" hint="Paste a LinkedIn or career-page link to fetch the posting, or paste the full text." />
           <div className="space-y-5 p-5">
-            <label className="block text-xs font-medium text-[var(--color-muted)]">Posting URL <span className="font-normal">(optional)</span>
-              <span className="mt-1.5 flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 focus-within:outline-2 focus-within:outline-[var(--color-accent)]"><Link2 className="size-4 text-[var(--color-faint)]" aria-hidden="true" /><input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              type="url"
-              placeholder="https://company.example/jobs/role"
-              className="h-10 w-full bg-transparent text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-faint)]"
-            /></span></label>
+            <div>
+            <label htmlFor="posting-url" className="block text-xs font-medium text-[var(--color-muted)]">Posting URL</label>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              <span className="flex min-w-0 flex-1 basis-64 items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 focus-within:outline-2 focus-within:outline-[var(--color-accent)]"><Link2 className="size-4 text-[var(--color-faint)]" aria-hidden="true" /><input
+                id="posting-url"
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && url.trim() && !fetching && step !== 'analyzing') void fetchAndAnalyze() }}
+                type="url"
+                placeholder="https://www.linkedin.com/jobs/view/… or a career-page link"
+                disabled={fetching || step === 'analyzing'}
+                className="h-10 w-full bg-transparent text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-faint)]"
+              /></span>
+              <button
+                type="button"
+                onClick={() => void fetchAndAnalyze()}
+                disabled={!url.trim() || fetching || step === 'analyzing'}
+                className="flex min-h-10 items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 text-sm font-medium hover:bg-[var(--color-surface-2)] disabled:opacity-40"
+              >
+                {fetching ? <Spinner /> : null}
+                {fetching ? 'Fetching…' : 'Fetch & analyze'}
+              </button>
+            </div>
+            <p className="mt-1.5 text-[11px] text-[var(--color-faint)]">LinkedIn search links work too. Indeed blocks fetching, so paste those postings below.</p>
+            </div>
             <label className="block text-xs font-medium text-[var(--color-muted)]">Job description
             <textarea
               value={jd}
@@ -187,7 +236,7 @@ export function NewApplicationFlow() {
             <div className="flex flex-wrap items-center gap-3 border-t border-[var(--color-border)] pt-4">
               <button
                 type="button"
-                onClick={analyze}
+                onClick={() => void analyze()}
                 disabled={jd.trim().length < 40 || step === 'analyzing'}
                 className="flex min-h-10 items-center gap-2 rounded-lg bg-[var(--color-accent)] px-4 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
               >
@@ -245,13 +294,41 @@ export function NewApplicationFlow() {
               }
             />
             <div className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-2">
-              <Field label="Company" value={analysis.company} />
+              <label className="block">
+                <span className="block text-[11px] text-[var(--color-faint)]">Company</span>
+                <input
+                  value={analysis.company}
+                  onChange={(e) => setAnalysis({ ...analysis, company: e.target.value })}
+                  onBlur={() => { if (!isUnnamedCompany(analysis.company)) void checkDuplicates(analysis) }}
+                  placeholder="Not named in the posting: type it"
+                  aria-invalid={missingCompany}
+                  className={cn(
+                    'mt-0.5 h-8 w-full rounded-md border bg-[var(--color-bg)] px-2 text-[13px] outline-none focus:border-[var(--color-accent)] placeholder:text-[var(--color-faint)]',
+                    missingCompany ? 'border-[var(--color-warn)]' : 'border-[var(--color-border)]',
+                  )}
+                />
+                {missingCompany ? <span className="mt-1 block text-[11px] text-[var(--color-warn)]">The posting doesn&apos;t name the employer. Add it to create the application.</span> : null}
+              </label>
               <Field label="Role" value={analysis.role} />
               <Field label="Archetype" value={analysis.archetype} />
               <Field label="Seniority" value={analysis.seniority} />
               <Field label="Location" value={analysis.location} />
               <Field label="Work mode" value={analysis.workMode} />
               <Field label="Language" value={analysis.language === 'fr' ? 'French → FR master' : 'English → EN master'} />
+              <label className="block">
+                <span className="block text-[11px] text-[var(--color-faint)]">Starting resume</span>
+                <select
+                  value={analysis.baseCv ?? defaultBaseCv(analysis.archetype)}
+                  onChange={(e) => setAnalysis({ ...analysis, baseCv: e.target.value as BaseCv })}
+                  className="mt-0.5 h-8 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 text-[13px] outline-none focus:border-[var(--color-accent)]"
+                >
+                  {BASE_CVS.map((base) => (
+                    <option key={base.id} value={base.id}>
+                      {base.label} {analysis.language.toUpperCase()}{base.id === defaultBaseCv(analysis.archetype) ? ' (suggested for this job)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <Field label="Paper" value={analysis.paperSize} />
               <Field label="Sponsorship" value={analysis.sponsorship} />
             </div>
@@ -301,14 +378,16 @@ export function NewApplicationFlow() {
                 <p className="text-[13px]">Create the application folder</p>
                 <p className="mt-0.5 text-xs text-[var(--color-faint)]">
                   Writes <code>jd.md</code>, a resume YAML seeded from your{' '}
-                  {analysis.language === 'fr' ? 'FR' : 'EN'} master, and <code>tailoring-notes.md</code> with the
+                  {BASE_CVS.find((base) => base.id === (analysis.baseCv ?? defaultBaseCv(analysis.archetype)))?.label}{' '}
+                  {analysis.language === 'fr' ? 'FR' : 'EN'} general resume, and <code>tailoring-notes.md</code> with the
                   requirement map. Review the analysis and clarify questions with the AI before requesting tailoring.
                 </p>
               </div>
               <button
                 onClick={() => void create()}
+                disabled={missingCompany}
                 className={cn(
-                  'flex items-center gap-2 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-bg)] hover:opacity-90',
+                  'flex items-center gap-2 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-bg)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50',
                 )}
               >
                 {blocking.length ? 'Create anyway' : error ? 'Retry creating application' : 'Create application'}

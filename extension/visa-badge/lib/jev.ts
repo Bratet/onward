@@ -5,9 +5,12 @@
 //
 // One call answers both questions: the posting is billed once as input, and
 // each extra question only adds its own short text.
+//
+// The candidate speaks English, French, and Arabic, so the language question
+// asks only about other languages.
 
 export type VisaLabel = 'yes' | 'no' | 'likely-no' | 'unknown'
-export type RemoteLabel = 'anywhere' | 'timezone' | 'europe-only' | 'unclear' | 'not-remote'
+export type LanguageLabel = 'required' | 'preferred' | 'none'
 
 export const VISA_LABELS: Record<VisaLabel, string> = {
   yes: 'Sponsors visa',
@@ -16,19 +19,17 @@ export const VISA_LABELS: Record<VisaLabel, string> = {
   unknown: 'Visa not mentioned',
 }
 
-export const REMOTE_LABELS: Record<RemoteLabel, string> = {
-  anywhere: 'Remote: open outside Europe',
-  timezone: 'Remote: timezone overlap only',
-  'europe-only': 'Remote: Europe residents only',
-  unclear: 'Remote: location unclear',
-  'not-remote': 'Not remote (on-site/hybrid)',
+export const LANGUAGE_LABELS: Record<LanguageLabel, string> = {
+  required: 'Requires a language you don’t speak',
+  preferred: 'A language you don’t speak is a plus',
+  none: 'No other language needed',
 }
 
 export const JEV_ENDPOINT = 'https://openrouter.ai/api/v1/systemone'
 // Pinned so MIN_CONFIDENCE keeps meaning the same thing across model updates.
 export const JEV_MODEL = 'typesafe/jev-1.13'
 // Bump when the questions change, so cached answers to old questions are dropped.
-export const QUESTIONS_VERSION = 2
+export const QUESTIONS_VERSION = 3
 // Below this, a badge is shown as unsure.
 export const MIN_CONFIDENCE = 0.6
 // State limit is 32k tokens; job descriptions are far shorter, these are safety caps.
@@ -42,12 +43,10 @@ const VISA_CHOICES: Record<string, VisaLabel> = {
   likely_no: 'likely-no',
   unknown: 'unknown',
 }
-const REMOTE_CHOICES: Record<string, RemoteLabel> = {
-  anywhere: 'anywhere',
-  timezone: 'timezone',
-  europe_only: 'europe-only',
-  unclear: 'unclear',
-  not_remote: 'not-remote',
+const LANGUAGE_CHOICES: Record<string, LanguageLabel> = {
+  required: 'required',
+  preferred: 'preferred',
+  none: 'none',
 }
 
 export interface Answer<Label extends string> {
@@ -58,7 +57,7 @@ export interface Answer<Label extends string> {
 
 export interface JevVerdict {
   visa: Answer<VisaLabel>
-  remote: Answer<RemoteLabel>
+  language: Answer<LanguageLabel>
 }
 
 export interface JevUsage {
@@ -68,8 +67,7 @@ export interface JevUsage {
   cost?: number
 }
 
-// `header` is LinkedIn's top card (title, company, location, workplace type),
-// where the allowed region ("EMEA (Remote)") often appears and nowhere else.
+// `header` is LinkedIn's top card (title, company, location, workplace type).
 export interface Posting {
   header: string
   description: string
@@ -93,15 +91,13 @@ export function jevRequest({ header, description }: Posting) {
           unknown: 'Says nothing about visas, sponsorship, work permits, or right to work',
         },
       },
-      remote: {
+      language: {
         type: 'choice',
-        instructions: 'Is this job remote, and can someone living outside Europe apply?',
+        instructions: 'Does this job need a spoken language other than English, French, or Arabic?',
         criteria: {
-          anywhere: 'Remote and open to candidates worldwide or in regions beyond Europe (anywhere, EMEA, Africa, MENA)',
-          timezone: 'Remote with only a working-hours or timezone overlap requirement (e.g. CET ±2h), no residency requirement',
-          europe_only: 'Remote but candidates must live in Europe, the EU/EEA, the UK, or specific European countries',
-          unclear: 'Remote but does not say where candidates may live',
-          not_remote: 'On-site or hybrid, not remote',
+          required: 'Requires another language (e.g. Dutch, German), or the posting is written in one',
+          preferred: 'Another language is a plus or nice to have, not required',
+          none: 'Needs only English, French, or Arabic, or names no language',
         },
       },
     },
@@ -127,13 +123,13 @@ export function parseJevResponse(body: unknown): { verdict: JevVerdict; usage: J
     model?: unknown
     provider?: unknown
     usage?: { input_tokens?: unknown; cost?: unknown }
-    answers?: { sponsorship?: RawAnswer; remote?: RawAnswer }
+    answers?: { sponsorship?: RawAnswer; language?: RawAnswer }
   } | null
   const number = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : undefined)
   return {
     verdict: {
       visa: parseAnswer(root?.answers?.sponsorship, VISA_CHOICES, 'sponsorship'),
-      remote: parseAnswer(root?.answers?.remote, REMOTE_CHOICES, 'remote'),
+      language: parseAnswer(root?.answers?.language, LANGUAGE_CHOICES, 'language'),
     },
     usage: {
       model: typeof root?.model === 'string' ? root.model : undefined,

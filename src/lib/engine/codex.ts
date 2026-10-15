@@ -32,7 +32,7 @@ export const codexEngine: Engine = {
       : { id: 'codex', ok: false, reason: `\`${BIN}\` not found on PATH. Install Codex CLI and run \`codex login\`.` }
   },
 
-  async runStructured<T>({ prompt, schema, cwd, signal, onEvent, model: chosen, thread }: RunOptions): Promise<T> {
+  async runStructured<T>({ prompt, schema, cwd, signal, onEvent, model: chosen, thread, webResearch }: RunOptions): Promise<T> {
     const model = await resolveCodexModel(chosen ?? '')
     onEvent?.({ type: 'start', message: `Asking Codex${model ? ` (${model})` : ''}…` })
 
@@ -42,6 +42,7 @@ export const codexEngine: Engine = {
       model,
       cwd: cwd ?? PATHS.root,
       sandbox: 'read-only',
+      webSearch: webResearch,
       signal,
       threadId: thread?.id,
       persist: !!thread,
@@ -49,7 +50,7 @@ export const codexEngine: Engine = {
       onActivity: (message) => onEvent?.({ type: 'progress', message }),
     })
     if (thread) thread.id = result.threadId
-    const raw = result.text.trim()
+    const raw = result.finalText.trim()
     if (!raw) throw new EngineError('codex produced no output', 'codex')
 
     try {

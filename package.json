@@ -30,7 +30,14 @@
     "test:duplicates": "tsx scripts/test-duplicates.ts",
     "test:friendly-error": "tsx scripts/test-friendly-error.ts",
     "test:posting-contact": "tsx scripts/test-posting-contact.ts",
-    "test:visa-badge": "tsx scripts/test-visa-badge.ts"
+    "test:visa-badge": "tsx scripts/test-visa-badge.ts",
+    "test:search-builder": "tsx scripts/test-search-builder.ts",
+    "test:posting-source": "tsx scripts/test-posting-source.ts",
+    "test:interview-prep": "tsx scripts/test-interview-prep.ts",
+    "test:render-markup": "tsx scripts/test-render-markup.ts",
+    "test:job-fetch": "tsx scripts/test-job-fetch.ts",
+    "co": "tsx scripts/cli.ts",
+    "test:cli": "tsx scripts/test-cli.ts"
   },
   "dependencies": {
     "@codemirror/lang-yaml": "^6.1.2",

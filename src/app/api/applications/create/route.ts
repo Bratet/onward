@@ -5,7 +5,7 @@ import { APP_FILES, PATHS, slugify } from '@/lib/paths'
 import { addRow } from '@/lib/tracker'
 import { linkFolder } from '@/lib/appIndex'
 import { seedYaml, requirementMap, jdMarkdown } from '@/lib/tailoring/seed'
-import { jdAnalysisParser } from '@/lib/tailoring/jd'
+import { isUnnamedCompany, jdAnalysisParser } from '@/lib/tailoring/jd'
 import { attachSkillRunToApplication } from '@/lib/skills/runs'
 import { createWorkspace } from '@/lib/workspaces'
 import { findExistingApplications, isBlocking } from '@/lib/duplicates'
@@ -20,6 +20,23 @@ export const dynamic = 'force-dynamic'
  * up in the UI as unlinked and is easy to fix, whereas a row pointing at a
  * folder that was never created is a dangling reference.
  */
+/**
+ * The first unused folder name: two roles at one company on the same day, a
+ * confirmed duplicate, get acme-2026-10-02, then acme-2-2026-10-02. The date
+ * stays last because folder names are parsed as <slug>-<date>.
+ */
+async function freeFolderName(slug: string, date: string): Promise<string> {
+  for (let n = 1; n < 100; n++) {
+    const folder = n === 1 ? `${slug}-${date}` : `${slug}-${n}-${date}`
+    try {
+      await access(join(PATHS.applications, folder))
+    } catch {
+      return folder
+    }
+  }
+  throw new Error(`too many ${slug} applications on ${date}`)
+}
+
 export async function POST(req: Request) {
   const body = (await req.json()) as { analysis: unknown; jd: string; url?: string; runId?: string; allowDuplicate?: boolean }
 
@@ -29,7 +46,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'the job posting text is required' }, { status: 400 })
   }
 
-  const analysis = parsed.data
+  const analysis = { ...parsed.data, company: parsed.data.company.trim() }
+  if (isUnnamedCompany(analysis.company)) {
+    return NextResponse.json({ error: 'the posting does not name the company: add it before creating the application' }, { status: 400 })
+  }
+  // The same job must not be tracked twice by accident; the form shows these
+  // matches and only sends allowDuplicate once the candidate confirms.
   if (body.allowDuplicate !== true) {
     const duplicates = (await findExistingApplications({ company: analysis.company, role: analysis.role, jd: body.jd })).filter(isBlocking)
     if (duplicates.length) {
@@ -37,18 +59,10 @@ export async function POST(req: Request) {
     }
   }
   const date = new Date().toISOString().slice(0, 10)
-  const slug = slugify(analysis.company) || 'application'
-  const folder = `${slug}-${date}`
+  const folder = await freeFolderName(slugify(analysis.company) || 'application', date)
   const dir = join(PATHS.applications, folder)
 
-  try {
-    await access(dir)
-    return NextResponse.json({ error: `workspace/applications/${folder} already exists` }, { status: 409 })
-  } catch {
-    // does not exist, which is what we want
-  }
-
-  await mkdir(dir, { recursive: true })
+  await mkdir(dir)
   await Promise.all([
     writeFile(join(dir, 'jd.md'), jdMarkdown(body.jd, body.url ?? ''), 'utf-8'),
     // The editor's tailoring passes need the analysis back in structured form, and

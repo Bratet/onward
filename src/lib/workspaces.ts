@@ -11,6 +11,7 @@ import { withTailoredDesign } from './tailoring/seed'
 import { generalApplicationSchema, type GeneralApplication } from './generalApplication'
 import type { OutreachDrafts } from './outreach'
 import type { CoverLetter } from './coverLetter'
+import type { InterviewState } from './interviewPrep'
 
 const KEY = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
 const VERSION = 1
@@ -37,6 +38,8 @@ export interface ApplicationWorkspace {
   outreach?: OutreachDrafts
   /** The structured cover letter draft; older records only have outreach['cover-letter'] text. */
   coverLetter?: CoverLetter
+  /** Interview preparation, once the application has been sent; see lib/interviewPrep.ts. */
+  interview?: InterviewState
   version: 1
   general?: boolean
   generalDetails?: GeneralApplication | null
@@ -59,6 +62,12 @@ export interface ApplicationWorkspace {
     guidanceHash?: string
     /** The exact inputs the current report reflects, so a refresh can see what changed. */
     basis?: FitBasis | null
+    /**
+     * Computed on read: a saved report whose inputs (posting, master resume,
+     * guidance) have changed since. It is kept as is until the candidate asks
+     * for a new run, so reopening an old application never re-analyzes it.
+     */
+    stale?: boolean
     startedAt: string | null
     completedAt: string | null
   }
@@ -166,17 +175,21 @@ function refreshFitState(record: ApplicationWorkspace, inputs: Awaited<ReturnTyp
   const staleRun = record.fit.status === 'running' && !!record.fit.startedAt
     && Date.now() - Date.parse(record.fit.startedAt) > 10 * 60_000
   const revisionFailure = record.fit.status === 'error' && record.fit.error?.startsWith('workspace changed: expected revision')
-  if (record.fit.jdHash !== jdHash || record.fit.masterHash !== masterHash || guidanceChanged || staleRun || revisionFailure) {
+  const inputsChanged = record.fit.jdHash !== jdHash || record.fit.masterHash !== masterHash || guidanceChanged
+  if (inputsChanged && record.fit.report && !staleRun && !revisionFailure) {
+    return { ...record, fit: { ...record.fit, stale: true } }
+  }
+  if (inputsChanged || staleRun || revisionFailure) {
     return {
       ...record,
       fit: {
         ...record.fit, status: inputs.analysis && inputs.masterYaml ? 'queued' : 'idle',
         error: staleRun ? 'The previous fit run was interrupted and can be retried.' : null,
-        jdHash, masterHash, guidanceHash, startedAt: null,
+        jdHash, masterHash, guidanceHash, startedAt: null, stale: false,
       },
     }
   }
-  return record
+  return { ...record, fit: { ...record.fit, stale: false } }
 }
 
 export async function updateWorkspace(
@@ -196,10 +209,10 @@ export async function updateWorkspace(
 }
 
 /** Fit fields that mark a report as reflecting exactly these inputs. */
-export function fitBasisFields(inputs: { jd: string; masterYaml: string; guidance: string }): Pick<ApplicationWorkspace['fit'], 'jdHash' | 'masterHash' | 'guidanceHash' | 'basis'> {
+export function fitBasisFields(inputs: { jd: string; masterYaml: string; guidance: string }): Pick<ApplicationWorkspace['fit'], 'jdHash' | 'masterHash' | 'guidanceHash' | 'basis' | 'stale'> {
   const jdHash = contentHash(inputs.jd)
   return {
-    jdHash, masterHash: contentHash(inputs.masterYaml), guidanceHash: contentHash(inputs.guidance),
+    stale: false, jdHash, masterHash: contentHash(inputs.masterYaml), guidanceHash: contentHash(inputs.guidance),
     basis: { jdHash, master: inputs.masterYaml, guidance: inputs.guidance },
   }
 }

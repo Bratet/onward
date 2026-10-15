@@ -63,6 +63,12 @@ test: node_modules ## Tracker and tailoring tests
 	@npm run test:posting-contact
 	@npm run test:friendly-error
 	@npm run test:duplicates
+	@npm run test:search-builder
+	@npm run test:cli
+	@npm run test:posting-source
+	@npm run test:interview-prep
+	@npm run test:render-markup
+	@npm run test:job-fetch
 	@npm run test:visa-badge
 
 reconcile: node_modules ## Rebuild workspace/state/app-index.json from folder names

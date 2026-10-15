@@ -98,19 +98,22 @@ try {
   console.log('Analysis chat: persisted corrections, recalculated coverage, concurrent drafts, stale reports, invalid input and untouched tracker pass')
 
   // Incremental refresh: a chat save records the inputs it reflects, so the
-  // report stays ready; later input changes queue a refresh without losing it.
+  // report stays ready; later input changes mark it stale without re-running it.
   const saved2 = await workspaces.readWorkspace(key)
   assert.equal(saved2.fit.status, 'ready')
   assert.equal(saved2.fit.basis?.master, 'cv:\n  name: Test\n')
   await writeFile(PATHS.candidateGuidance, '- Standard practice: Kubernetes on every project.\n')
+  assert.equal(saved2.fit.stale, false)
   const queued = await workspaces.readWorkspace(key)
-  assert.equal(queued.fit.status, 'queued', 'a guidance change queues a refresh')
-  assert.deepEqual(queued.fit.report, saved2.fit.report, 'the queued refresh keeps the report on screen')
+  assert.equal(queued.fit.status, 'ready', 'a guidance change does not re-run a saved report')
+  assert.equal(queued.fit.stale, true, 'a guidance change marks the saved report stale')
+  assert.deepEqual(queued.fit.report, saved2.fit.report, 'the stale report stays on screen')
   const chatWhileQueued = structuredClone(queued.fit.report!)
   chatWhileQueued.recommendedEmphasis = ['Kubernetes delivery']
-  assert.equal(await saveAnalysisChatReport(key, queued, chatWhileQueued), true, 'the chat can save while a refresh is queued')
+  assert.equal(await saveAnalysisChatReport(key, queued, chatWhileQueued), true, 'the chat can save while the report is stale')
   const afterChat = await workspaces.readWorkspace(key)
   assert.equal(afterChat.fit.status, 'ready', 'the chat save makes the refresh unnecessary')
+  assert.equal(afterChat.fit.stale, false, 'the chat save reflects the current inputs')
   assert.equal(afterChat.fit.basis?.guidance, '- Standard practice: Kubernetes on every project.\n')
 
   const legacy = await workspaces.updateWorkspace(key, afterChat.revision, (current) => ({ ...current, fit: { ...current.fit, guidanceHash: undefined } }))
@@ -140,7 +143,7 @@ try {
   assert.equal(kept.requirements[1].classification, 'direct', 'a refresh cannot drop a user-confirmed row')
   assert.equal(kept.verdict, 'Strong')
   assert.equal(fit.keepConfirmedRows(downgraded, confirmedReport, true).requirements[1].classification, 'gap', 'removing the confirmation from guidance can')
-  console.log('Incremental fit: guidance-triggered refresh, chat saves while queued, legacy records, line diff, refresh prompt, confirmed rows pass')
+  console.log('Incremental fit: stale report kept on input change, chat saves while stale, legacy records, line diff, refresh prompt, confirmed rows pass')
 
   console.log('workspaces: atomic persistence, conflicts, unsafe keys, and deterministic fit pass')
 } finally {

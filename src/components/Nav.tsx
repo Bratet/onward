@@ -7,8 +7,8 @@ import { BriefcaseBusiness, ChartNoAxesCombined, CircleHelp, FileUser, ListTodo,
 
 const LINKS = [
   { href: '/', label: 'Overview', icon: ChartNoAxesCombined },
-  { href: '/applications', label: 'Applications', icon: BriefcaseBusiness },
   { href: '/plan', label: 'Saved searches', icon: ListTodo },
+  { href: '/applications', label: 'Applications', icon: BriefcaseBusiness },
   { href: '/profile', label: 'Profile', icon: FileUser },
   { href: '/skills', label: 'Skills', icon: Sparkles },
   { href: '/runs', label: 'AI runs', icon: CircleHelp },

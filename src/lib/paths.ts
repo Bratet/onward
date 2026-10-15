@@ -1,6 +1,8 @@
+import { existsSync } from 'fs'
 import { join } from 'path'
 import { CANDIDATE } from './candidate'
 import { REPO_ROOT, slugify } from './repoRoot'
+import type { BaseCv } from './tailoring/baseCv'
 
 export { REPO_ROOT, slugify }
 
@@ -50,9 +52,48 @@ export const PATHS = {
     en: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-en.yaml`),
     fr: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-fr.yaml`),
   },
+  /** Role-specific general resumes; tailoring starts from the one matching the JD archetype. */
+  ownCvVariants: {
+    ai: {
+      en: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-ai-en.yaml`),
+      fr: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-ai-fr.yaml`),
+    },
+    ml: {
+      en: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-ml-en.yaml`),
+      fr: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-ml-fr.yaml`),
+    },
+    ds: {
+      en: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-ds-en.yaml`),
+      fr: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-ds-fr.yaml`),
+    },
+  },
 } as const
 
 export type Lang = 'en' | 'fr'
+export type CvVariant = keyof typeof PATHS.ownCvVariants
+
+/** A resume source file: a master, the all-round general resume, or a role variant of it. */
+export function resumeSourcePath(family: 'masters' | 'ownCv', lang: Lang, variant: CvVariant | null = null): string {
+  if (family === 'ownCv' && variant) return PATHS.ownCvVariants[variant][lang]
+  return PATHS[family][lang]
+}
+
+/** Every resume source sits beside its rendered PDF, same basename. */
+export function resumePdfPath(yamlPath: string): string {
+  return yamlPath.replace(/\.yaml$/, '.pdf')
+}
+
+export function isCvVariant(value: unknown): value is CvVariant {
+  return value === 'ai' || value === 'ml' || value === 'ds'
+}
+
+/** The general resume a tailored CV starts from: a role variant, or the all-round one. */
+export function baseCvPath(base: BaseCv, lang: Lang): string {
+  if (base === 'general') return PATHS.ownCv[lang]
+  // A variant is optional: without its file, tailoring starts from the all-round resume.
+  const variant = PATHS.ownCvVariants[base][lang]
+  return existsSync(variant) ? variant : PATHS.ownCv[lang]
+}
 
 /** Canonical filenames inside an application folder. */
 export const APP_FILES = {

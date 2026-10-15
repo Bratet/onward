@@ -8,7 +8,10 @@ import { APP_FILES, PATHS } from '@/lib/paths'
 import { jdAnalysisParser } from '@/lib/tailoring/jd'
 import { postingContact } from '@/lib/postingContact'
 import { applicationLanguage, readWorkspace } from '@/lib/workspaces'
+import { applicationRecord } from '@/lib/applicationRecord'
 import { ApplicationWorkspaceView } from './workspace'
+import { PostApplicationView } from './post-workspace'
+import { wasSent } from '@/lib/applicationPhase'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,8 +29,8 @@ async function finalizedSource(app: Application, pdfKey: 'pdf' | 'letterPdf', so
   }
 }
 
-export default async function ApplicationPage({ params }: { params: Promise<{ key: string }> }) {
-  const { key } = await params
+export default async function ApplicationPage({ params, searchParams }: { params: Promise<{ key: string }>; searchParams: Promise<{ view?: string }> }) {
+  const [{ key }, { view }] = await Promise.all([params, searchParams])
   const app = await getApplication(key)
   if (!app) notFound()
   const folder = app.folder?.folder
@@ -50,5 +53,13 @@ export default async function ApplicationPage({ params }: { params: Promise<{ ke
     resume: resumePdf ? { at: resumePdf.at, yaml: resumePdf.text } : null,
     letter: letterPdf ? { at: letterPdf.at, letter: letterFromInputs(letterPdf.text) } : null,
   }
-  return <ApplicationWorkspaceView eligibility={analysis ? eligibilityIssues(analysis, eligibility) : []} app={app} initialWorkspace={workspace} analysis={analysis} language={language} contact={postingContact(jd)} finalized={finalized} />
+  const contact = postingContact(jd)
+  // Two separate interfaces: preparing to apply, and everything after sending.
+  // A sent application can still open its preparation tools with ?view=prepare.
+  const sent = wasSent(app.row?.status)
+  if (sent && view !== 'prepare') {
+    const record = await applicationRecord(app, workspace)
+    return <PostApplicationView app={app} record={record} analysis={analysis} initialWorkspace={workspace} contact={contact} language={language} finalized={finalized} />
+  }
+  return <ApplicationWorkspaceView key={sent ? 'reviewing' : 'preparing'} reviewing={sent} eligibility={analysis ? eligibilityIssues(analysis, eligibility) : []} app={app} initialWorkspace={workspace} analysis={analysis} language={language} contact={contact} finalized={finalized} />
 }

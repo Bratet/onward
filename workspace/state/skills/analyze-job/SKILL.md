@@ -3,7 +3,7 @@ id: analyze-job
 name: Analyze job posting
 description: Extract and rank the requirements, metadata, and keywords in a job posting.
 runner: job-analysis
-version: 2
+version: 3
 scope: application
 capabilities:
   - read-job-posting
@@ -33,6 +33,8 @@ Read the job posting below and return structured JSON describing it.
   preferences or importance from outside knowledge.
 - `company` is the employer. When a recruiting agency posts for a named client, use the client;
   otherwise use the agency.
+- When the posting never names the employer or an agency, return `company` as an empty string.
+  Never write a placeholder such as "Not stated" or "Confidential"; the candidate types the name in.
 - `paperSize` is `us-letter` only for roles based in the US or Canada.
 
 ## Job posting

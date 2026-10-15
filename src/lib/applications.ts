@@ -4,6 +4,7 @@ import { APP_FILES, PATHS } from './paths'
 import { readIndex } from './appIndex'
 import { readRows, type TrackerRow } from './tracker'
 import { RESPONDED_STATUSES, SENT_STATUSES } from './statuses'
+import { emptyInterviewState, nextRound, prepProgress, type InterviewState } from './interviewPrep'
 
 /**
  * Joins the tracker to what is actually on disk.
@@ -36,6 +37,11 @@ export interface Application {
     fit: string | null
     pending: boolean
     resume: 'draft' | 'finalized' | 'missing'
+    appliedAt?: string | null
+    /** Interview prep readiness, 0 to 100, once a prep pack exists. */
+    prep?: number | null
+    /** The next scheduled interview round's date, if any. */
+    nextRound?: string | null
   }
 }
 
@@ -109,11 +115,16 @@ export async function listApplications(): Promise<Application[]> {
     try {
       const workspace = JSON.parse(await readFile(join(PATHS.workspaces, `${app.key}.json`), 'utf-8')) as {
         draftYaml?: string; pendingProposal?: unknown; fit?: { report?: { verdict?: string } | null }
+        appliedAt?: string | null; interview?: Partial<InterviewState>
       }
+      const interview = { ...emptyInterviewState(), ...workspace.interview }
       app.workspace = {
         fit: workspace.fit?.report?.verdict ?? null,
         pending: !!workspace.pendingProposal,
         resume: app.folder?.has.pdf ? 'finalized' : workspace.draftYaml ? 'draft' : 'missing',
+        appliedAt: workspace.appliedAt ?? null,
+        prep: interview.pack ? prepProgress(interview).percent : null,
+        nextRound: nextRound(interview.rounds, new Date().toISOString().slice(0, 10))?.date ?? null,
       }
     } catch {
       app.workspace = { fit: null, pending: false, resume: app.folder?.has.pdf ? 'finalized' : app.folder?.has.yaml ? 'draft' : 'missing' }

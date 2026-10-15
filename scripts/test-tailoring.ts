@@ -1,6 +1,8 @@
+import { existsSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { parse } from 'yaml'
-import { PATHS } from '../src/lib/paths'
+import { baseCvPath, PATHS } from '../src/lib/paths'
+import { defaultBaseCv } from '../src/lib/tailoring/baseCv'
 import { jdAnalysisParser, rankedRequirements } from '../src/lib/tailoring/jd'
 import { requirementMap, withTailoredDesign, seedYaml } from '../src/lib/tailoring/seed'
 import { requirementActionsFor, tailorPrompt, type TailorAttemptFeedback } from '../src/lib/tailoring/rules'
@@ -36,7 +38,8 @@ console.log('tailoring')
 
 const refreshedDesign = await withTailoredDesign('cv:\n  name: Test\ndesign:\n  theme: engineeringresumes\n  page:\n    size: us-letter\n')
 check('workspace design refresh preserves paper size', refreshedDesign.includes("size: 'us-letter'"))
-check('workspace design refresh uses the original theme fonts', refreshedDesign.includes("Source Sans 3"))
+const templateFonts = parse(await readFile(PATHS.tailoredDesign, 'utf-8')).design.typography.font_family as Record<string, string>
+check('workspace design refresh uses the template fonts', parse(refreshedDesign).design.typography.font_family.body === templateFonts.body)
 check('workspace design refresh uses the original section rules', !refreshedDesign.includes("line_thickness:"))
 
 const legacy = jdAnalysisParser.parse({
@@ -155,13 +158,28 @@ check('accepted proposal records kept cuts', accepted.includes('Older project'))
 check('accepted proposal records rendered result', accepted.includes('1 page, 94% fill, headline used: "Production ML Engineer"'))
 
 
-for (const language of ['en', 'fr'] as const) {
-  const source = parse(await readFile(PATHS.ownCv[language], 'utf-8'))
-  const seeded = parse(await seedYaml({ ...ranked, language, paperSize: 'us-letter' }))
-  check(`${language} baseline preserves general content and section order`, JSON.stringify(seeded.cv) === JSON.stringify(source.cv))
-  check(`${language} baseline preserves locale`, JSON.stringify(seeded.locale) === JSON.stringify(source.locale))
-  check(`${language} baseline honors JD paper size`, seeded.design.page.size === 'us-letter')
+// The sample workspace ships only the all-round resume, so every archetype
+// falls back to it; with a variant file present, baseCvPath picks the variant.
+for (const archetype of ['ai-llm', 'ml-engineering', 'ml-performance', 'data-science', 'applied-research', 'other']) {
+  for (const language of ['en', 'fr'] as const) {
+    const expected = baseCvPath(defaultBaseCv(archetype), language)
+    const source = parse(await readFile(expected, 'utf-8'))
+    const seeded = parse(await seedYaml({ ...ranked, archetype, language, paperSize: 'us-letter' }))
+    check(`${archetype} ${language} baseline preserves its base content and section order`, JSON.stringify(seeded.cv) === JSON.stringify(source.cv))
+    check(`${archetype} ${language} baseline preserves locale`, JSON.stringify(seeded.locale) === JSON.stringify(source.locale))
+    check(`${archetype} ${language} baseline honors JD paper size`, seeded.design.page.size === 'us-letter')
+  }
 }
+check('a missing variant falls back to the all-round resume', existsSync(PATHS.ownCvVariants.ai.en) || baseCvPath('ai', 'en') === PATHS.ownCv.en)
+for (const language of ['en', 'fr'] as const) {
+  const chosen = parse(await seedYaml({ ...ranked, archetype: 'ai-llm', baseCv: 'ds', language }))
+  const ds = parse(await readFile(baseCvPath('ds', language), 'utf-8'))
+  check(`${language} chosen starting resume overrides the archetype`, JSON.stringify(chosen.cv) === JSON.stringify(ds.cv))
+}
+check('chosen starting resume survives parsing', jdAnalysisParser.parse({ ...base, requirements: [], baseCv: 'ml' }).baseCv === 'ml')
+let unknownBaseRejected = false
+try { jdAnalysisParser.parse({ ...base, requirements: [], baseCv: '../general' }) } catch { unknownBaseRejected = true }
+check('unknown starting resume rejected', unknownBaseRejected)
 const dualPrompt = tailorPrompt('GENERAL_BASE', ranked, skill.instructions, [], 'MASTER_EVIDENCE', 'CANDIDATE_PREFERENCE')
 check('both baseline and master are supplied before selection', dualPrompt.includes('GENERAL_BASE') && dualPrompt.includes('MASTER_EVIDENCE'))
 check('candidate preferences reach tailoring', dualPrompt.includes('CANDIDATE_PREFERENCE'))

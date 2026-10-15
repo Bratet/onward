@@ -155,7 +155,8 @@ function noInventedTech(from: string, to: string, corpus: string): string | null
     .filter((raw) => looksTechnical(raw))
     .filter((raw) => {
       const [w] = words(raw)
-      return w && !known.has(w)
+      // A plural of a known name ("APIs" from "API") names nothing new.
+      return w && !known.has(w) && !(w.endsWith('s') && known.has(w.slice(0, -1)))
     })
   if (!invented.length) return null
   return `names something absent from the resume evidence: ${invented.slice(0, 4).join(', ')}`
@@ -313,7 +314,12 @@ export function applyOps(
         rejected.push({ op, why: figures })
         continue
       }
-      const named = noInventedTech(current, op.to, text)
+      // A highlight is one project's claim, so it may only name what the resume
+      // already says; master tools reach a bullet through an import from that
+      // same master bullet. Summary, Skills and other profile-wide text may
+      // draw on the whole master, which is the candidate's evidence inventory.
+      const corpus = /\.highlights\[/.test(op.path) ? text : `${text}\n${opts.master ?? ''}`
+      const named = noInventedTech(current, op.to, corpus)
       if (named) {
         rejected.push({ op, why: named })
         continue

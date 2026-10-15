@@ -18,7 +18,7 @@ export const jdAnalysisSchema = {
     'seniority', 'location', 'workMode', 'sponsorship', 'summary',
   ],
   properties: {
-    company: { type: 'string', description: 'Hiring company. The employer, not the recruiting agency, when both appear.' },
+    company: { type: 'string', description: 'Hiring company. The employer, not the recruiting agency, when both appear. An empty string when the posting never names it, never a placeholder such as "Not stated".' },
     role: { type: 'string', description: 'Exact job title as posted, plus location and work mode in parentheses.' },
     archetype: {
       type: 'string',
@@ -65,6 +65,16 @@ export const jdAnalysisSchema = {
   },
 } as const
 
+/**
+ * Whether an analyzed company is missing. Postings that never name the employer
+ * used to come back as "Not stated", which every such posting then shared, so
+ * placeholders count as missing and the candidate supplies the name.
+ */
+export function isUnnamedCompany(company: string): boolean {
+  const normalized = company.trim().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.\s]+$/g, '')
+  return !normalized || /^(not (stated|specified|mentioned|named|disclosed)|unknown|unnamed|confidential|undisclosed|n\/?a|none|non (communique|precise|mentionne|specifie)e?|inconnu|confidentiel(le)?)$/.test(normalized)
+}
+
 const rawJdAnalysisParser = z.object({
   company: z.string(),
   role: z.string(),
@@ -83,6 +93,8 @@ const rawJdAnalysisParser = z.object({
   })),
   keywords: z.array(z.string()),
   summary: z.string().nullish(),
+  /** Chosen on the review step, not by the model; absent means the archetype default. */
+  baseCv: z.enum(['general', 'ai', 'ml', 'ds']).nullish(),
 })
 
 /**

@@ -1,20 +1,26 @@
-"""Fix rendercv 2.8's flattened nested highlights.
+"""Fix two rendercv 2.8 markup bugs.
 
-rendercv 2.8 half-ships nested sub-bullets: " - " inside a highlight string
-becomes an indented Markdown list item (process_highlights), and the design
-schema has entries.highlights.nested_bullet for it — but markdown_to_typst
-converts each line through python-markdown independently, which strips the
-leading indentation, so every sub-bullet renders as a flat top-level bullet.
+1. Flattened nested highlights. rendercv 2.8 half-ships nested sub-bullets:
+   " - " inside a highlight string becomes an indented Markdown list item
+   (process_highlights), and the design schema has entries.highlights.nested_bullet
+   for it, but markdown_to_typst converts each line through python-markdown
+   independently, which strips the leading indentation, so every sub-bullet
+   renders as a flat top-level bullet. We wrap markdown_to_typst to put the
+   indentation back.
 
-This module wraps markdown_to_typst to put the indentation back. It is loaded
-automatically (Python imports `sitecustomize` at startup) because
-generate-pdf.mjs prepends this directory to PYTHONPATH when it spawns rendercv.
-A manual `rendercv render` outside generate-pdf.mjs does NOT get the fix.
+2. Swallowed semicolons. "**93% accuracy**; deployed" becomes
+   "#strong[93% accuracy]; deployed", and Typst reads a ";" right after a
+   #command as the end of that expression, so the semicolon vanishes from the
+   PDF. Found 2026-10-12 on the general resume. We escape a semicolon that opens
+   the text following a converted element.
 
-Remove this file once upstream preserves list indentation (test after any
-rendercv upgrade: a highlight containing " - " should render an indented
-sub-bullet, not a same-level one). The wrapper is harmless if upstream fixes
-it first: it strips the indent before delegating and re-prepends it after.
+This module is loaded automatically (Python imports `sitecustomize` at startup)
+because src/lib/render.ts prepends this directory to PYTHONPATH when it spawns
+rendercv. A manual `rendercv render` outside the app does NOT get these fixes.
+
+Re-test after any rendercv upgrade: a highlight containing " - " should render
+an indented sub-bullet, and "**x**; y" should keep its semicolon. Remove a fix
+once upstream has it; both are harmless if upstream fixes them first.
 """
 
 import re
@@ -55,3 +61,13 @@ else:
         return "\n".join(out)
 
     _mp.markdown_to_typst = _markdown_to_typst_keep_indent
+
+    # Tail text after a converted element is escaped separately, so a leading
+    # ";" here always sits directly after a #strong[...], #emph[...] or #link.
+    _orig_escape = _mp.escape_typst_characters
+
+    def _escape_keep_semicolon(string):
+        escaped = _orig_escape(string)
+        return "\\" + escaped if escaped.startswith(";") else escaped
+
+    _mp.escape_typst_characters = _escape_keep_semicolon

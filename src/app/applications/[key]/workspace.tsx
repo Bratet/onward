@@ -1,9 +1,8 @@
 'use client'
 
-import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { Lock } from 'lucide-react'
+import { ArrowLeft, Lock } from 'lucide-react'
 import type { ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import type { Application } from '@/lib/applications'
 import { coverLetterFromWorkspace, letterSalutation, senderFromResume } from '@/lib/coverLetter'
@@ -15,13 +14,12 @@ import type { Op } from '@/lib/tailoring/ops'
 import type { RequirementAction } from '@/lib/tailoring/rules'
 import { EditorChat } from '@/components/EditorChat'
 import type { EditorApi } from '@/components/EditorPane'
-import { Badge, Card, CardHeader, Empty, Spinner, statusTone } from '@/components/ui/primitives'
+import { Badge, Card, CardHeader, Empty, Spinner } from '@/components/ui/primitives'
 import { YamlEditor } from '@/components/YamlEditor'
 import { PdfPreview } from '@/components/PdfPreview'
 import { ErrorNotice } from '@/components/ErrorNotice'
 import { FinalizeStatus, type FinalizedState } from '@/components/FinalizeStatus'
 import { readNdjson } from '@/lib/ndjson'
-import { STATUSES } from '@/lib/statuses'
 import { findPathOffset } from '@/lib/yamlPath'
 import { cn } from '@/lib/utils'
 import { applicationChatScope, editorChatStorageKey, parseEditorChatSnapshot, type ChatSkillEvent } from '@/lib/chatPersistence'
@@ -29,8 +27,12 @@ import { applicationChatScope, editorChatStorageKey, parseEditorChatSnapshot, ty
 import type { EligibilityIssue } from '@/lib/eligibility'
 import { Overview } from './overview'
 import { NextStepsPanel, type NextStep } from './next-steps-panel'
+import { ApplicationHeader } from './header'
+import { applicationPhase, wasSent } from '@/lib/applicationPhase'
+import { SegmentedNav, celebrate } from '@/components/ui/flair'
 
 type Tab = 'overview' | 'resume' | 'next'
+const TABS: readonly Tab[] = ['overview', 'resume', 'next']
 
 const NEXT_STEPS: readonly NextStep[] = ['status', 'cover-letter', 'email', 'linkedin']
 type SaveState = 'saved' | 'saving' | 'error'
@@ -58,8 +60,14 @@ function withFinalizedPdf(app: Application, pdfName: string | null): Application
   }
 }
 
-export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, analysis, language, eligibility, contact, finalized: finalizedAtLoad }: {
+/**
+ * The application before it is sent: analyze, tailor, apply, and nothing else.
+ * Once it is sent the page renders PostApplicationView instead; `reviewing`
+ * is this page opened from there to look back at the preparation tools.
+ */
+export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, analysis, language, eligibility, contact, finalized: finalizedAtLoad, reviewing = false }: {
   app: Application
+  reviewing?: boolean
   language: Lang
   contact: PostingContact
   finalized: FinalizedState
@@ -74,7 +82,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   const params = useSearchParams()
   const requested = params.get('tab')
   const requestedStep = params.get('step')
-  const [tab, setTab] = useState<Tab>(requested === 'resume' || requested === 'next' ? requested : 'overview')
+  const [tab, setTab] = useState<Tab>(TABS.includes(requested as Tab) ? requested as Tab : 'overview')
   const [nextStep, setNextStep] = useState<NextStep | null>(NEXT_STEPS.includes(requestedStep as NextStep) ? requestedStep as NextStep : null)
   const [workspace, setWorkspace] = useState(initialWorkspace)
   const [draft, setDraft] = useState(initialWorkspace.draftYaml)
@@ -124,7 +132,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   // Mirror the current step in the URL so reloads and shared links land in the same place.
   useEffect(() => {
     const url = new URL(window.location.href)
-    if (tab === 'overview') url.searchParams.delete('tab'); else url.searchParams.set('tab', tab)
+    url.searchParams.set('tab', tab)
     if (tab === 'next' && nextStep) url.searchParams.set('step', nextStep); else url.searchParams.delete('step')
     if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
   }, [tab, nextStep])
@@ -249,7 +257,15 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
     return () => { active = false; window.clearInterval(poll) }
   }, [app.key, workspace.fit.status])
 
-  async function patchStatus(next: string) {
+  /** Sent: confetti, then the server renders the post-application page in place of this one. */
+  function onStatusChanged(previous: string, next: string, origin?: { x: number; y: number }) {
+    if (!wasSent(previous) && wasSent(next)) {
+      if (next !== 'Rejected') celebrate(origin)
+      router.replace(`/applications/${encodeURIComponent(app.key)}`)
+    }
+  }
+
+  async function patchStatus(next: string, origin?: { x: number; y: number }) {
     setBusy(true); setError(null)
     try {
       if (next === 'Applied') {
@@ -261,7 +277,9 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error ?? 'status update failed')
+      const previous = status
       setStatus(next)
+      onStatusChanged(previous, next, origin)
       if (next === 'Applied') {
         const refreshed = await fetch(`/api/applications/${encodeURIComponent(app.key)}/workspace`, { cache: 'no-store' }).then((row) => row.json())
         if (refreshed.workspace) { setWorkspace(refreshed.workspace); revision.current = refreshed.workspace.revision }
@@ -485,6 +503,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
     fill: preview.fill,
   }
 
+  const phase = applicationPhase(status)
   const finalized = !!app.folder?.has.pdf
   const steps: { value: Tab; label: string; short: string; description: string; locked?: boolean }[] = [
     { value: 'overview', label: workspace.general ? 'Review context' : 'Analyze & discuss', short: workspace.general ? 'context' : 'analysis', description: workspace.general ? 'Review the application details with AI' : 'Compare the job with your profile and clarify issues' },
@@ -501,17 +520,14 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0"><Link href="/applications" className="text-xs text-[var(--color-faint)] hover:text-[var(--color-accent)]">← Applications</Link><h1 className="mt-1 truncate text-lg font-semibold">{app.row?.company ?? app.folder?.slug ?? 'Application'}</h1><p className="truncate text-xs text-[var(--color-muted)]">{app.row?.role ?? 'No tracker row linked'}</p></div>
-        <div className="flex flex-wrap items-center gap-2">
-          {app.row ? <Badge tone={statusTone(status)}>{status}</Badge> : null}
-          {app.row && status !== 'Applied' ? <button disabled={busy} onClick={() => void patchStatus('Applied')} className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-bg)] disabled:opacity-40">Mark as Applied</button> : null}
-          {app.row ? <select value={status} disabled={busy} onChange={(event) => void patchStatus(event.target.value)} className="h-8 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs">{STATUSES.map((value) => <option key={value}>{value}</option>)}{!STATUSES.includes(status as never) && status ? <option>{status}</option> : null}</select> : null}
-          {app.folder ? <Link href={`/runs?applicationKey=${encodeURIComponent(app.key)}`} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-text)]">AI runs</Link> : null}
-        </div>
-      </header>
+      <ApplicationHeader app={app} status={status} phase={phase} busy={busy} postingUrl={null} appliedAt={workspace.appliedAt} onStatus={(next, origin) => void patchStatus(next, origin)} />
       {error ? <Card className="overflow-hidden border-[var(--color-bad-soft)]"><ErrorNotice error={error} onDismiss={() => setError(null)} /></Card> : null}
-      <nav aria-label="Application workflow">
+      {reviewing ? <div className="anim-rise flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
+        <button type="button" onClick={() => router.push(`/applications/${encodeURIComponent(app.key)}`)} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-bg)] hover:opacity-90"><ArrowLeft size={13} aria-hidden="true" /> Back to overview</button>
+        <p className="min-w-48 flex-1 text-xs text-[var(--color-muted)]">You’ve already applied. These are the tools you used to prepare, kept for reference. Changes here won’t change what you sent.</p>
+        <SegmentedNav label="Preparation tools" value={tab} onChange={goTo} items={[{ value: 'overview', label: workspace.general ? 'Context' : 'Fit analysis' }, { value: 'resume', label: 'Resume' }]} />
+      </div> : <>
+      <nav aria-label="Application workflow" className="anim-rise">
         <ol className="application-flow">
           {steps.map(({ value, label, description, locked }, index) => (
             <li key={value} data-next={value === following?.value && !locked ? '' : undefined}>
@@ -525,11 +541,13 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
         </ol>
       </nav>
       <p className="max-w-2xl text-xs leading-relaxed text-[var(--color-muted)]">{hint}</p>
+      </>}
 
-      {tab === 'next' ? <NextStepsPanel
+      {tab === 'next' ? <div key="next" className="anim-rise"><NextStepsPanel
+        sent={reviewing}
         app={app}
         status={status}
-        onStatusSaved={(next) => { setStatus(next); router.refresh() }}
+        onStatusSaved={(next) => { const previous = status; setStatus(next); onStatusChanged(previous, next); router.refresh() }}
         initialDrafts={workspace.outreach ?? {}}
         savedCoverLetter={workspace.coverLetter ?? null}
         initialCoverLetter={coverLetterFromWorkspace(workspace.coverLetter, workspace.outreach?.['cover-letter'], {
@@ -545,10 +563,10 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
         onStep={(step) => { setNextStep(step); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
         onGoToResume={() => goTo('resume')}
         onLocatePdf={(reveal) => void locatePdf(reveal)}
-      /> : null}
+      /></div> : null}
       {tab === 'next' && located ? <p role="status" className="text-xs text-[var(--color-accent)]">{located}</p> : null}
 
-      <div className={cn('space-y-3', tab === 'next' && 'hidden')}>
+      <div className={cn('space-y-3', tab !== 'overview' && tab !== 'resume' && 'hidden')}>
         {tab === 'resume' ? <>
         <div className="flex flex-wrap items-center gap-2"><FinalizeStatus saveState={saveState} pendingReview={reviewPending} finalized={resumeFinalized} upToDate={!!resumeFinalized && resumeFinalized.yaml === draft} />{rendering ? <span className="flex items-center gap-1 text-xs text-[var(--color-faint)]"><Spinner /> Rendering…</span> : preview.pages ? <Badge tone={preview.pages === 1 && !preview.failures.length ? 'ok' : 'warn'}>{preview.pages} page · {preview.fill ?? '—'}% fill</Badge> : null}{located ? <span className="text-xs text-[var(--color-accent)]">{located}</span> : null}<div className="ml-auto flex items-center gap-2">{app.folder?.has.pdf ? <><a href={`/api/applications/${encodeURIComponent(app.key)}/file/${encodeURIComponent(app.folder.docs.find((doc) => doc.key === 'pdf')?.name ?? '')}`} target="_blank" rel="noreferrer" className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-text)]">Open PDF</a><button onClick={() => void locatePdf(true)} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-text)]">Reveal in Finder</button><button onClick={() => void locatePdf(false)} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-text)]">Copy path</button></> : null}<button disabled={busy || draftConflict || reviewPending || saveState !== 'saved'} onClick={() => void finalize()} className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-bg)] disabled:opacity-40">Finalize resume</button></div></div>
         {draftConflict ? <Card className="flex flex-wrap items-center gap-3 border-[var(--color-bad-soft)] px-4 py-3"><p role="alert" className="flex-1 text-xs text-[var(--color-bad)]">{DRAFT_CONFLICT}</p><button type="button" onClick={() => window.location.reload()} className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-bg)]">Reload</button></Card> : null}
@@ -597,7 +615,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
               <div className={cn('min-h-0 flex-1 overflow-hidden', tab === 'resume' && editorPaneTab === 'yaml' ? 'block' : 'hidden')}><YamlEditor ref={editorRef} value={draft} onChange={setDraft} /></div>
             </Card>
           </div>
-          {tab === 'overview' ? <div className="order-first"><Overview eligibility={eligibility} onOpenChat={() => editorCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} analysis={analysis} workspace={workspace} onRetry={() => setWorkspace((current) => ({ ...current, fit: { ...current.fit, status: 'queued' } }))} /></div> : <Card className="h-[680px] overflow-hidden"><PdfPreview token={preview.token} /></Card>}
+          {tab === 'overview' ? <div className="anim-rise order-first"><Overview eligibility={eligibility} onOpenChat={() => editorCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} analysis={analysis} workspace={workspace} onRetry={() => setWorkspace((current) => ({ ...current, fit: { ...current.fit, status: 'queued' } }))} /></div> : <Card className="anim-rise h-[680px] overflow-hidden"><PdfPreview token={preview.token} /></Card>}
         </div>
       </div>
     </div>

@@ -1,12 +1,13 @@
 import { readFile } from 'fs/promises'
 import { parse, stringify } from 'yaml'
-import { PATHS, type Lang } from '../paths'
+import { PATHS, baseCvPath, type Lang } from '../paths'
 import { rankedRequirements, type JdAnalysis } from './jd'
+import { defaultBaseCv } from './baseCv'
 
 /**
  * Build the starting YAML for a new application.
  *
- * This is a faithful copy of the language-matched general resume with the tailored
+ * This is a faithful copy of the language- and role-matched general resume with the tailored
  * design block stamped in. It deliberately does NOT cut anything: selection is
  * the next piece of work, and a seed that silently dropped content would be
  * worse than one that starts complete and overflows.
@@ -14,7 +15,8 @@ import { rankedRequirements, type JdAnalysis } from './jd'
 
 export async function seedYaml(analysis: JdAnalysis): Promise<string> {
   const lang: Lang = analysis.language === 'fr' ? 'fr' : 'en'
-  const general = parse(await readFile(PATHS.ownCv[lang], 'utf-8')) as Record<string, unknown>
+  const base = analysis.baseCv ?? defaultBaseCv(analysis.archetype)
+  const general = parse(await readFile(baseCvPath(base, lang), 'utf-8')) as Record<string, unknown>
   const design = parse(await readFile(PATHS.tailoredDesign, 'utf-8')) as { design: Record<string, unknown> }
 
   const page = { ...(design.design.page as Record<string, unknown>), size: analysis.paperSize }

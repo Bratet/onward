@@ -5,6 +5,7 @@ import { letterBody, outreachDraftSchema, outreachKindSchema, outreachPrompt } f
 import { getSkillForRunner } from '@/lib/skills/registry'
 import { APP_FILES } from '@/lib/paths'
 import { readWorkspace, updateWorkspace } from '@/lib/workspaces'
+import { wasSent } from '@/lib/applicationPhase'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -50,7 +51,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ key: st
         resume: resume ?? '',
         jd,
         coverLetter: letterBody(letterInput),
-        instructions: body.instructions,
+        instructions: await withApplicationStage(key, app.row?.status ?? '', body.instructions),
       }),
     })
     const draft = outreachDraftSchema.parse({ kind, text: result.text })
@@ -58,4 +59,19 @@ export async function POST(req: Request, { params }: { params: Promise<{ key: st
   } catch (error) {
     return NextResponse.json({ error: (error as Error).message }, { status: 400 })
   }
+}
+
+/**
+ * Once the application is out, the same message tools serve following up. Say
+ * so, with the date, so the draft does not re-apply from scratch; the candidate's
+ * own instructions come after and win.
+ */
+async function withApplicationStage(key: string, status: string, instructions: string): Promise<string> {
+  if (!wasSent(status)) return instructions
+  const appliedAt = (await readWorkspace(key).catch(() => null))?.appliedAt
+  const when = appliedAt ? ` on ${appliedAt.slice(0, 10)}` : ''
+  const stage = status === 'Applied'
+    ? `He already applied${when} and has not heard back. Unless his instructions below say otherwise, write a short, polite follow-up: say he applied${when ? ' and when' : ''}, that he is still interested, and offer to share more. Do not re-introduce him at length or repeat the application.`
+    : `He already applied${when}; the application status is now "${status}". Write the message for that stage, following his instructions below.`
+  return [stage, instructions.trim()].filter(Boolean).join('\n\n')
 }
