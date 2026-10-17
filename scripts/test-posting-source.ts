@@ -47,7 +47,7 @@ assert.equal(daysSince(null, now), null)
 assert.equal(daysSince('garbage', now), null)
 
 // Every saved posting on disk parses, and none of them leaks its source line into the text.
-const root = 'workspace/applications'
+const root = join(process.env.ONWARD_WORKSPACE || 'workspace', 'applications')
 let checked = 0
 try {
   for (const folder of readdirSync(root)) {

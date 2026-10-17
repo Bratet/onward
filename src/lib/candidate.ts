@@ -1,6 +1,6 @@
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { REPO_ROOT, slugify } from './repoRoot'
+import { WORKSPACE_ROOT, slugify } from './repoRoot'
 
 export interface Candidate {
   fullName: string
@@ -19,16 +19,16 @@ interface CandidateConfig {
   confidentialTerms?: string[]
 }
 
-/** Used whenever config/candidate.json is absent — e.g. a fresh clone, or a sandboxed test run. */
+/** Used whenever workspace/config/candidate.json is absent — e.g. a fresh clone, or a sandboxed test run. */
 const DEFAULT_CONFIG: CandidateConfig = { fullName: 'Jordan Candidate', confidentialTerms: [] }
 
 function loadConfig(): CandidateConfig {
-  const configPath = join(REPO_ROOT, 'config', 'candidate.json')
+  const configPath = join(WORKSPACE_ROOT, 'config', 'candidate.json')
   try {
     return JSON.parse(readFileSync(configPath, 'utf-8')) as CandidateConfig
   } catch {
     console.warn(
-      'no config/candidate.json — using placeholder candidate data, copy config/candidate.example.json to get started',
+      'no workspace/config/candidate.json — using placeholder candidate data, see examples/workspace/config/candidate.json',
     )
     return DEFAULT_CONFIG
   }

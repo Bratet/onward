@@ -18,7 +18,7 @@ import {
  * silently switch to metered billing.
  */
 
-const BIN = process.env.CAREER_OPS_CLAUDE_BIN || 'claude'
+const BIN = process.env.ONWARD_CLAUDE_BIN || 'claude'
 
 export const claudeEngine: Engine = {
   id: 'claude',

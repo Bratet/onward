@@ -1,5 +1,5 @@
 {
-  "name": "career-ops",
+  "name": "onward",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -36,7 +36,7 @@
     "test:interview-prep": "tsx scripts/test-interview-prep.ts",
     "test:render-markup": "tsx scripts/test-render-markup.ts",
     "test:job-fetch": "tsx scripts/test-job-fetch.ts",
-    "co": "tsx scripts/cli.ts",
+    "onward": "tsx scripts/cli.ts",
     "test:cli": "tsx scripts/test-cli.ts"
   },
   "dependencies": {

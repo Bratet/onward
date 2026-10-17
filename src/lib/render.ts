@@ -100,7 +100,7 @@ export async function renderYaml(
     ])
   }
 
-  const dir = await mkdtemp(join(tmpdir(), 'career-ops-render-'))
+  const dir = await mkdtemp(join(tmpdir(), 'onward-render-'))
   const yamlPath = join(dir, mode === 'master' ? 'master-resume-preview.yaml' : APP_FILES.yaml)
   const pdfPath = join(dir, 'preview.pdf')
 
@@ -155,7 +155,7 @@ function lastUsefulLine(stderr: string): string {
 
 /** Discard a temp render directory once its PDF has been served. */
 export async function cleanupRender(pdfPath: string): Promise<void> {
-  if (!pdfPath.includes('career-ops-render-')) return
+  if (!pdfPath.includes('onward-render-')) return
   await rm(join(pdfPath, '..'), { recursive: true, force: true })
 }
 
@@ -163,7 +163,7 @@ export async function cleanupRender(pdfPath: string): Promise<void> {
 export async function pageCount(text: string, mode: Mode): Promise<number | null> {
   const rendercv = await findRendercv()
   if (!rendercv) return null
-  const dir = await mkdtemp(join(tmpdir(), 'career-ops-pages-'))
+  const dir = await mkdtemp(join(tmpdir(), 'onward-pages-'))
   try {
     const yamlPath = join(dir, mode === 'master' ? 'master-resume-preview.yaml' : APP_FILES.yaml)
     await writeFile(yamlPath, text, 'utf-8')

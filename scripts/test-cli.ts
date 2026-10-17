@@ -4,9 +4,11 @@ import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 
 const originalCwd = process.cwd()
-const root = await mkdtemp(join(tmpdir(), 'career-ops-cli-'))
+const root = await mkdtemp(join(tmpdir(), 'onward-cli-'))
 
 try {
+  // The sandbox below the temp root is the workspace, not the example data.
+  delete process.env.ONWARD_WORKSPACE
   process.chdir(root)
   const { PATHS } = await import('../src/lib/paths')
   const { runCli } = await import('../src/lib/cli')

@@ -16,7 +16,7 @@ import {
  * local app-server protocol so structured output and live deltas can coexist.
  */
 
-const BIN = process.env.CAREER_OPS_CODEX_BIN || 'codex'
+const BIN = process.env.ONWARD_CODEX_BIN || 'codex'
 
 export const codexEngine: Engine = {
   id: 'codex',

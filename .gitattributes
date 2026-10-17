@@ -1,0 +1,11 @@
+# Text is LF in the repository and in every checkout, on every platform. The
+# app and its tools write LF; CRLF checkouts on Windows mixed the two, which
+# broke the tracker's byte-identical round trip and filled git output with
+# line-ending warnings.
+* text=auto eol=lf
+
+# Rendered documents and images are never text.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary

@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto'
 import { access, copyFile, mkdtemp, rename, rm, writeFile } from 'fs/promises'
 import { tmpdir } from 'os'
-import { join, relative } from 'path'
+import { join } from 'path'
 import { getApplication, readDoc } from './applications'
 import { checkLetter, letterInputs, senderFromResume, wordCount, type CoverLetter, type CoverLetterSender } from './coverLetter'
 import { runCli } from './engine/spawn'
@@ -44,14 +44,29 @@ async function findPython(): Promise<string[] | null> {
   return null
 }
 
-/** "config/signature.png" when the signature exists, else the letter renders unsigned. */
+/** "signature.png" when the signature exists, else the letter renders unsigned. */
 async function signaturePath(): Promise<string> {
   try {
     await access(PATHS.signature)
-    return relative(PATHS.root, PATHS.signature).split('\\').join('/')
+    return 'signature.png'
   } catch {
     return ''
   }
+}
+
+/**
+ * Typst only reads files under its root, and the workspace holding the
+ * signature can live outside the repo. So the template and the signature are
+ * staged in the render directory, which becomes the root.
+ */
+async function stageTemplate(dir: string): Promise<{ template: string; signature: string }> {
+  const template = join(dir, 'cover-letter.typ')
+  const signature = await signaturePath()
+  await Promise.all([
+    copyFile(PATHS.coverLetterTemplate, template),
+    signature ? copyFile(PATHS.signature, join(dir, signature)) : null,
+  ])
+  return { template, signature }
 }
 
 export interface LetterRenderResult extends RenderResult {
@@ -71,14 +86,15 @@ export async function renderCoverLetter(letter: CoverLetter, sender: CoverLetter
   if (!python) return fail('typst is not available to Python. It ships with rendercv: pip install "rendercv[full]"')
 
   // The render- prefix lets renderStore and cleanupRender manage this like a resume preview.
-  const dir = await mkdtemp(join(tmpdir(), 'career-ops-render-'))
+  const dir = await mkdtemp(join(tmpdir(), 'onward-render-'))
   const pdfPath = join(dir, 'preview.pdf')
   try {
+    const staged = await stageTemplate(dir)
     const { code, stderr } = await runCli(python[0], [...python.slice(1), '-c', SCRIPT], {
       cwd: PATHS.root,
       signal: opts.signal,
       timeoutMs: 60_000,
-      input: JSON.stringify({ template: PATHS.coverLetterTemplate, output: pdfPath, root: PATHS.root, inputs: letterInputs(letter, sender, await signaturePath()) }),
+      input: JSON.stringify({ template: staged.template, output: pdfPath, root: dir, inputs: letterInputs(letter, sender, staged.signature) }),
     })
     if (code !== 0) {
       await rm(dir, { recursive: true, force: true })

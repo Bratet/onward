@@ -20,9 +20,9 @@ export function Nav() {
   return (
     <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-[var(--color-bg)]/95">
       <div className="mx-auto flex min-h-16 max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-2 sm:px-6">
-        <Link href="/" className="flex shrink-0 items-center gap-2.5 text-sm font-semibold tracking-tight" aria-label="Career Ops home">
-          <span className="grid size-8 place-items-center rounded-lg bg-[var(--color-accent)] text-[12px] font-bold text-white">co</span>
-          <span>career<span className="text-[var(--color-accent)]">/</span>ops</span>
+        <Link href="/" className="flex shrink-0 items-center gap-2.5 text-sm font-semibold tracking-tight" aria-label="Onward home">
+          <span className="grid size-8 place-items-center rounded-lg bg-[var(--color-accent)] text-[12px] font-bold text-white">on</span>
+          <span>onward</span>
         </Link>
         <nav aria-label="Primary navigation" className="order-last flex w-full items-center gap-1 overflow-x-auto sm:order-none sm:w-auto">
           {LINKS.map((link) => {

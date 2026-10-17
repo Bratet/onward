@@ -12,7 +12,7 @@ import type { ProfileFitReport } from './profileFit'
 
 const SESSION_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
 const SESSION_TTL_MS = 2 * 60 * 60 * 1000
-const CLAUDE_BIN = process.env.CAREER_OPS_CLAUDE_BIN || 'claude'
+const CLAUDE_BIN = process.env.ONWARD_CLAUDE_BIN || 'claude'
 
 interface AgentSession {
   id: string
@@ -38,9 +38,9 @@ export interface EditorAgentResult {
 }
 
 const globalSessions = globalThis as typeof globalThis & {
-  __careerOpsEditorAgents?: Map<string, AgentSession>
+  __onwardEditorAgents?: Map<string, AgentSession>
 }
-const sessions = (globalSessions.__careerOpsEditorAgents ??= new Map<string, AgentSession>())
+const sessions = (globalSessions.__onwardEditorAgents ??= new Map<string, AgentSession>())
 
 export async function runEditorAgent(opts: {
   sessionId: string
@@ -126,7 +126,7 @@ async function getSession(id: string, engine: EngineId): Promise<AgentSession> {
     id,
     engine,
     cliSessionId: engine === 'claude' ? randomUUID() : null,
-    dir: await mkdtemp(join(tmpdir(), 'career-ops-editor-agent-')),
+    dir: await mkdtemp(join(tmpdir(), 'onward-editor-agent-')),
     turn: 0,
     lastUsed: Date.now(),
     running: Promise.resolve(),
@@ -224,7 +224,7 @@ Distinguish missing resume text from missing qualifications. Explicitly confirme
 
 Check the candidate guidance below before calling anything a gap or asking a question: a practice or tool it confirms is already settled, so mark it direct as user-confirmed and do not ask the candidate to confirm it again.
 
-When the candidate confirms a durable fact about their experience that applies beyond this job (a tool they used, a practice standard on their projects, a kind of work they did), also record it in ${PATHS.candidateGuidance} in the same turn, so the next fit analysis starts from it. Add one concise bullet under "Confirmed practices", or extend a matching bullet. Do not duplicate an existing entry. If they say something is not true, record it under "Not confirmed". Create either heading if it is missing. Record only what they stated, never your inference. Application-specific decisions, such as choices for this company, stay in the conversation. Say in your reply which guidance line you added or changed.
+When the candidate confirms a durable fact about their experience that applies beyond this job (a tool they used, a practice standard on their projects, a kind of work they did), also record it in ${PATHS.candidateGuidance} in the same turn, so the next fit analysis starts from it. Add one concise bullet to the section listing confirmed practices (such as "Confirmed practices"), or extend a matching bullet. Do not duplicate an existing entry. If they say something is not true, record it in the not-confirmed section. Create a heading only when no fitting section exists. Record only what they stated, never your inference. Application-specific decisions, such as choices for this company, stay in the conversation. Say in your reply which guidance line you added or changed.
 
 For analysis corrections, edit fit-report.json and the candidate guidance file only, not tracker rows, tailoring notes, or workspace/state/workspaces files. Those are not substitutes for updating the overview. Master resume updates still require an explicit request. Do not claim the report was saved by you: describe the reassessment; the app will confirm persistence. Leave fit-report.json unchanged for discussion that does not alter the assessment.` : ''}
 

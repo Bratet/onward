@@ -8,10 +8,10 @@
  */
 import { readFileSync } from 'fs'
 import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
+import { dirname, join, resolve } from 'path'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const path = join(root, 'workspace', 'state', 'applications.md')
+const path = join(resolve(root, process.env.ONWARD_WORKSPACE || 'workspace'), 'state', 'applications.md')
 const text = readFileSync(path, 'utf-8')
 
 // Git can check this tracked Markdown file out with CRLF on Windows.

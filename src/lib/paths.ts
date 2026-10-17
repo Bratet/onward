@@ -1,7 +1,7 @@
 import { existsSync } from 'fs'
 import { join } from 'path'
 import { CANDIDATE } from './candidate'
-import { REPO_ROOT, slugify } from './repoRoot'
+import { REPO_ROOT, WORKSPACE_ROOT, slugify } from './repoRoot'
 import type { BaseCv } from './tailoring/baseCv'
 
 export { REPO_ROOT, slugify }
@@ -13,7 +13,7 @@ export { REPO_ROOT, slugify }
  * folder per tailored application, entirely reproducible from resumes/), and
  * state/ (the tracker database, run logs, chats, skills, in-progress drafts).
  */
-const WORKSPACE = join(REPO_ROOT, 'workspace')
+const WORKSPACE = WORKSPACE_ROOT
 const STATE = join(WORKSPACE, 'state')
 const RESUMES = join(WORKSPACE, 'resumes')
 
@@ -40,7 +40,10 @@ export const PATHS = {
   templates: join(REPO_ROOT, 'templates'),
   tailoredDesign: join(REPO_ROOT, 'templates', 'tailored-design.yaml'),
   coverLetterTemplate: join(REPO_ROOT, 'templates', 'cover-letter.typ'),
-  signature: join(REPO_ROOT, 'config', 'signature.png'),
+  /** Personal settings and files that belong with the data, not the code. */
+  candidateConfig: join(WORKSPACE, 'config', 'candidate.json'),
+  /** Handwritten signature, rendered above the typed name on every cover letter. */
+  signature: join(WORKSPACE, 'config', 'signature.png'),
   patches: join(REPO_ROOT, 'patches'),
   pdfWorker: join(REPO_ROOT, 'node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.min.mjs'),
   resumes: RESUMES,

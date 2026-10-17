@@ -1,6 +1,6 @@
-# Personal files (never committed)
-config/candidate.json
-config/signature.png
+# Your data: resumes, applications, state and personal config. It is never part
+# of the code repo; keep it in its own private repository if you want history.
+/workspace/
 .env
 
 # Generated (renderCV intermediates)
@@ -25,13 +25,15 @@ next-env.d.ts
 *.tsbuildinfo
 .npmrc
 
-# Local app state (machine-specific, not shared)
-workspace/state/settings.json
-workspace/state/claude-models.json
-workspace/state/codex-models.json
-workspace/state/goal.json
-workspace/state/.trash/
+# Local app state the tests or a demo run write into the example workspace
+examples/workspace/state/settings.json
+examples/workspace/state/claude-models.json
+examples/workspace/state/codex-models.json
+examples/workspace/state/goal.json
+examples/workspace/state/.trash/
+examples/workspace/state/runs/
+examples/workspace/state/chats/
+examples/workspace/state/workspaces/
 
 # Scratch render previews (not application output)
 /tmp/
-workspace/applications/pdf/

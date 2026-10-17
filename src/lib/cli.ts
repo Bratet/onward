@@ -52,7 +52,7 @@ export function parseArgs(argv: string[]): Args {
   return { positional, flags }
 }
 
-const HELP = `career-ops CLI
+const HELP = `onward CLI
 
 Applications
   apps list [--status S] [--since YYYY-MM-DD] [--search TEXT] [--limit N]

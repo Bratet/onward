@@ -15,8 +15,8 @@ interface Entry { pdfPath: string; at: number }
 const MAX = 12
 const TTL_MS = 15 * 60 * 1000
 
-const globalStore = globalThis as typeof globalThis & { __careerOpsRenders?: Map<string, Entry> }
-const store: Map<string, Entry> = (globalStore.__careerOpsRenders ??= new Map())
+const globalStore = globalThis as typeof globalThis & { __onwardRenders?: Map<string, Entry> }
+const store: Map<string, Entry> = (globalStore.__onwardRenders ??= new Map())
 
 export function put(pdfPath: string): string {
   const token = randomUUID()

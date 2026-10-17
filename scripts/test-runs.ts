@@ -14,7 +14,7 @@ function check(name: string, condition: boolean, detail = '') {
 }
 
 console.log('runs')
-const root = await mkdtemp(join(tmpdir(), 'career-ops-runs-'))
+const root = await mkdtemp(join(tmpdir(), 'onward-runs-'))
 
 try {
   const skill = await getSkill('tailor-cv')

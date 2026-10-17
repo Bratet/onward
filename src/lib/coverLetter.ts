@@ -109,7 +109,7 @@ export function senderFromResume(yaml: string): { sender: CoverLetterSender; pap
  */
 export function letterInputs(letter: CoverLetter, sender: CoverLetterSender, signature = ''): Record<string, string> {
   return {
-    // Root-relative, as the template loads it: "config/signature.png".
+    // Root-relative, as the template loads it: "signature.png".
     ...(signature ? { signature } : {}),
     sender_name: sender.name,
     sender_email: sender.email,

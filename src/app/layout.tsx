@@ -3,8 +3,8 @@ import { Nav } from '@/components/Nav'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'career-ops',
-  description: 'Job application pipeline: tailor, render, track.',
+  title: 'Onward',
+  description: 'Your job application companion: tailor, render, track.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -78,7 +78,7 @@ assert.deepEqual(Object.keys(inputs).sort(), [
 ])
 
 // The signature is passed only when one exists, in the root-relative form the saved inputs use.
-assert.equal(letterInputs(letter, sender, 'config/signature.png').signature, 'config/signature.png')
+assert.equal(letterInputs(letter, sender, 'signature.png').signature, 'signature.png')
 assert.equal('signature' in inputs, false)
 
 // Sender and paper come from the finalized resume.
@@ -110,7 +110,7 @@ assert.deepEqual(coverLetterFromWorkspace(letter, 'ignored', { companyName: 'x',
 assert.equal(coverLetterFromWorkspace({ ...letter, paper: 'a5' } as never, 'fallback', { companyName: 'x', paper: 'a4' }).content, 'fallback')
 
 // The finalize status: saved template inputs map back to the letter they came from.
-const finalizedInputs = JSON.stringify(letterInputs(letter, sender, 'config/signature.png'))
+const finalizedInputs = JSON.stringify(letterInputs(letter, sender, 'signature.png'))
 assert.equal(letterMatchesFinalized(letter, letterFromInputs(finalizedInputs)), true, 'CRLF and trimming do not count as a change')
 assert.equal(letterMatchesFinalized({ ...letter, content: `${letter.content} More.` }, letterFromInputs(finalizedInputs)), false)
 assert.equal(letterMatchesFinalized({ ...letter, closing: '' }, letterFromInputs(JSON.stringify(letterInputs({ ...letter, closing: '' }, sender)))), true)

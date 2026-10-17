@@ -1,11 +1,11 @@
-# career-ops
+# Onward
 
-A local web app for running the job-application pipeline: paste a posting, let an
+Your job application companion. A local web app for running the job-application pipeline: paste a posting, let an
 LLM read it, seed a tailored CV YAML, edit it against a live rendercv preview, and
 track every application through to an offer.
 
 It is **localhost-only by design**. It spawns CLIs (`rendercv`, `claude`, `codex`)
-and reads and writes the real repo, so every route handler runs on Node and none of
+and reads and writes your local files, so every route handler runs on Node and none of
 it is deployable to a serverless host.
 
 ---
@@ -46,7 +46,7 @@ pill in the header says so instead of failing mid-request.
 
 ```bash
 make engines     # check claude / codex / rendercv are installed and logged in
-make setup       # install deps, then link any existing workspace/applications/ folders
+make setup       # install deps, create workspace/ from the example data, link application folders
 make dev         # http://localhost:3000
 ```
 
@@ -55,28 +55,51 @@ to their tracker rows by name. Anything it can't match confidently is left alone
 surfaces in the UI as "link folder →" with a dropdown of unclaimed folders. It
 never guesses.
 
+## Your data lives in `workspace/`
+
+The code and your data are kept apart. Everything personal (resumes,
+applications, the tracker, your skills and settings) lives in `workspace/`,
+which this repository ignores. The first `make setup` or `make dev` copies
+`examples/workspace/` there so the app starts with sample data.
+
+```
+onward/                 this repository: the app
+├── examples/workspace/ sample data for a fictional candidate, also used by the tests
+└── workspace/          your data, ignored by git
+    ├── config/         candidate.json, optional signature.png
+    ├── resumes/        masters/ and own/ general resumes
+    ├── applications/   one folder per application
+    └── state/          tracker, skills, chats, runs, settings
+```
+
+To keep history of your data or use it on several machines, make `workspace/` its
+own **private** git repository (`git init` inside it, or clone your data repo
+there). Code updates then come from pulling this repo, and nothing you write can
+end up in a public commit. To keep the data somewhere else entirely, set
+`ONWARD_WORKSPACE` to its path.
+
 ## Make it yours
 
 This is a personal-use tool: it's built around one candidate's identity and
 master resumes, not a multi-tenant product. To use it for yourself:
 
-1. `cp config/candidate.example.json config/candidate.json` and set `fullName`
+1. Edit `workspace/config/candidate.json` and set `fullName`
    to your own name. This drives generated filenames (`cv-<you>.yaml`,
    `<Your_Name>_CV.pdf`, `<Your_Name>_cover_letter.pdf`). Optionally add `confidentialTerms` — names that should
    never appear on a generated resume or cover letter (e.g. a past employer's
    confidential clients); server-side resume and cover letter rendering blocks them.
-2. Add your own **master** resume(s) as
+2. Replace the **master** resume(s) at
    `workspace/resumes/masters/master-resume-english.yaml` and/or `-french.yaml`
-   — the complete, comprehensive evidence source (see `templates/tailored-design.yaml`
+   with your own: the complete, comprehensive evidence source (see `templates/tailored-design.yaml`
    for the required design block).
-3. Add your own **general** resume(s) as `workspace/resumes/own/cv-<you>-en.yaml`
-   and/or `-fr.yaml` (matching the slug from step 1) — a shorter, balanced CV that
+3. Replace the **general** resume(s) with yours as `workspace/resumes/own/cv-<you>-en.yaml`
+   and/or `-fr.yaml` (matching the slug from step 1): a shorter, balanced CV that
    seeds every new tailored application. Edit it on **Profile**. Tailoring then
    imports stronger evidence from the master where it helps a specific posting.
-4. `workspace/state/applications.md` starts empty; `workspace/applications/`
+4. Clear the sample rows from `workspace/state/applications.md`; `workspace/applications/`
    fills up as you create applications through the app.
-5. Optionally place a handwritten signature at `config/signature.png` for cover
-   letters. The file is local and gitignored. Without it, letters render unsigned.
+5. Optionally place a handwritten signature at `workspace/config/signature.png` for cover
+   letters. Without it, letters render unsigned.
 
 ## Make targets
 
@@ -88,7 +111,7 @@ master resumes, not a multi-tenant product. To use it for yourself:
 | `make build` / `make start` | production build and serve, still localhost-only |
 | `make stop` | free the port when a server is left running |
 | `make check` | typecheck |
-| `make test` | tracker round-trip, application flows, tailoring, cover letters, goals, and extension tests |
+| `make test` | tracker round-trip, application flows, tailoring, cover letters, goals, and extension tests, always against `examples/workspace/` |
 | `make reconcile` | rebuild `workspace/state/app-index.json` from folder names |
 | `make engines` | report whether `claude`, `codex`, and `rendercv` are available |
 | `make extension` | build the optional LinkedIn visa badge Chrome extension |
@@ -131,7 +154,7 @@ table that was hand-edited before, still hand-editable now.
 
 The hard rules, enforced on every render:
 
-- no names from `config/candidate.json`'s `confidentialTerms` (e.g. a past
+- no names from `workspace/config/candidate.json`'s `confidentialTerms` (e.g. a past
   employer's confidential client names)
 - no `location` key anywhere in the CV
 - no `[bracketed placeholders]`
@@ -158,7 +181,7 @@ the live preview usable at a 500ms debounce with in-flight renders aborted.
 ### Engine (`src/lib/engine/`)
 
 One interface, two adapters, switched from the header pill and persisted to
-`workspace/state/settings.json` (gitignored).
+`workspace/state/settings.json`.
 
 ```ts
 interface Engine {
@@ -294,7 +317,7 @@ Cover letters research the company automatically and finish with a `humanize-tex
 pass that removes AI-writing patterns without changing facts; the reply always says
 what that pass changed. Tailoring re-selects bullets from the master instead of
 padding the general resume, can start from optional AI, ML or DS variants of it, and
-the new-application form can fetch a posting from its link. `npm run co -- help`
+the new-application form can fetch a posting from its link. `npm run onward -- help`
 lists the command-line interface for applications, stats, the goal and saved searches.
 
 ## Optional browser extension

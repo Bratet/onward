@@ -4,8 +4,10 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 
 const originalCwd = process.cwd()
-const root = await mkdtemp(join(tmpdir(), 'career-ops-workspace-'))
+const root = await mkdtemp(join(tmpdir(), 'onward-workspace-'))
 try {
+  // The sandbox below the temp root is the workspace, not the example data.
+  delete process.env.ONWARD_WORKSPACE
   process.chdir(root)
   const { PATHS, APP_FILES } = await import('../src/lib/paths')
   const key = 'acme-2026-09-03'

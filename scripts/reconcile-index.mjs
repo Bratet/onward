@@ -8,11 +8,12 @@
  */
 import { readFileSync, writeFileSync, readdirSync, existsSync } from 'fs'
 import { fileURLToPath } from 'url'
-import { dirname, join } from 'path'
+import { dirname, join, resolve } from 'path'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const trackerPath = join(root, 'workspace', 'state', 'applications.md')
-const indexPath = join(root, 'workspace', 'state', 'app-index.json')
+const workspace = resolve(root, process.env.ONWARD_WORKSPACE || 'workspace')
+const trackerPath = join(workspace, 'state', 'applications.md')
+const indexPath = join(workspace, 'state', 'app-index.json')
 
 const slugify = (s) =>
   s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
@@ -24,7 +25,7 @@ const rows = readFileSync(trackerPath, 'utf-8')
   .map((l) => l.split('|').slice(1, -1).map((c) => c.trim()))
   .map((c) => ({ id: Number(c[0]), date: c[1], company: c[2] }))
 
-const folders = readdirSync(join(root, 'workspace', 'applications'), { withFileTypes: true })
+const folders = readdirSync(join(workspace, 'applications'), { withFileTypes: true })
   .filter((e) => e.isDirectory())
   .map((e) => {
     const m = e.name.match(/^(.*)-(\d{4}-\d{2}-\d{2})$/)

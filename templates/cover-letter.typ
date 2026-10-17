@@ -18,9 +18,9 @@
 // Optional greeting override (e.g. "Dear Bending Spoons team,") — used when the
 // greeting isn't a single named person, so it stays decoupled from the address block.
 #let salutation = sys.inputs.at("salutation", default: "")
-// Optional handwritten signature image (root-relative path, e.g. "/config/signature.png").
+// Optional handwritten signature image (root-relative path, e.g. "/signature.png").
 #let signature-path = sys.inputs.at("signature", default: "")
-// career-ops addition: paper size follows company location (a4 vs us-letter).
+// onward addition: paper size follows company location (a4 vs us-letter).
 #let paper-size = sys.inputs.at("paper", default: "a4")
 // Optional closing override (e.g. "Cordialement," for French letters). Defaults
 // to "Sincerely," so existing English letters render unchanged.

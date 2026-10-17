@@ -1,4 +1,4 @@
-# career-ops — local app
+# onward — local app
 #
 # `make` on its own prints this list.
 # Everything runs on localhost; nothing here deploys anywhere.
@@ -9,28 +9,32 @@
 PORT ?= 3000
 
 help: ## Show this help
-	@echo "career-ops — make targets"
+	@echo "onward — make targets"
 	@echo
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
 	  | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
 	@echo
 	@echo "  PORT=$(PORT)  (override: make dev PORT=4000)"
 
-setup: node_modules ## Install dependencies and link legacy output folders
+setup: node_modules workspace ## Install dependencies and link legacy output folders
 	@npm run reconcile
+
+# Not phony: once workspace/ exists (your data, or a clone of your data repo) it is left alone.
+workspace: ## Create workspace/ from the example data when you have none yet
+	@if [ -z "$$ONWARD_WORKSPACE" ] && [ ! -d workspace ]; then cp -r examples/workspace workspace && echo "created workspace/ from examples/workspace; replace it with your own data"; fi
 
 node_modules: package.json package-lock.json
 	@npm install
 	@touch node_modules
 
-dev: node_modules ## Run the app in dev mode
+dev: node_modules workspace ## Run the app in dev mode
 	@echo "→ http://localhost:$(PORT)"
 	@npm run dev -- --port $(PORT)
 
-build: node_modules ## Production build
+build: node_modules workspace ## Production build
 	@npm run build
 
-start: node_modules ## Serve the production build
+start: node_modules workspace ## Serve the production build
 	@echo "→ http://localhost:$(PORT)"
 	@npm start -- --port $(PORT)
 
@@ -41,6 +45,8 @@ stop: ## Free the port
 check: node_modules ## Typecheck
 	@npx tsc --noEmit && echo "types ok"
 
+# Tests always run against the example data, never your own workspace.
+test: export ONWARD_WORKSPACE = examples/workspace
 test: node_modules ## Tracker and tailoring tests
 	@npm run test:activity
 	@npm run test:goal
@@ -71,7 +77,7 @@ test: node_modules ## Tracker and tailoring tests
 	@npm run test:job-fetch
 	@npm run test:visa-badge
 
-reconcile: node_modules ## Rebuild workspace/state/app-index.json from folder names
+reconcile: node_modules workspace ## Rebuild workspace/state/app-index.json from folder names
 	@npm run reconcile
 
 extension: ## Build the LinkedIn visa-badge Chrome extension

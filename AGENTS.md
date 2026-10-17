@@ -6,6 +6,8 @@ This is a localhost-only Next.js application for managing job applications and t
 
 Everything the app reads or writes lives under `workspace/`, grouped by role: `workspace/resumes/masters/` and `workspace/resumes/own/` hold the hand-maintained source YAML files, each paired with its own rendered PDF; `workspace/applications/` holds one folder per tailored application, entirely reproducible from `workspace/resumes/`; `workspace/state/` is the app's operational database — treat `workspace/state/applications.md` as the application database and `workspace/state/app-index.json` as its folder index.
 
+`workspace/` is the user's data, not part of this repository: git ignores it, and it is usually its own private repository. `workspace/config/` holds `candidate.json` (name, confidential terms) and an optional `signature.png`. `ONWARD_WORKSPACE` can point the app at a workspace elsewhere. `examples/workspace/` is the tracked sample for a fictional candidate; `make setup` copies it to `workspace/` on a fresh clone. Never put a real person's details in code, templates, tests or the examples: personal values belong in `workspace/config/candidate.json` or the user's own workspace files.
+
 ## Build, Test, and Development Commands
 
 - `make setup`: install npm dependencies and reconcile legacy application folders.
@@ -15,7 +17,7 @@ Everything the app reads or writes lives under `workspace/`, grouped by role: `w
 - `make test`: run tracker round-trip, operation, and tailoring tests.
 - `make build`: create a production build; do not run it beside `make dev` because both use `.next/`.
 - `make reconcile`: rebuild `workspace/state/app-index.json` from application folder names.
-- `npm run co -- <command>`: the command-line interface for applications, stats, the goal and saved searches; `npm run co -- help` lists the commands. It calls the same `src/lib/` code as the app, so use it rather than editing `workspace/state/` files by hand.
+- `npm run onward -- <command>`: the command-line interface for applications, stats, the goal and saved searches; `npm run onward -- help` lists the commands. It calls the same `src/lib/` code as the app, so use it rather than editing `workspace/state/` files by hand.
 
 Run `make check && make test` before submitting changes.
 
@@ -25,7 +27,7 @@ Use strict TypeScript and two-space indentation, matching existing files. Prefer
 
 ## Testing Guidelines
 
-Tests are executable scripts rather than a separate framework suite. Name new tests `scripts/test-<area>.ts` or `.mjs`, add the corresponding npm script, and include it in `make test`. Always run tracker tests after changing `src/lib/tracker.ts`; serialization must leave `workspace/state/applications.md` byte-identical. Cover valid behavior, rejected inputs, and file-format invariants.
+Tests are executable scripts rather than a separate framework suite. `make test` runs them with `ONWARD_WORKSPACE=examples/workspace`, so they never read or write the user's data. Name new tests `scripts/test-<area>.ts` or `.mjs`, add the corresponding npm script, and include it in `make test`. Always run tracker tests after changing `src/lib/tracker.ts`; serialization must leave `workspace/state/applications.md` byte-identical. Cover valid behavior, rejected inputs, and file-format invariants.
 
 ## Commit & Pull Request Guidelines
 

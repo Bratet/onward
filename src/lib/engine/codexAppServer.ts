@@ -1,6 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'child_process'
 
-const BIN = process.env.CAREER_OPS_CODEX_BIN || 'codex'
+const BIN = process.env.ONWARD_CODEX_BIN || 'codex'
 
 export interface CodexAppServerResult {
   /** Every agent message of the turn, streamed back to back. */
@@ -70,7 +70,7 @@ export function runCodexAppServer(opts: {
       id: 1,
       method: 'initialize',
       params: {
-        clientInfo: { name: 'career-ops', title: 'career-ops', version: '0.1.0' },
+        clientInfo: { name: 'onward', title: 'Onward', version: '0.1.0' },
         capabilities: { experimentalApi: true, requestAttestation: false },
       },
     })
