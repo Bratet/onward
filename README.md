@@ -92,8 +92,8 @@ master resumes, not a multi-tenant product. To use it for yourself:
    `workspace/resumes/masters/master-resume-english.yaml` and/or `-french.yaml`
    with your own: the complete, comprehensive evidence source (see `templates/tailored-design.yaml`
    for the required design block).
-3. Replace the **general** resume(s) with yours as `workspace/resumes/own/cv-<you>-en.yaml`
-   and/or `-fr.yaml` (matching the slug from step 1): a shorter, balanced CV that
+3. Replace the **general** resume(s) with yours as `workspace/resumes/own/general-en/cv-<you>.yaml`
+   and/or `general-fr/` (matching the slug from step 1): a shorter, balanced CV that
    seeds every new tailored application. Edit it on **Profile**. Tailoring then
    imports stronger evidence from the master where it helps a specific posting.
 4. Clear the sample rows from `workspace/state/applications.md`; `workspace/applications/`

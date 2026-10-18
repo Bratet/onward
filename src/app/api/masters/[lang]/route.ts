@@ -1,4 +1,5 @@
-import { copyFile, readFile, writeFile, rename } from 'fs/promises'
+import { copyFile, mkdir, readFile, writeFile, rename } from 'fs/promises'
+import { dirname } from 'path'
 import { NextResponse } from 'next/server'
 import { isCvVariant, resumePdfPath, resumeSourcePath } from '@/lib/paths'
 import { cleanupRender, renderYaml } from '@/lib/render'
@@ -80,6 +81,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ lang: st
 }
 
 async function atomicWrite(file: string, text: string) {
+  await mkdir(dirname(file), { recursive: true })
   const tmp = `${file}.tmp-${randomUUID()}`
   await writeFile(tmp, text, 'utf-8')
   await rename(tmp, file)

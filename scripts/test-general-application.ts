@@ -12,7 +12,7 @@ try {
   const { PATHS, APP_FILES } = await import('../src/lib/paths')
   await mkdir(PATHS.applications, { recursive: true })
   await mkdir(PATHS.state, { recursive: true })
-  await mkdir(dirname(PATHS.ownCv.en), { recursive: true })
+  for (const lang of ['en', 'fr'] as const) await mkdir(dirname(PATHS.ownCv[lang]), { recursive: true })
   await writeFile(PATHS.tracker, '| # | Date | Company | Role | Score | Status | PDF | Report | Notes |\n|---|------|---------|------|-------|--------|-----|--------|-------|\n')
   const { POST } = await import('../src/app/api/applications/general/route')
   const { applicationLanguage, readWorkspace, updateWorkspace } = await import('../src/lib/workspaces')

@@ -1,5 +1,5 @@
 import { existsSync } from 'fs'
-import { join } from 'path'
+import { basename, dirname, join } from 'path'
 import { CANDIDATE } from './candidate'
 import { REPO_ROOT, WORKSPACE_ROOT, slugify } from './repoRoot'
 import type { BaseCv } from './tailoring/baseCv'
@@ -16,6 +16,13 @@ export { REPO_ROOT, slugify }
 const WORKSPACE = WORKSPACE_ROOT
 const STATE = join(WORKSPACE, 'state')
 const RESUMES = join(WORKSPACE, 'resumes')
+
+function ownCvPaths(variant: string): { en: string; fr: string } {
+  return {
+    en: join(RESUMES, 'own', `${variant}-en`, `cv-${CANDIDATE.slug}.yaml`),
+    fr: join(RESUMES, 'own', `${variant}-fr`, `cv-${CANDIDATE.slug}.yaml`),
+  }
+}
 
 export const PATHS = {
   root: REPO_ROOT,
@@ -51,24 +58,16 @@ export const PATHS = {
     en: join(RESUMES, 'masters', 'master-resume-english.yaml'),
     fr: join(RESUMES, 'masters', 'master-resume-french.yaml'),
   },
-  ownCv: {
-    en: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-en.yaml`),
-    fr: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-fr.yaml`),
-  },
+  /**
+   * The general resumes: one folder per type and language (`ai-en/`, `general-fr/`...), each holding
+   * its YAML and a `<Name>_CV.pdf`, so any of them can be attached as is.
+   */
+  ownCv: ownCvPaths('general'),
   /** Role-specific general resumes; tailoring starts from the one matching the JD archetype. */
   ownCvVariants: {
-    ai: {
-      en: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-ai-en.yaml`),
-      fr: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-ai-fr.yaml`),
-    },
-    ml: {
-      en: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-ml-en.yaml`),
-      fr: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-ml-fr.yaml`),
-    },
-    ds: {
-      en: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-ds-en.yaml`),
-      fr: join(RESUMES, 'own', `cv-${CANDIDATE.slug}-ds-fr.yaml`),
-    },
+    ai: ownCvPaths('ai'),
+    ml: ownCvPaths('ml'),
+    ds: ownCvPaths('ds'),
   },
 } as const
 
@@ -81,9 +80,13 @@ export function resumeSourcePath(family: 'masters' | 'ownCv', lang: Lang, varian
   return PATHS[family][lang]
 }
 
-/** Every resume source sits beside its rendered PDF, same basename. */
+/**
+ * Every resume source sits beside its rendered PDF. A sendable resume (a
+ * general one, like a tailored copy) renders to `<Name>_CV.pdf`; a master
+ * is never sent and keeps its own basename.
+ */
 export function resumePdfPath(yamlPath: string): string {
-  return yamlPath.replace(/\.yaml$/, '.pdf')
+  return basename(yamlPath) === APP_FILES.yaml ? join(dirname(yamlPath), APP_FILES.pdf) : yamlPath.replace(/\.yaml$/, '.pdf')
 }
 
 export function isCvVariant(value: unknown): value is CvVariant {
