@@ -1,14 +1,12 @@
 import { browser } from 'wxt/browser'
-import { LANGUAGE_LABELS, MIN_CONFIDENCE, VISA_LABELS, type Answer, type Posting } from '../../lib/jev'
+import { MIN_CONFIDENCE, VISA_LABELS, type Answer, type Posting } from '../../lib/jev'
 import { cleanDescription, guestPostingUrl, isAboutHeading, jobIdFromUrl, parseGuestPosting, textKey, type GuestPosting } from '../../lib/linkedin'
 import type { ClassifyReply, Message } from '../../lib/messages'
 import './style.css'
 
 // Read-only on LinkedIn: this script never clicks or scrolls. It reads the job
 // header and description LinkedIn already rendered, asks the background worker
-// for Jev's verdict, and shows two badges above the job title: visa
-// sponsorship, and whether the job needs a language other than English,
-// French, or Arabic.
+// for Jev's verdict, and shows a visa sponsorship badge above the job title.
 //
 // LinkedIn's logged-in markup changes without notice (the /jobs/search-results/
 // layout shares none of the classes below). When the page can't be read but the
@@ -101,7 +99,7 @@ function answerPill<Label extends string>(
 }
 
 function pills(reply: ClassifyReply | null, retry: () => void): Pill[] {
-  if (!reply) return [{ modifiers: ['loading'], text: 'Checking visa & language…', tooltip: 'Asking Jev about this posting.' }]
+  if (!reply) return [{ modifiers: ['loading'], text: 'Checking visa…', tooltip: 'Asking Jev about this posting.' }]
   if (!reply.ok) {
     if (reply.error === 'no-key') {
       return [{
@@ -113,9 +111,7 @@ function pills(reply: ClassifyReply | null, retry: () => void): Pill[] {
     }
     return [{ modifiers: ['error'], text: 'Jev check failed', extra: '· retry', tooltip: reply.error, onClick: retry }]
   }
-  const { visa, language } = reply.verdict
-  // Both badges always show, so a missing one means something is broken.
-  return [answerPill(visa, VISA_LABELS, reply.cached, retry), answerPill(language, LANGUAGE_LABELS, reply.cached, retry)]
+  return [answerPill(reply.verdict.visa, VISA_LABELS, reply.cached, retry)]
 }
 
 function render(anchor: HTMLElement | null, items: Pill[], dataset: Record<string, string> = {}) {
@@ -263,7 +259,7 @@ export default defineContentScript({
       // Redraw only when the badges are missing or their state changed.
       const reply = replies.get(key) ?? null
       const state = !reply ? 'loading' : !reply.ok ? reply.error
-        : [reply.verdict.visa, reply.verdict.language].map((a) => `${a.label}:${a.confidence}`).join('|')
+        : `${reply.verdict.visa.label}:${reply.verdict.visa.confidence}`
       const existing = document.getElementById(BADGE_ID)
       if (existing?.dataset.key === key && existing.dataset.state === state) return
       const retry = () => ask(key, { header, description: text }, true)

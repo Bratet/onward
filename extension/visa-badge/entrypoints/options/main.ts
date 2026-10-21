@@ -1,5 +1,5 @@
 import { browser } from 'wxt/browser'
-import { LANGUAGE_LABELS, VISA_LABELS, type Answer } from '../../lib/jev'
+import { VISA_LABELS, type Answer } from '../../lib/jev'
 import { KEY_STORAGE, type ClassifyReply, type Message } from '../../lib/messages'
 
 const input = document.querySelector<HTMLInputElement>('#key')!
@@ -33,24 +33,23 @@ document.querySelector('#test')!.addEventListener('click', async () => {
     fresh: true,
     posting: {
       header: 'Machine Learning Engineer · Acme · Brussels (Hybrid)',
-      description: 'Fluent Dutch is required for this role. We are unable to offer visa sponsorship for this role.',
+      description: 'We are unable to offer visa sponsorship for this role.',
     },
   }
   const reply: ClassifyReply = await browser.runtime.sendMessage(message)
   if (!reply.ok) return say(reply.error === 'no-key' ? 'Save a key first.' : `Failed: ${reply.error}`)
   const { verdict, usage, ms } = reply
-  const correct = verdict.visa.label === 'no' && verdict.language.label === 'required'
+  const correct = verdict.visa.label === 'no'
   const line = <L extends string>(name: string, answer: Answer<L>, names: Record<L, string>) => [
     `${name.padEnd(12)}${names[answer.label]} (${Math.round(answer.confidence * 100)}% confidence)`,
     ...(Object.entries(answer.probabilities) as [L, number][]).map(([label, p]) => `              ${names[label].padEnd(30)} ${Math.round(p * 100)}%`),
   ]
   say([
     correct
-      ? 'Works: Jev answered both questions correctly for the sample (no sponsorship, Dutch required).'
-      : 'Call works, but Jev did not answer "No sponsorship" + "Requires a language you don’t speak" for the sample.',
+      ? 'Works: Jev found no sponsorship in the sample.'
+      : 'Call works, but Jev did not answer "No sponsorship" for the sample.',
     '',
     ...line('Visa', verdict.visa, VISA_LABELS),
-    ...line('Language', verdict.language, LANGUAGE_LABELS),
     '',
     `Latency     ${ms} ms`,
     `Model       ${usage?.model ?? '?'}${usage?.provider ? ` via ${usage.provider}` : ''}`,

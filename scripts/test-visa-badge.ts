@@ -16,20 +16,16 @@ const request = jevRequest({ header: 'h'.repeat(1000), description: 'x'.repeat(5
 check('targets pinned Jev on OpenRouter', request.model === 'typesafe/jev-1.13' && JEV_MODEL === request.model)
 check('state carries header and description, capped',
   request.state.posting_header.length === 600 && request.state.job_description.length === 40_000)
-check('asks both questions in one call', Object.keys(request.questions).join() === 'sponsorship,language')
+check('asks only about sponsorship', Object.keys(request.questions).join() === 'sponsorship')
 check('sponsorship is a four-way choice',
   request.questions.sponsorship.type === 'choice'
   && Object.keys(request.questions.sponsorship.criteria).join() === 'yes,no,likely_no,unknown')
-check('language is a three-way choice',
-  request.questions.language.type === 'choice'
-  && Object.keys(request.questions.language.criteria).join() === 'required,preferred,none')
 check('questions stay small (billed as input)', JSON.stringify(request.questions).length < 1400,
   `${JSON.stringify(request.questions).length} chars`)
 
 console.log('visa badge: jev response')
 
-const both = (sponsorship: unknown, language: unknown) => ({ answers: { sponsorship, language } })
-const languageNone = { choice: 'none', confidence: 0.9 }
+const sponsorshipAnswer = (sponsorship: unknown) => ({ answers: { sponsorship } })
 
 // OpenRouter adds id, provider, and usage.cost to TypeSafe's response shape.
 const { verdict, usage } = parseJevResponse({
@@ -43,32 +39,21 @@ const { verdict, usage } = parseJevResponse({
       probabilities: { yes: 0.05, no: 0.15, likely_no: 0.77, unknown: 0.03 },
       confidence: 0.77,
     },
-    language: {
-      type: 'choice',
-      choice: 'required',
-      probabilities: { required: 0.84, preferred: 0.15, none: 0.01 },
-      confidence: 0.84,
-    },
   },
   usage: { input_tokens: 512, output_tokens: 40, cost: 0.0000215 },
 })
 check('maps likely_no to likely-no', verdict.visa.label === 'likely-no' && verdict.visa.confidence === 0.77)
-check('maps language required', verdict.language.label === 'required' && verdict.language.confidence === 0.84)
 check('maps probabilities to labels',
-  verdict.visa.probabilities['likely-no'] === 0.77 && verdict.language.probabilities.none === 0.01)
+  verdict.visa.probabilities['likely-no'] === 0.77)
 check('reads usage', usage.model === 'typesafe/jev-1.13' && usage.provider === 'TypeSafe' && usage.inputTokens === 512 && usage.cost === 0.0000215)
-check('tolerates missing usage', parseJevResponse(both({ choice: 'no', confidence: 0.9 }, languageNone)).usage.cost === undefined)
-for (const choice of ['preferred', 'none']) {
-  check(`maps language ${choice}`, parseJevResponse(both({ choice: 'yes', confidence: 0.9 }, { choice, confidence: 0.7 })).verdict.language.label === choice)
-}
+check('tolerates missing usage', parseJevResponse(sponsorshipAnswer({ choice: 'no', confidence: 0.9 })).usage.cost === undefined)
+check('accepts a sponsorship-only response', parseJevResponse(sponsorshipAnswer({ choice: 'yes', confidence: 0.9 })).verdict.visa.label === 'yes')
 
 for (const [name, body] of [
   ['missing answers', {}],
-  ['missing language answer', { answers: { sponsorship: { choice: 'no', confidence: 0.9 } } }],
-  ['unknown visa choice', both({ choice: 'maybe', confidence: 0.9 }, languageNone)],
-  ['unknown language choice', both({ choice: 'no', confidence: 0.9 }, { choice: 'mars', confidence: 0.9 })],
-  ['old remote answer', { answers: { sponsorship: { choice: 'no', confidence: 0.9 }, remote: { choice: 'anywhere', confidence: 0.9 } } }],
-  ['missing confidence', both({ choice: 'yes' }, languageNone)],
+  ['missing sponsorship answer', { answers: {} }],
+  ['unknown visa choice', sponsorshipAnswer({ choice: 'maybe', confidence: 0.9 })],
+  ['missing confidence', sponsorshipAnswer({ choice: 'yes' })],
   ['error body', { error: { message: 'Missing Authentication header', code: 401 } }],
   ['null body', null],
 ] as const) {

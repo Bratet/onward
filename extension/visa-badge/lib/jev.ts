@@ -2,15 +2,7 @@
 // called through OpenRouter's System One endpoint, which takes TypeSafe's native
 // body. Docs: https://openrouter.ai/docs/guides/community/typesafe-sdk and
 // https://docs.typesafe.ai/api.md. Pure, so the repo tests can cover it.
-//
-// One call answers both questions: the posting is billed once as input, and
-// each extra question only adds its own short text.
-//
-// The candidate speaks English, French, and Arabic, so the language question
-// asks only about other languages.
-
 export type VisaLabel = 'yes' | 'no' | 'likely-no' | 'unknown'
-export type LanguageLabel = 'required' | 'preferred' | 'none'
 
 export const VISA_LABELS: Record<VisaLabel, string> = {
   yes: 'Sponsors visa',
@@ -19,17 +11,11 @@ export const VISA_LABELS: Record<VisaLabel, string> = {
   unknown: 'Visa not mentioned',
 }
 
-export const LANGUAGE_LABELS: Record<LanguageLabel, string> = {
-  required: 'Requires a language you don’t speak',
-  preferred: 'A language you don’t speak is a plus',
-  none: 'No other language needed',
-}
-
 export const JEV_ENDPOINT = 'https://openrouter.ai/api/v1/systemone'
 // Pinned so MIN_CONFIDENCE keeps meaning the same thing across model updates.
 export const JEV_MODEL = 'typesafe/jev-1.13'
 // Bump when the questions change, so cached answers to old questions are dropped.
-export const QUESTIONS_VERSION = 3
+export const QUESTIONS_VERSION = 4
 // Below this, a badge is shown as unsure.
 export const MIN_CONFIDENCE = 0.6
 // State limit is 32k tokens; job descriptions are far shorter, these are safety caps.
@@ -43,12 +29,6 @@ const VISA_CHOICES: Record<string, VisaLabel> = {
   likely_no: 'likely-no',
   unknown: 'unknown',
 }
-const LANGUAGE_CHOICES: Record<string, LanguageLabel> = {
-  required: 'required',
-  preferred: 'preferred',
-  none: 'none',
-}
-
 export interface Answer<Label extends string> {
   label: Label
   confidence: number
@@ -57,7 +37,6 @@ export interface Answer<Label extends string> {
 
 export interface JevVerdict {
   visa: Answer<VisaLabel>
-  language: Answer<LanguageLabel>
 }
 
 export interface JevUsage {
@@ -91,15 +70,6 @@ export function jevRequest({ header, description }: Posting) {
           unknown: 'Says nothing about visas, sponsorship, work permits, or right to work',
         },
       },
-      language: {
-        type: 'choice',
-        instructions: 'Does this job need a spoken language other than English, French, or Arabic?',
-        criteria: {
-          required: 'Requires another language (e.g. Dutch, German), or the posting is written in one',
-          preferred: 'Another language is a plus or nice to have, not required',
-          none: 'Needs only English, French, or Arabic, or names no language',
-        },
-      },
     },
   }
 }
@@ -123,13 +93,12 @@ export function parseJevResponse(body: unknown): { verdict: JevVerdict; usage: J
     model?: unknown
     provider?: unknown
     usage?: { input_tokens?: unknown; cost?: unknown }
-    answers?: { sponsorship?: RawAnswer; language?: RawAnswer }
+    answers?: { sponsorship?: RawAnswer }
   } | null
   const number = (value: unknown) => (Number.isFinite(Number(value)) ? Number(value) : undefined)
   return {
     verdict: {
       visa: parseAnswer(root?.answers?.sponsorship, VISA_CHOICES, 'sponsorship'),
-      language: parseAnswer(root?.answers?.language, LANGUAGE_CHOICES, 'language'),
     },
     usage: {
       model: typeof root?.model === 'string' ? root.model : undefined,

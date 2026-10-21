@@ -52,10 +52,6 @@
 .visa-badge--likely-no { --visa-color: #d97706; }
 .visa-badge--unknown { --visa-color: #6b7280; }
 
-.visa-badge--required { --visa-color: #dc2626; }
-.visa-badge--preferred { --visa-color: #d97706; }
-.visa-badge--none { --visa-color: #16a34a; }
-
 .visa-badge--setup,
 .visa-badge--error { --visa-color: #6b7280; }
 .visa-badge--loading { --visa-color: #6b7280; font-weight: 400; }
