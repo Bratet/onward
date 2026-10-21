@@ -1,5 +1,5 @@
 import {
-  applyOperations, currentStep, describeOperation, initialJourney, journeyFocus, parseCompanionOutput, parseJourney, stageForStatus, statusForStage, stepProgress,
+  applyOperations, currentStep, describeOperation, initialJourney, journeyFocus, parseJourney, stageForStatus, statusForStage, stepProgress,
   type Journey,
 } from '../src/lib/journey'
 
@@ -46,25 +46,19 @@ let threw = false
 try { applyOperations(moved, [{ op: 'update_step', stepId: 'nope', state: 'passed', date: null, with: null, notes: null }]) } catch { threw = true }
 check('an unknown step id is rejected', threw)
 
+const removed = applyOperations(moved, [{ op: 'remove_step', stepId: 'technical-interview' }]).journey
+check('remove_step drops only that step', !removed.steps.some((step) => step.id === 'technical-interview') && removed.steps.length === moved.steps.length - 1)
+let keptSent = false
+try { applyOperations(moved, [{ op: 'remove_step', stepId: 'applied' }]) } catch { keptSent = true }
+check('the sent step cannot be removed', keptSent)
+const cancelled = applyOperations(moved, [{ op: 'update_step', stepId: 'technical-interview', state: 'cancelled', date: null, with: null, notes: null }]).journey
+check('an aborted step is no longer the current one', currentStep(cancelled)?.state !== 'booked')
+
 const closed = applyOperations(moved, [{ op: 'set_stage', stage: 'closed', outcome: null }]).journey
 check('closing without an outcome means rejected', closed.outcome === 'rejected')
 check('reopening clears the outcome', applyOperations(closed, [{ op: 'set_stage', stage: 'interviewing', outcome: null }]).journey.outcome === null)
 
 check('stages map back to tracker statuses', statusForStage('interviewing', null, 'Applied') === 'Interview' && statusForStage('closed', 'rejected', 'Interview') === 'Rejected' && statusForStage('closed', 'did-not-apply', 'SKIP') === 'SKIP' && statusForStage('preparing', null, 'Evaluated') === 'Preparing')
-
-const output = parseCompanionOutput({
-  reply: 'You passed the intro call.',
-  question: '  ',
-  items: [
-    { op: 'set_stage', stage: 'interviewing', outcome: null, stepId: null, label: null, date: null, with: null, state: null, text: null, due: null, name: null, role: null, email: null, quote: 'we would like to invite you', basis: 'from-message', why: '' },
-    { op: 'add_step', stage: null, outcome: null, stepId: null, label: 'Technical', date: 'next tuesday', with: null, state: 'booked', text: null, due: null, name: null, role: null, email: null, quote: '', basis: 'guessed', why: '' },
-    { op: 'set_next_action', stage: null, outcome: null, stepId: null, label: null, date: null, with: null, state: null, text: null, due: null, name: null, role: null, email: null, quote: '', basis: 'guessed', why: '' },
-  ],
-})
-check('valid model items become operations', output.items.length === 1 && output.items[0].operation.op === 'set_stage' && output.items[0].basis === 'from-message', json(output))
-check('invalid dates and missing fields are dropped', output.dropped === 2)
-check('a blank question is null', output.question === null)
-check('garbage output is empty, not a crash', parseCompanionOutput('nonsense').items.length === 0)
 
 check('operations read in plain words', describeOperation({ op: 'set_stage', stage: 'closed', outcome: 'no-reply' }, moved) === 'Close it: no reply' && describeOperation({ op: 'update_step', stepId: 'intro-call', state: 'passed', date: null, with: null, notes: null }, moved) === 'Intro call: passed')
 

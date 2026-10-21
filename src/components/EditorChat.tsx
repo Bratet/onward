@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { ChevronRight, ClipboardCheck, Pencil, SlidersHorizontal, Square } from 'lucide-react'
-import { Badge, Empty, Spinner } from './ui/primitives'
+import { Badge, Spinner } from './ui/primitives'
 import { ResumeReview } from './ResumeReview'
 import { ChatMarkdown } from './ChatMarkdown'
 import type { EditorApi } from './EditorPane'
@@ -35,7 +35,13 @@ export function EditorChat({
   reviewSource,
   tailoring,
   tailoringSkill,
+  seed,
+  title,
+  hint,
 }: {
+  /** Names the chat in its own top bar, beside New chat and the settings. */
+  title?: string
+  hint?: string
   onProfileUpdated?: () => Promise<void>
   reviewOnly?: boolean
   api: EditorApi
@@ -44,6 +50,8 @@ export function EditorChat({
   chatScope: string
   reviewSource?: string
   tailoring?: ReactNode
+  /** Text put in the message box from outside, such as a requirement to discuss; `at` makes a repeat count. */
+  seed?: { text: string; at: number }
   /** Runs only when the user asks for tailoring; opening the chat never starts it. */
   tailoringSkill?: {
     run: (handlers: {
@@ -240,6 +248,15 @@ export function EditorChat({
     persist(storageKey, { sessionId: sessionRef.current, turns, draft: message, reviewMode: false })
     messageRef.current?.focus()
   }
+
+  useEffect(() => {
+    if (!seed || !hydrated) return
+    setMessage(seed.text)
+    persist(storageKey, { sessionId: sessionRef.current, turns, draft: seed.text, reviewMode: resumeReviewMode })
+    const box = messageRef.current
+    if (box) { box.focus(); box.setSelectionRange(seed.text.length, seed.text.length) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seed?.at, hydrated])
 
   function discussFinding(value: string) {
     if (busy || staleResumeReview) return
@@ -556,6 +573,10 @@ export function EditorChat({
   return (
     <div ref={rootRef} className="flex min-h-0 flex-1 flex-col">
       <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-3 py-2 text-xs">
+        {title ? <div className="flex min-w-0 flex-1 items-baseline gap-2 pl-1">
+          <h2 className="shrink-0 text-[15px] font-semibold">{title}</h2>
+          {hint ? <p title={hint} className="min-w-0 truncate text-[13px] text-[var(--color-muted)]">{hint}</p> : null}
+        </div> : null}
         {reviewSource ? (
           <>
             <button
@@ -705,7 +726,9 @@ export function EditorChat({
           </div>
           )
         )) : !tailoring ? (
-          <Empty
+          <ChatEmpty
+            suggestions={busy || !hydrated ? [] : reviewOnly ? ['Is this role a good fit for me?', 'Which gap matters most here?'] : tailoringSkill ? ['Tailor my resume for this role', 'Which must-haves does the draft still miss?', 'Make it fit on one page'] : []}
+            onPick={(text) => { setMessage(text); rootRef.current?.querySelector('textarea')?.focus() }}
             title={reviewOnly ? 'Let’s check whether this role works for you' : reviewSource ? 'Review or edit this resume' : tailoringSkill ? 'What should we do with this resume?' : 'Edit with a CLI agent'}
             hint={reviewOnly ? 'Ask about work authorization, discuss a gap, or correct the analysis. No resume tailoring starts until you request it.' : tailoringSkill
               ? 'Discuss the tailored draft, ask for changes, or compare it with anything in your repository. I can consult your masters, earlier applications, and notes.'
@@ -974,8 +997,8 @@ function EditProposal({
           <button onClick={onReject} disabled={saving} className="rounded-md border border-[var(--color-bad)] px-2.5 py-1.5 text-xs text-[var(--color-bad)] hover:bg-[var(--color-bad-soft)] disabled:opacity-40">
             Reject
           </button>
-          <button onClick={onAccept} disabled={saving} className="flex items-center gap-1.5 rounded-md bg-[var(--color-ok)] px-2.5 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40">
-            {saving ? <Spinner className="border-t-white" /> : null}
+          <button onClick={onAccept} disabled={saving} className="flex items-center gap-1.5 rounded-md bg-[var(--color-ok)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-on-solid)] hover:opacity-90 disabled:opacity-40">
+            {saving ? <Spinner className="border-t-[var(--color-on-solid)]" /> : null}
             {saving ? 'Saving…' : 'Accept & save'}
           </button>
         </div>
@@ -1038,4 +1061,16 @@ function changedMiddle(left: string[], right: string[]): ChangedLine[] {
     ...left.slice(start, leftEnd + 1).map((text) => ({ kind: 'remove' as const, text })),
     ...right.slice(start, rightEnd + 1).map((text) => ({ kind: 'add' as const, text })),
   ]
+}
+
+/** The chat before its first message: what it is for, in readable type, and a few ways to start. */
+function ChatEmpty({ title, hint, suggestions, onPick }: { title: string; hint: string; suggestions: string[]; onPick: (text: string) => void }) {
+  return <div className="mx-auto flex max-w-md flex-col items-center gap-2 px-4 py-12 text-center">
+    <p className="text-base font-semibold">{title}</p>
+    <p className="text-sm leading-relaxed text-[var(--color-muted)]">{hint}</p>
+    {suggestions.length ? <div className="mt-3 flex flex-wrap justify-center gap-2">
+      {suggestions.map((text) => <button key={text} type="button" onClick={() => onPick(text)}
+        className="cursor-pointer rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]">{text}</button>)}
+    </div> : null}
+  </div>
 }

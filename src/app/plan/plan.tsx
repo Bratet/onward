@@ -7,7 +7,7 @@ import { savedSearchSchema, type SavedSearch } from '@/lib/savedSearchSchema'
 import { EXPERIENCE_LEVELS, INDEED_SITES, PLATFORMS, WORKPLACES, buildSearchUrl, defaultFilters, describeFilters, parseSearchUrl, postedOptions, type Platform, type SearchFilters } from '@/lib/searchBuilder'
 
 const secondaryButton = 'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] disabled:cursor-not-allowed disabled:opacity-50'
-const primaryButton = 'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
+const primaryButton = 'inline-flex min-h-9 items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-3 py-2 text-xs font-semibold text-[var(--color-on-solid)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50'
 const input = 'mt-1.5 block min-h-10 w-full rounded-lg border bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-text)] placeholder:text-[var(--color-faint)]'
 const blank = (): SavedSearch => ({ id: crypto.randomUUID(), title: '', url: '', track: '', notes: '' })
 
@@ -151,7 +151,7 @@ export function ApplyPlan({ initial }: { initial: { searches: SavedSearch[]; rev
               <div role="radiogroup" aria-label="Job board" className="inline-flex flex-wrap gap-1 rounded-lg border p-1">
                 {[...PLATFORMS, { value: 'custom' as const, label: 'Paste a URL' }].map((option) => {
                   const active = (builder?.platform ?? 'custom') === option.value
-                  return <button key={option.value} type="button" role="radio" aria-checked={active} onClick={() => choosePlatform(option.value)} className={'min-h-8 rounded-md px-3 text-xs font-medium transition-colors ' + (active ? 'bg-[var(--color-accent)] text-white' : 'text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]')}>{option.label}</button>
+                  return <button key={option.value} type="button" role="radio" aria-checked={active} onClick={() => choosePlatform(option.value)} className={'min-h-8 rounded-md px-3 text-xs font-medium transition-colors ' + (active ? 'bg-[var(--color-accent)] text-[var(--color-on-solid)]' : 'text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]')}>{option.label}</button>
                 })}
               </div>
               {builder ? (

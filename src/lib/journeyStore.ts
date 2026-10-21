@@ -1,16 +1,11 @@
 import { randomUUID } from 'crypto'
 import { getApplication } from './applications'
-import { getEngine } from './engine'
 import {
-  applyOperations, companionJsonSchema, companionPrompt, describeOperation, initialJourney, parseCompanionOutput, parseJourney,
-  statusForStage, type Journey, type JourneyProposal, type Operation, type TimelineEntry,
+  applyOperations, describeOperation, initialJourney, parseJourney, statusForStage, type Journey, type Operation, type TimelineEntry,
 } from './journey'
-import { getSkillForRunner } from './skills/registry'
-import { startSkillRun, type RunRecorder } from './skills/runs'
 import { readRows, updateRow } from './tracker'
 import { readWorkspace, updateWorkspace, WorkspaceRevisionConflict, type ApplicationWorkspace } from './workspaces'
 
-const SKILL_ID = 'track-application'
 const MAX_MESSAGE = 20000
 
 function journeyOf(workspace: ApplicationWorkspace, status: string | null): Journey {
@@ -28,40 +23,9 @@ export async function readJourney(key: string): Promise<Journey> {
   return (await load(key)).journey
 }
 
-/** Ask the companion what the candidate's message changes. Nothing is saved but the run record. */
-export async function proposeJourneyUpdate(key: string, message: string, signal?: AbortSignal): Promise<JourneyProposal> {
-  const text = message.trim()
-  if (!text) throw new Error('Tell the companion what happened first')
-  if (text.length > MAX_MESSAGE) throw new Error('That is too long; paste the relevant part of the email')
-  const { app, journey } = await load(key)
-  const [engine, skill] = await Promise.all([getEngine('editor-chat'), getSkillForRunner(SKILL_ID, 'text-artifact')])
-  let run: RunRecorder | null = null
-  try {
-    run = await startSkillRun({ feature: 'journey-companion', skill, engine: engine.id, applicationKey: key, inputSummary: { stage: journey.stage, steps: journey.steps.length } })
-    const raw = await engine.runStructured<unknown>({
-      signal,
-      schema: companionJsonSchema,
-      prompt: companionPrompt({
-        skill: skill.instructions, company: app.row?.company ?? app.folder?.slug ?? key, role: app.row?.role ?? 'the role',
-        status: app.row?.status ?? null, today: new Date().toISOString().slice(0, 10), journey, notes: app.row?.notes ?? '', message: text,
-      }),
-    })
-    const parsed = parseCompanionOutput(raw)
-    // Each item must apply on its own, so one bad step id cannot sink the rest.
-    const items = parsed.items.filter((item) => {
-      try { applyOperations(journey, [item.operation]); return true } catch { return false }
-    })
-    await run.complete({ items: items.length, dropped: parsed.dropped + parsed.items.length - items.length, question: Boolean(parsed.question) })
-    return { reply: parsed.reply, question: parsed.question, items, runId: run.id }
-  } catch (error) {
-    await run?.fail((error as Error).message).catch(() => {})
-    throw error
-  }
-}
-
 const datedNote = (text: string) => `${new Date().toISOString().slice(0, 10)}: ${text}`
 
-/** Apply the operations the candidate kept, as one timeline entry that can be undone. */
+/** Apply the candidate's changes as one timeline entry that can be undone. */
 export async function applyJourneyUpdate(key: string, input: { operations: Operation[]; summary?: string; source?: string }): Promise<{ journey: Journey; status: string | null }> {
   if (!input.operations.length) throw new Error('Nothing selected to apply')
   for (let attempt = 0; ; attempt++) {

@@ -10,6 +10,8 @@ import { postingContact } from '@/lib/postingContact'
 import { parsePostingSource } from '@/lib/postingSource'
 import { applicationLanguage, readWorkspace } from '@/lib/workspaces'
 import { applicationRecord } from '@/lib/applicationRecord'
+import { ANSWERS_FILE, parseAnswers } from '@/lib/applicationAnswers'
+import { fromMarkdownAnswers } from '@/lib/formAnswers'
 import { ApplicationWorkspaceView } from './workspace'
 import { PostApplicationView } from './post-workspace'
 import { wasSent } from '@/lib/applicationPhase'
@@ -58,9 +60,12 @@ export default async function ApplicationPage({ params, searchParams }: { params
   // Two separate interfaces: preparing to apply, and everything after sending.
   // A sent application can still open its preparation tools with ?view=prepare.
   const sent = wasSent(app.row?.status)
+  const record = await applicationRecord(app, workspace)
   if (sent && view !== 'prepare') {
-    const record = await applicationRecord(app, workspace)
-    return <PostApplicationView app={app} record={record} analysis={analysis} initialWorkspace={workspace} contact={contact} language={language} finalized={finalized} />
+    return <PostApplicationView app={app} record={record} analysis={analysis} initialWorkspace={workspace} />
   }
-  return <ApplicationWorkspaceView key={sent ? 'reviewing' : 'preparing'} reviewing={sent} eligibility={analysis ? eligibilityIssues(analysis, eligibility) : []} app={app} initialWorkspace={workspace} analysis={analysis} language={language} contact={contact} finalized={finalized} postingUrl={parsePostingSource(jd).url} />
+  // Older applications kept form answers in a markdown file; they become the form until it is saved here.
+  const answersText = workspace.formAnswers ? null : record.files.find((file) => file.name === ANSWERS_FILE)?.text
+  const legacyAnswers = answersText ? fromMarkdownAnswers(parseAnswers(answersText)) : []
+  return <ApplicationWorkspaceView key={sent ? 'reviewing' : 'preparing'} reviewing={sent} eligibility={analysis ? eligibilityIssues(analysis, eligibility) : []} app={app} initialWorkspace={workspace} analysis={analysis} language={language} contact={contact} finalized={finalized} posting={record.posting} legacyAnswers={legacyAnswers} postingUrl={parsePostingSource(jd).url} />
 }

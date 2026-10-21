@@ -1,6 +1,5 @@
 'use client'
 
-import { PaneTabs, paneTabPanelProps } from '@/components/ui/PaneTabs'
 import { useEffect, useRef, useState } from 'react'
 import { Square } from 'lucide-react'
 import { Menu, MenuItem } from '@/components/ui/Menu'
@@ -13,9 +12,10 @@ import { LearnFromChat } from '@/components/LearnFromChat'
 import { PdfPreview } from '@/components/PdfPreview'
 import { Badge, Card, Spinner } from '@/components/ui/primitives'
 import { cn } from '@/lib/utils'
+import { useFillHeight } from '@/components/useFillHeight'
 
 type SaveState = 'saved' | 'saving' | 'error'
-type Pane = 'ai' | 'letter'
+type View = 'preview' | 'edit'
 
 const field = 'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1.5 text-sm outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:opacity-60'
 const outline = 'rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-text)]'
@@ -43,8 +43,12 @@ function storeTurns(appKey: string, turns: LetterTurn[]) {
  * direct editor on the left, the letter rendered with templates/cover-letter.typ
  * on the right, and a finalize step that writes the PDF next to the resume.
  */
-export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLoad, onLetterSaved }: {
+export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLoad, onLetterSaved, onLetterFinalized, resumeReady, onGoToResume }: {
   app: Application
+  /** The AI writes from the finalized resume, so it waits for one. */
+  resumeReady: boolean
+  onGoToResume: () => void
+  onLetterFinalized?: (pdfName: string) => void
   initialLetter: CoverLetter
   /** The letter actually stored, or null when there is none yet. Every save is checked against it. */
   savedLetter: CoverLetter | null
@@ -59,7 +63,7 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
   const [conflict, setConflict] = useState(false)
   // Saves run one at a time, so each one carries the base the previous save left.
   const saveChain = useRef<Promise<void>>(Promise.resolve())
-  const [pane, setPane] = useState<Pane>(initialLetter.content.trim() ? 'letter' : 'ai')
+  const [view, setView] = useState<View>('preview')
   const [preview, setPreview] = useState<{ token: string | null; pages: number | null; failures: Failure[] }>({ token: null, pages: null, failures: [] })
   const [rendering, setRendering] = useState(false)
   const [turns, setTurns] = useState<LetterTurn[]>([])
@@ -74,6 +78,8 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
   const abortRef = useRef<AbortController | null>(null)
   const [retry, setRetry] = useState<string | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
+  const aiPanel = useRef<HTMLDivElement>(null)
+  useFillHeight(aiPanel)
   const words = wordCount(letter.content)
   const busy = thinking || finalizing
 
@@ -175,6 +181,7 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
       setFinalizedPdf(data.finalized.pdfName)
       setLetterFinalized({ at: new Date().toISOString(), letter })
       setNotice(`Saved ${data.finalized.pdfName} next to your resume.`)
+      onLetterFinalized?.(data.finalized.pdfName)
     } catch (reason) { setError((reason as Error).message) } finally { setFinalizing(false) }
   }
 
@@ -211,8 +218,8 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
     </Card> : error ? <ErrorNotice error={error} className="rounded-md" onRetry={retry && !busy ? () => void send(retry) : undefined} onDismiss={() => { setError(null); setRetry(null) }} /> : null}
     {preview.failures.length ? <Card className="border-[var(--color-bad-soft)]"><ul className="list-disc px-8 py-2 text-xs text-[var(--color-bad)]">{preview.failures.map((failure, index) => <li key={index}>{failure.why}</li>)}</ul></Card> : null}
 
-    {/* Same layout as the resume workspace: the document and its main action on the left, the AI on the right. */}
-    <div className="grid items-start gap-4 lg:grid-cols-2">
+    {/* Same layout as the Resume step: the document and its main action on the left, the AI on the right. */}
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
       <section aria-label="Cover letter preview" className="min-w-0 space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           {empty && !letterFinalized ? <Badge>No draft yet</Badge> : <FinalizeStatus saveState={saveState} pendingReview={!!undo} finalized={letterFinalized} upToDate={letterMatchesFinalized(letter, letterFinalized?.letter ?? null)} />}
@@ -220,6 +227,7 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
           <Badge tone={wordTone}>{words} words · aim {LETTER_WORD_TARGET.min}–{LETTER_WORD_TARGET.max}</Badge>
           {notice ? <span role="status" className="text-xs text-[var(--color-accent)]">{notice}</span> : null}
           <div className="ml-auto flex items-center gap-2">
+            <button type="button" aria-pressed={view === 'edit'} onClick={() => setView(view === 'edit' ? 'preview' : 'edit')} className={outline}>{view === 'edit' ? 'Back to preview' : 'Edit text'}</button>
             {finalizedPdf ? <>
               <a href={`/api/applications/${encodeURIComponent(app.key)}/file/${encodeURIComponent(finalizedPdf)}`} target="_blank" rel="noreferrer" className={outline}>Open PDF</a>
               <Menu label="More file actions" width="w-48">
@@ -234,16 +242,38 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
             </button>
           </div>
         </div>
-        {finalizeBlocked && !finalizing ? <p className="text-xs text-[var(--color-muted)]">{finalizeBlocked === 'Write the letter first' ? 'Finalize unlocks once the letter has text. Ask the AI for a first draft, or write it in Letter.' : `Finalize is waiting: ${finalizeBlocked.charAt(0).toLowerCase()}${finalizeBlocked.slice(1)}.`}</p> : null}
-        <Card className="workspace-pane overflow-hidden"><PdfPreview token={preview.token} document="cover letter" engine="Typst" source="letter" /></Card>
-      </section>
-      <Card className="workspace-pane flex min-h-0 flex-col overflow-hidden lg:sticky lg:top-24">
-        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--color-border)] px-3 pt-2">
-          <PaneTabs label="Cover letter" idBase="letter-pane" value={pane} onChange={setPane} items={[{ value: 'ai', label: 'AI' }, { value: 'letter', label: 'Letter' }]} />
-          <span className="ml-auto pb-2 text-xs text-[var(--color-muted)]">{pane === 'ai' ? 'Draft and revise with AI' : 'Edit the letter directly'}</span>
-        </div>
+        {finalizeBlocked && !finalizing ? <p className="text-xs text-[var(--color-muted)]">{finalizeBlocked === 'Write the letter first' ? 'Finalize unlocks once the letter has text. Ask the AI for a first draft, or write it with Edit text.' : `Finalize is waiting: ${finalizeBlocked.charAt(0).toLowerCase()}${finalizeBlocked.slice(1)}.`}</p> : null}
+        {view === 'preview'
+          ? <Card className="workspace-pane overflow-hidden"><PdfPreview token={preview.token} document="cover letter" engine="Typst" source="letter" /></Card>
+          : <Card className="workspace-pane flex min-h-0 flex-col gap-3 overflow-y-auto p-4">
 
-        {pane === 'ai' ? <div {...paneTabPanelProps('letter-pane', 'ai')} className="flex min-h-0 flex-1 flex-col">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <LetterField label="Recipient name" value={letter.recipientName} disabled={busy} placeholder="Leave empty if unknown" onChange={(recipientName) => edit({ recipientName })} />
+            <LetterField label="Recipient title" value={letter.recipientTitle} disabled={busy} placeholder="e.g. Talent Acquisition" onChange={(recipientTitle) => edit({ recipientTitle })} />
+            <LetterField label="Company" value={letter.companyName} disabled={busy} onChange={(companyName) => edit({ companyName })} />
+            <LetterField label="Company address" value={letter.companyAddress} disabled={busy} placeholder="Optional" onChange={(companyAddress) => edit({ companyAddress })} />
+            <LetterField label="Greeting" value={letter.salutation} disabled={busy} placeholder={letter.recipientName ? `Dear ${letter.recipientName},` : 'Dear Hiring Manager,'} onChange={(salutation) => edit({ salutation })} />
+            <LetterField label="Closing" value={letter.closing} disabled={busy} placeholder="Sincerely," onChange={(closing) => edit({ closing })} />
+            <LetterField label="Date" value={letter.date} disabled={busy} onChange={(date) => edit({ date })} />
+            <label className="block space-y-1 text-xs text-[var(--color-muted)]"><span>Paper</span>
+              <select value={letter.paper} disabled={busy} onChange={(event) => edit({ paper: event.target.value as CoverLetter['paper'] })} className={field}>
+                <option value="a4">A4</option>
+                <option value="us-letter">US Letter (US and Canada)</option>
+              </select>
+            </label>
+          </div>
+          <label className="flex min-h-[260px] flex-1 flex-col gap-1 text-xs text-[var(--color-muted)]">
+            <span className="flex items-center justify-between"><span>Letter body</span><span className="text-xs text-[var(--color-muted)]">Separate paragraphs with a blank line</span></span>
+            <textarea value={letter.content} disabled={busy} onChange={(event) => edit({ content: event.target.value })} placeholder="Write the letter here, or ask the AI for a first draft." className={cn(field, 'min-h-0 flex-1 resize-none leading-relaxed')} />
+          </label>
+          </Card>}
+      </section>
+      <Card ref={aiPanel} className="workspace-pane flex min-h-0 flex-col overflow-hidden lg:sticky lg:top-20">
+        <div className="shrink-0 border-b border-[var(--color-border)] px-4 py-3">
+          <h3 className="text-sm font-semibold">Cover letter AI</h3>
+          <p className="mt-0.5 text-xs text-[var(--color-muted)]">Drafts and revises the letter. Every change shows in the preview and can be undone.</p>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col">
           {turns.length >= 2 ? <LearnFromChat skillId="write-cover-letter" turns={turns} disabled={busy} /> : null}
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {turns.length ? turns.map((turn, index) => <div key={index} className={turn.role === 'user'
@@ -259,10 +289,14 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
           </div>
           {undo && !thinking ? <div className="flex items-center gap-2 border-t border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2 text-xs">
             <span className="text-[var(--color-muted)]">The letter was updated. Check the preview.</span>
-            <button type="button" onClick={() => setUndo(null)} className="ml-auto rounded-md bg-[var(--color-ok)] px-2.5 py-1 text-xs font-medium text-white">Keep</button>
+            <button type="button" onClick={() => setUndo(null)} className="ml-auto rounded-md bg-[var(--color-ok)] px-2.5 py-1 text-xs font-medium text-[var(--color-on-solid)]">Keep</button>
             <button type="button" onClick={() => { setLetter(undo); setUndo(null) }} className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs hover:bg-[var(--color-surface-2)]">Undo</button>
           </div> : null}
-          <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3">
+          {!resumeReady ? <div className="shrink-0 border-t border-[var(--color-border)] bg-[var(--color-warn-soft)] px-4 py-3 text-xs">
+            <p className="font-medium">Finalize your resume first</p>
+            <p className="mt-0.5 text-[var(--color-muted)]">The AI writes the letter from the resume you send, so it needs that version.</p>
+            <button type="button" onClick={onGoToResume} className="mt-2 cursor-pointer font-medium text-[var(--color-accent)] underline-offset-4 hover:underline">Go to the Resume step</button>
+          </div> : <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3">
             <div className="mb-2 flex flex-wrap gap-1.5">
               {(letter.content.trim() ? QUICK_PROMPTS.slice(1) : QUICK_PROMPTS.slice(0, 1)).map((prompt) => <button key={prompt} type="button" disabled={busy} onClick={() => void send(prompt)} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] disabled:opacity-40">{prompt}</button>)}
             </div>
@@ -294,28 +328,8 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
                 {thinking ? 'Stop' : 'Send'}
               </button>
             </div>
-          </div>
-        </div> : <div {...paneTabPanelProps('letter-pane', 'letter')} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <LetterField label="Recipient name" value={letter.recipientName} disabled={busy} placeholder="Leave empty if unknown" onChange={(recipientName) => edit({ recipientName })} />
-            <LetterField label="Recipient title" value={letter.recipientTitle} disabled={busy} placeholder="e.g. Talent Acquisition" onChange={(recipientTitle) => edit({ recipientTitle })} />
-            <LetterField label="Company" value={letter.companyName} disabled={busy} onChange={(companyName) => edit({ companyName })} />
-            <LetterField label="Company address" value={letter.companyAddress} disabled={busy} placeholder="Optional" onChange={(companyAddress) => edit({ companyAddress })} />
-            <LetterField label="Greeting" value={letter.salutation} disabled={busy} placeholder={letter.recipientName ? `Dear ${letter.recipientName},` : 'Dear Hiring Manager,'} onChange={(salutation) => edit({ salutation })} />
-            <LetterField label="Closing" value={letter.closing} disabled={busy} placeholder="Sincerely," onChange={(closing) => edit({ closing })} />
-            <LetterField label="Date" value={letter.date} disabled={busy} onChange={(date) => edit({ date })} />
-            <label className="block space-y-1 text-xs text-[var(--color-muted)]"><span>Paper</span>
-              <select value={letter.paper} disabled={busy} onChange={(event) => edit({ paper: event.target.value as CoverLetter['paper'] })} className={field}>
-                <option value="a4">A4</option>
-                <option value="us-letter">US Letter (US and Canada)</option>
-              </select>
-            </label>
-          </div>
-          <label className="flex min-h-[260px] flex-1 flex-col gap-1 text-xs text-[var(--color-muted)]">
-            <span className="flex items-center justify-between"><span>Letter body</span><span className="text-xs text-[var(--color-muted)]">Separate paragraphs with a blank line</span></span>
-            <textarea value={letter.content} disabled={busy} onChange={(event) => edit({ content: event.target.value })} placeholder="Write the letter here, or ask the AI for a first draft." className={cn(field, 'min-h-0 flex-1 resize-none leading-relaxed')} />
-          </label>
-        </div>}
+          </div>}
+        </div>
       </Card>
     </div>
   </div>

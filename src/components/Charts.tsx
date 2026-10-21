@@ -11,9 +11,10 @@ import { Fragment, useState, type ReactNode } from 'react'
  * Colors come from the validated tokens in globals.css.
  */
 
-const ORDINAL = ['#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95']
-const GRID = '#2c2c2a'
-const MUTED = '#898781'
+// Theme-aware: each theme sets its own validated ramp in globals.css.
+const ORDINAL = [1, 2, 3, 4, 5].map((step) => `var(--color-viz-ord-${step})`)
+const GRID = 'var(--color-viz-grid)'
+const MUTED = 'var(--color-viz-muted)'
 
 const axis = { stroke: MUTED, fontSize: 11, tickLine: false, axisLine: false } as const
 
@@ -110,7 +111,7 @@ export function DailyChart({ days, period, goal = null }: { days: Day[]; period:
             ) : null
           }
         />
-        <Bar dataKey="count" fill="#3987e5" radius={[4, 4, 0, 0]} maxBarSize={34} />
+        <Bar dataKey="count" fill="var(--color-viz-1)" radius={[4, 4, 0, 0]} maxBarSize={34} />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -251,7 +252,7 @@ export function ScoreChart({ data }: { data: { bucket: string; count: number }[]
             ) : null
           }
         />
-        <Bar dataKey="count" fill="#3987e5" radius={[4, 4, 0, 0]} maxBarSize={48} />
+        <Bar dataKey="count" fill="var(--color-viz-1)" radius={[4, 4, 0, 0]} maxBarSize={48} />
       </BarChart>
     </ResponsiveContainer>
   )

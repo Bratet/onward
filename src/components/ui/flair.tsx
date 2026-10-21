@@ -49,21 +49,13 @@ export function ProgressRing({ value, size = 64, stroke = 6, children, tone = 'a
   </span>
 }
 
-const AVATAR_HUES = [250, 155, 78, 22, 300, 200, 120, 340]
-
-/** A company monogram with a stable color per name. */
+/** A company monogram: ink initials in a square, like a mark on a letterhead. */
 export function CompanyAvatar({ name, size = 44 }: { name: string; size?: number }) {
   const letters = name.replace(/\([^)]*\)/g, '').trim().split(/[\s&.-]+/).filter(Boolean).slice(0, 2).map((word) => word[0]?.toUpperCase()).join('') || '?'
-  let hash = 0
-  for (const char of name) hash = (hash * 31 + char.charCodeAt(0)) >>> 0
-  const hue = AVATAR_HUES[hash % AVATAR_HUES.length]
-  return <span aria-hidden="true" className="grid shrink-0 place-items-center rounded-xl font-semibold text-white shadow-sm" style={{
-    width: size, height: size, fontSize: size * 0.36,
-    background: `linear-gradient(135deg, oklch(0.66 0.15 ${hue}), oklch(0.5 0.17 ${(hue + 40) % 360}))`,
-  }}>{letters}</span>
+  return <span aria-hidden="true" className="grid shrink-0 place-items-center rounded-md bg-[var(--color-text)] font-bold tracking-tight text-[var(--color-on-solid)]" style={{ width: size, height: size, fontSize: size * 0.4 }}>{letters}</span>
 }
 
-const CONFETTI_COLORS = ['var(--color-accent)', 'var(--color-ok)', 'var(--color-warn)', 'oklch(0.7 0.18 330)', 'oklch(0.75 0.14 200)']
+const CONFETTI_COLORS = ['var(--color-text)', 'var(--color-ok)', 'var(--color-muted)']
 
 /** A short confetti burst from a point on screen, for milestones worth a smile. */
 export function celebrate(origin?: { x: number; y: number }) {

@@ -143,7 +143,7 @@ export function ApplicationDetail({
               type="button"
               disabled={busy}
               onClick={() => void removeApplication()}
-              className="rounded-md bg-[var(--color-bad)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+              className="rounded-md bg-[var(--color-bad)] px-3 py-1.5 text-xs font-medium text-[var(--color-on-solid)] disabled:opacity-40"
             >
               {busy ? 'Deleting…' : 'Yes, delete application'}
             </button>

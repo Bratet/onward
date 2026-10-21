@@ -1,9 +1,9 @@
 import { cn } from '@/lib/utils'
-import type { HTMLAttributes, ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode, Ref } from 'react'
 
-export function Card({ className, children, ...rest }: { className?: string; children: ReactNode } & Omit<HTMLAttributes<HTMLDivElement>, 'className' | 'children'>) {
+export function Card({ className, children, ...rest }: { className?: string; children: ReactNode; ref?: Ref<HTMLDivElement> } & Omit<HTMLAttributes<HTMLDivElement>, 'className' | 'children'>) {
   return (
-    <div {...rest} className={cn('rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]', className)}>
+    <div {...rest} className={cn('sheet', className)}>
       {children}
     </div>
   )
@@ -63,8 +63,8 @@ export function statusTone(status: string): Tone {
 export function Empty({ title, hint }: { title: string; hint?: string }) {
   return (
     <div className="flex flex-col items-center justify-center gap-1 px-6 py-14 text-center">
-      <p className="text-sm text-[var(--color-muted)]">{title}</p>
-      {hint ? <p className="max-w-sm text-xs text-[var(--color-faint)]">{hint}</p> : null}
+      <p className="text-[15px] font-semibold">{title}</p>
+      {hint ? <p className="max-w-sm text-sm leading-relaxed text-[var(--color-muted)]">{hint}</p> : null}
     </div>
   )
 }

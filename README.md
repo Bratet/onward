@@ -309,8 +309,7 @@ skills are editable on the Skills page. The included versions contain generic
 instructions; add your own voice and preferences to your local workspace.
 
 Once an application is sent, its page switches to the process with the company: a
-companion that records replies and interview steps from what you tell it, messages and
-status, and a record tab with the saved posting and its link. The dashboard lists what needs attention today and the tracker filters by phase.
+progress track where you add and update interview rounds, messages and status, and a record tab with the saved posting and its link. The dashboard lists what needs attention today and the tracker filters by phase.
 
 Cover letters research the company automatically and finish with a `humanize-text`
 pass that removes AI-writing patterns without changing facts; the reply always says

@@ -10,6 +10,7 @@ import { ActivityGrid, DailyChart, FunnelChart, ScoreChart } from '@/components/
 import { GoalCard, GoalHistory } from '@/components/GoalCard'
 import { goalProgress, readGoal } from '@/lib/goal'
 import { missingFolder } from '@/lib/statuses'
+import { interviewsAhead, type InterviewItem } from '@/lib/needsYou'
 import { cn, fmtDate, pct, relDays } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
@@ -33,6 +34,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
   const sentToday = appliedByDay(rows).get(localIso(now)) ?? 0
   const funnel = funnelData(stats.byStatus)
   const recent = apps.slice(0, 8)
+  const interviews = interviewsAhead(apps, now)
 
   const linked = apps.filter((a) => a.row && a.folder).length
   const unlinked = apps.filter(missingFolder).length
@@ -64,6 +66,8 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
           </div>
         </Card>
       ) : null}
+
+      {interviews.length ? <InterviewsCard items={interviews} now={now} /> : null}
 
       {/* The goal sits top-right on wide screens and first on narrow ones. */}
       <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
@@ -199,6 +203,32 @@ export default async function DashboardPage({ searchParams }: { searchParams: Pr
 
     </div>
   )
+}
+
+/** Interviews coming up, and past ones waiting for the candidate to confirm they took place. */
+function InterviewsCard({ items, now }: { items: InterviewItem[]; now: Date }) {
+  const upcoming = items.filter((item) => !item.confirm).length
+  const confirm = items.length - upcoming
+  return <Card>
+    <CardHeader title="Interviews" hint={[upcoming ? `${upcoming} coming up` : '', confirm ? `${confirm} to confirm` : ''].filter(Boolean).join(' · ')} />
+    <ul className="divide-y divide-[var(--color-border)]">
+      {items.map((item) => {
+        const days = -(relDays(item.date.slice(0, 10), now) ?? 0)
+        const time = item.date.includes('T') ? `, ${item.date.slice(11, 16)}` : ''
+        return <li key={item.app.key}>
+          <Link href={`/applications/${encodeURIComponent(item.app.key)}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-5 py-3 transition-colors hover:bg-[var(--color-surface-2)]">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium">{item.label} <span className="font-normal text-[var(--color-muted)]">· {item.app.row?.company ?? item.app.key}</span></span>
+              <span className="block text-xs text-[var(--color-muted)] tnum">{fmtDate(item.date.slice(0, 10))}{time}</span>
+            </span>
+            {item.confirm
+              ? <Badge tone="warn">Did it take place?</Badge>
+              : <Badge tone={days <= 1 ? 'warn' : 'neutral'}>{days === 0 ? 'Today' : days === 1 ? 'Tomorrow' : `In ${days} days`}</Badge>}
+          </Link>
+        </li>
+      })}
+    </ul>
+  </Card>
 }
 
 function Stat({

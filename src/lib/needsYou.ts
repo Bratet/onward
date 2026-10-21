@@ -47,3 +47,25 @@ export function needsYou(apps: Application[], now = new Date()): NeedsYouItem[] 
     .filter((item): item is NeedsYouItem => item !== null)
     .sort((a, b) => a.rank - b.rank || (a.when ?? '9999').localeCompare(b.when ?? '9999') || a.since.localeCompare(b.since))
 }
+
+export interface InterviewItem {
+  app: Application
+  label: string
+  date: string
+  /** The day has passed and the candidate has not said it took place yet. */
+  confirm: boolean
+}
+
+/**
+ * Booked interview steps for the dashboard: ones whose day has passed and
+ * still need confirming first, oldest first, then the ones ahead, soonest first.
+ * One per application: its current step. Client-safe.
+ */
+export function interviewsAhead(apps: Application[], now = new Date()): InterviewItem[] {
+  const today = now.toISOString().slice(0, 10)
+  return apps.flatMap((app) => {
+    const step = app.workspace?.step
+    if (!app.row || stageForStatus(app.row.status).stage === 'closed' || step?.state !== 'booked' || !step.date) return []
+    return [{ app, label: step.label, date: step.date, confirm: step.date.slice(0, 10) < today }]
+  }).sort((a, b) => Number(b.confirm) - Number(a.confirm) || a.date.localeCompare(b.date))
+}

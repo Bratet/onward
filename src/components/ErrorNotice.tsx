@@ -14,7 +14,7 @@ export function ErrorNotice({ error, onRetry, onDismiss, className }: {
   return <div role="alert" className={cn('space-y-1 bg-[var(--color-bad-soft)] px-3 py-2 text-xs text-[var(--color-bad)]', className)}>
     <div className="flex flex-wrap items-center gap-2">
       <p className="flex-1 font-medium">{title}</p>
-      {onRetry ? <button type="button" onClick={onRetry} className="rounded-md bg-[var(--color-bad)] px-2.5 py-1 text-[11px] font-medium text-white">Retry</button> : null}
+      {onRetry ? <button type="button" onClick={onRetry} className="rounded-md bg-[var(--color-bad)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-on-solid)]">Retry</button> : null}
       {onDismiss ? <button type="button" onClick={onDismiss} className="rounded-md px-2 py-1 text-[11px] hover:underline">Dismiss</button> : null}
     </div>
     {hint ? <p className="text-[var(--color-text)] opacity-80">{hint}</p> : null}

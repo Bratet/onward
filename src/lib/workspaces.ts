@@ -12,6 +12,7 @@ import { withTailoredDesign } from './tailoring/seed'
 import { generalApplicationSchema, type GeneralApplication } from './generalApplication'
 import type { OutreachDrafts } from './outreach'
 import type { CoverLetter } from './coverLetter'
+import type { FormAnswer } from './formAnswers'
 
 const KEY = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
 const VERSION = 1
@@ -38,6 +39,8 @@ export interface ApplicationWorkspace {
   outreach?: OutreachDrafts
   /** The structured cover letter draft; older records only have outreach['cover-letter'] text. */
   coverLetter?: CoverLetter
+  /** The application form's questions and answers; older applications kept them in application-answers.md. */
+  formAnswers?: FormAnswer[]
   /** The recruiting process after sending: stage, steps, next action, timeline; see lib/journey.ts. */
   journey?: Journey
   version: 1

@@ -7,9 +7,9 @@ import { listSkillRuns } from './skills/runs'
 import type { ApplicationWorkspace } from './workspaces'
 
 /**
- * Everything collected for one application, gathered for the "Job & record"
- * tab: the posting as it was saved, every file with its date, the readable
- * notes, and a timeline. Read-only; it never writes.
+ * Everything collected for one application, gathered for its page once
+ * sent: the posting as it was saved, every file with its date, the readable
+ * notes and the AI runs. Read-only; it never writes.
  */
 
 export interface RecordFile extends FolderDoc {
@@ -18,16 +18,9 @@ export interface RecordFile extends FolderDoc {
   text: string | null
 }
 
-export interface TimelineEvent {
-  at: string
-  label: string
-  detail?: string
-}
-
 export interface ApplicationRecord {
   posting: PostingSource & { savedAt: string | null }
   files: RecordFile[]
-  timeline: TimelineEvent[]
   runs: { total: number; failed: number }
 }
 
@@ -60,28 +53,7 @@ export async function applicationRecord(app: Application, workspace: Application
   return {
     posting,
     files,
-    timeline: timeline(app, workspace, files),
     runs: { total: runs.length, failed: runs.filter((run) => run.status === 'failed').length },
   }
 }
 
-function timeline(app: Application, workspace: ApplicationWorkspace | null, files: RecordFile[]): TimelineEvent[] {
-  const events: TimelineEvent[] = []
-  // Workspaces were only created when an older application was first opened in
-  // the app, so the tracker date wins when it is earlier.
-  const created = [app.row?.date || app.folder?.date, workspace?.createdAt].filter((value): value is string => !!value).sort()[0]
-  if (created) events.push({ at: created, label: 'Application created', detail: app.row ? `Tracker row #${app.row.id}` : undefined })
-  if (workspace?.fit.completedAt && workspace.fit.report) {
-    events.push({ at: workspace.fit.completedAt, label: 'Fit analysis', detail: `${workspace.fit.report.verdict} fit` })
-  }
-  // File times are when the PDF was last written, which a folder move or a
-  // checkout also resets; one later than the applied date says nothing about
-  // what was sent, so it is left out.
-  const applied = workspace?.appliedAt ?? null
-  for (const [key, label] of [['pdf', 'Resume PDF saved'], ['letterPdf', 'Cover letter PDF saved']] as const) {
-    const file = files.find((entry) => entry.key === key && entry.name.endsWith('.pdf'))
-    if (file?.modifiedAt && (!applied || file.modifiedAt <= applied)) events.push({ at: file.modifiedAt, label, detail: file.name })
-  }
-  if (applied) events.push({ at: applied, label: 'Marked as sent' })
-  return events.sort((a, b) => a.at.localeCompare(b.at))
-}

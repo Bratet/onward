@@ -228,7 +228,7 @@ export function ApplicationsTable({ applications, folders }: { applications: App
               type="button"
               disabled={deleting}
               onClick={() => void deleteKeys(confirm)}
-              className="rounded-md bg-[var(--color-bad)] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-40"
+              className="rounded-md bg-[var(--color-bad)] px-3 py-1.5 text-xs font-medium text-[var(--color-on-solid)] disabled:opacity-40"
             >
               {deleting ? 'Deleting…' : 'Yes, delete'}
             </button>

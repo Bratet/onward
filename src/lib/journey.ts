@@ -3,8 +3,8 @@
  * is in, the company's actual steps, the next thing to do, and a timeline of
  * every update with what it changed, so each one can be undone.
  *
- * The companion never edits this directly. It proposes typed operations; the
- * candidate reviews them and the app applies the ones they keep. Client-safe.
+ * Every change is a typed operation the candidate makes from the steps form;
+ * each saved change is one timeline entry that can be undone. Client-safe.
  */
 import { z } from 'zod'
 
@@ -31,7 +31,7 @@ export const OUTCOME_LABEL: Record<Outcome, string> = {
   'did-not-apply': 'Did not apply',
 }
 
-export const STEP_STATES = ['expected', 'booked', 'done', 'passed', 'not-passed'] as const
+export const STEP_STATES = ['expected', 'booked', 'done', 'passed', 'not-passed', 'cancelled'] as const
 export type StepState = typeof STEP_STATES[number]
 
 export const STEP_STATE_LABEL: Record<StepState, string> = {
@@ -40,6 +40,7 @@ export const STEP_STATE_LABEL: Record<StepState, string> = {
   done: 'Done',
   passed: 'Passed',
   'not-passed': 'Not passed',
+  cancelled: 'Aborted',
 }
 
 const date = z.string().regex(/^\d{4}-\d{2}-\d{2}(T\d{2}:\d{2})?$/, 'Use a date like 2026-10-20')
@@ -64,39 +65,18 @@ export type Contact = z.infer<typeof contactSchema>
 export const nextActionSchema = z.object({ text: z.string().trim().min(1).max(200), due: date.nullable().default(null) })
 export type NextAction = z.infer<typeof nextActionSchema>
 
-/** One change the companion may propose. Each is small enough to review on its own line. */
+/** One change to the journey. Each is small enough to read on its own line. */
 export const operationSchema = z.discriminatedUnion('op', [
   z.object({ op: z.literal('set_stage'), stage: z.enum(STAGES), outcome: z.enum(OUTCOMES).nullable().default(null) }),
   z.object({ op: z.literal('add_step'), label: z.string().trim().min(1).max(80), date: date.nullable().default(null), with: z.string().trim().max(200).default(''), state: z.enum(STEP_STATES) }),
   z.object({ op: z.literal('update_step'), stepId: z.string().min(1).max(40), state: z.enum(STEP_STATES).nullable().default(null), date: date.nullable().default(null), with: z.string().trim().max(200).nullable().default(null), notes: z.string().trim().max(2000).nullable().default(null) }),
+  z.object({ op: z.literal('remove_step'), stepId: z.string().min(1).max(40) }),
   z.object({ op: z.literal('set_next_action'), text: z.string().trim().min(1).max(200), due: date.nullable().default(null) }),
   z.object({ op: z.literal('clear_next_action') }),
   z.object({ op: z.literal('add_contact'), name: z.string().trim().min(1).max(120), role: z.string().trim().max(120).default(''), email: z.string().trim().max(200).default('') }),
   z.object({ op: z.literal('add_note'), text: z.string().trim().min(1).max(1000) }),
 ])
 export type Operation = z.infer<typeof operationSchema>
-
-export const BASES = ['from-message', 'guessed', 'needs-you'] as const
-export type Basis = typeof BASES[number]
-
-/** An operation with the evidence for it, as the companion proposed it. */
-export const proposalItemSchema = z.object({
-  operation: operationSchema,
-  /** The words in the candidate's message this came from; empty when guessed. */
-  quote: z.string().max(400).default(''),
-  basis: z.enum(BASES),
-  why: z.string().max(300).default(''),
-})
-export type ProposalItem = z.infer<typeof proposalItemSchema>
-
-export interface JourneyProposal {
-  /** What the companion understood, in a sentence or two. */
-  reply: string
-  /** Asked when something it needs is missing, instead of guessing. */
-  question: string | null
-  items: ProposalItem[]
-  runId: string | null
-}
 
 export const timelineEntrySchema = z.object({
   id: z.string().min(1).max(40),
@@ -205,6 +185,13 @@ export function applyOperations(journey: Journey, operations: Operation[]): { jo
         if (operation.notes !== null) step.notes = operation.notes
         break
       }
+      case 'remove_step': {
+        if (operation.stepId === 'applied') throw new Error('The sent step comes from the tracker and cannot be removed')
+        const index = next.steps.findIndex((entry) => entry.id === operation.stepId)
+        if (index < 0) throw new Error(`No step "${operation.stepId}" in this application`)
+        next.steps.splice(index, 1)
+        break
+      }
       case 'set_next_action':
         next.next = { text: operation.text, due: operation.due }
         break
@@ -256,7 +243,7 @@ export function stepProgress(journey: Journey): { finished: number; total: numbe
   return { finished: journey.steps.filter((step) => step.state === 'done' || step.state === 'passed' || step.state === 'not-passed').length, total: journey.steps.length }
 }
 
-/** One line per operation, in the candidate's terms, for the proposal card and the timeline. */
+/** One line per operation, in the candidate's terms, for the timeline. */
 export function describeOperation(operation: Operation, journey: Journey): string {
   const step = (id: string) => journey.steps.find((entry) => entry.id === id)?.label ?? id
   const when = (value: string | null) => value ? `, ${value.replace('T', ' at ')}` : ''
@@ -274,116 +261,12 @@ export function describeOperation(operation: Operation, journey: Journey): strin
       ].filter(Boolean)
       return `${step(operation.stepId)}: ${parts.join(', ') || 'updated'}`
     }
+    case 'remove_step': return `Remove step: ${step(operation.stepId)}`
     case 'set_next_action': return `Next: ${operation.text}${operation.due ? ` (by ${operation.due})` : ''}`
     case 'clear_next_action': return 'Clear the next action'
     case 'add_contact': return `Add contact: ${operation.name}${operation.role ? `, ${operation.role}` : ''}`
     case 'add_note': return `Note: ${operation.text}`
   }
-}
-
-/**
- * What the model returns. Every field is present (null when unused) so the same
- * schema works under both CLIs' strict structured output.
- */
-export const companionJsonSchema = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['reply', 'question', 'items'],
-  properties: {
-    reply: { type: 'string' },
-    question: { type: ['string', 'null'] },
-    items: {
-      type: 'array',
-      maxItems: 12,
-      items: {
-        type: 'object',
-        additionalProperties: false,
-        required: ['op', 'stage', 'outcome', 'stepId', 'label', 'date', 'with', 'state', 'text', 'due', 'name', 'role', 'email', 'quote', 'basis', 'why'],
-        properties: {
-          op: { type: 'string', enum: ['set_stage', 'add_step', 'update_step', 'set_next_action', 'clear_next_action', 'add_contact', 'add_note'] },
-          stage: { type: ['string', 'null'], enum: [...STAGES, null] },
-          outcome: { type: ['string', 'null'], enum: [...OUTCOMES, null] },
-          stepId: { type: ['string', 'null'] },
-          label: { type: ['string', 'null'] },
-          date: { type: ['string', 'null'] },
-          with: { type: ['string', 'null'] },
-          state: { type: ['string', 'null'], enum: [...STEP_STATES, null] },
-          text: { type: ['string', 'null'] },
-          due: { type: ['string', 'null'] },
-          name: { type: ['string', 'null'] },
-          role: { type: ['string', 'null'] },
-          email: { type: ['string', 'null'] },
-          quote: { type: 'string' },
-          basis: { type: 'string', enum: [...BASES] },
-          why: { type: 'string' },
-        },
-      },
-    },
-  },
-} as const
-
-type RawItem = Record<string, unknown>
-
-/** Turn the model's flat items into typed operations, dropping any that do not validate. */
-export function parseCompanionOutput(raw: unknown): { reply: string; question: string | null; items: ProposalItem[]; dropped: number } {
-  const value = (raw && typeof raw === 'object' ? raw : {}) as { reply?: unknown; question?: unknown; items?: unknown }
-  const items: ProposalItem[] = []
-  let dropped = 0
-  for (const item of Array.isArray(value.items) ? value.items as RawItem[] : []) {
-    const clean = Object.fromEntries(Object.entries(item).filter(([, entry]) => entry !== null))
-    const operation = operationSchema.safeParse(clean)
-    const parsed = operation.success ? proposalItemSchema.safeParse({ operation: operation.data, quote: clean.quote ?? '', basis: clean.basis, why: clean.why ?? '' }) : null
-    if (parsed?.success) items.push(parsed.data)
-    else dropped++
-  }
-  return {
-    reply: typeof value.reply === 'string' ? value.reply.trim() : '',
-    question: typeof value.question === 'string' && value.question.trim() ? value.question.trim() : null,
-    items,
-    dropped,
-  }
-}
-
-export function companionPrompt(opts: {
-  skill: string
-  company: string
-  role: string
-  status: string | null
-  today: string
-  journey: Journey
-  notes: string
-  message: string
-}): string {
-  const steps = opts.journey.steps.length
-    ? opts.journey.steps.map((step) => `- id "${step.id}": ${step.label}${step.date ? `, ${step.date}` : ''}${step.with ? `, with ${step.with}` : ''}, ${STEP_STATE_LABEL[step.state].toLowerCase()}`).join('\n')
-    : '(no steps yet)'
-  const history = opts.journey.timeline.filter((entry) => !entry.undoneAt).slice(0, 8)
-    .map((entry) => `- ${entry.at.slice(0, 10)}: ${entry.summary}`).join('\n') || '(none)'
-  return [
-    opts.skill.trim(),
-    '',
-    '## This application',
-    `Company: ${opts.company}`,
-    `Role: ${opts.role}`,
-    `Today: ${opts.today}`,
-    `Stage: ${STAGE_LABEL[opts.journey.stage]}${opts.journey.outcome ? ` (${OUTCOME_LABEL[opts.journey.outcome]})` : ''}; tracker status ${opts.status ?? 'none'}`,
-    `Next action: ${opts.journey.next ? `${opts.journey.next.text}${opts.journey.next.due ? ` by ${opts.journey.next.due}` : ''}` : '(none)'}`,
-    '',
-    '## Steps so far',
-    steps,
-    '',
-    '## Contacts',
-    opts.journey.contacts.map((contact) => `- ${contact.name}${contact.role ? `, ${contact.role}` : ''}`).join('\n') || '(none)',
-    '',
-    '## Earlier updates',
-    history,
-    '',
-    '## Tracker notes',
-    opts.notes.trim() || '(none)',
-    '',
-    '## What the candidate just told you',
-    opts.message.trim(),
-  ].join('\n')
 }
 
 /** Lists put live applications first, furthest along on top, and closed ones last. */

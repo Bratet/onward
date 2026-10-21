@@ -393,9 +393,9 @@ export function TailorPanel({
           <button
             onClick={() => void accept()}
             disabled={busy}
-            className="flex items-center gap-1.5 rounded-md bg-[var(--color-ok)] px-2.5 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40"
+            className="flex items-center gap-1.5 rounded-md bg-[var(--color-ok)] px-2.5 py-1 text-xs font-medium text-[var(--color-on-solid)] hover:opacity-90 disabled:opacity-40"
           >
-            {phase === 'accepting' ? <Spinner className="border-t-white" /> : null}
+            {phase === 'accepting' ? <Spinner className="border-t-[var(--color-on-solid)]" /> : null}
             {phase === 'accepting' ? 'Saving…' : 'Accept & save'}
           </button>
         </div>

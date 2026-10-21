@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { Card, CardHeader, Badge, Spinner } from '@/components/ui/primitives'
+import { Spinner } from '@/components/ui/primitives'
 import { readNdjson } from '@/lib/ndjson'
 import { isUnnamedCompany, type JdAnalysis } from '@/lib/tailoring/jd'
 import { BASE_CVS, defaultBaseCv, type BaseCv } from '@/lib/tailoring/baseCv'
@@ -12,14 +12,23 @@ import { cn } from '@/lib/utils'
 import type { SkillSummary } from '@/lib/skills/types'
 import { FeatureEnginePicker } from '@/components/FeatureEnginePicker'
 import { GeneralApplicationForm } from '@/components/GeneralApplicationForm'
-import { ArrowLeft, ArrowRight, ClipboardList, FileText, Link2 } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Check, ChevronRight, ClipboardList, FileText, Link2, Settings2, X, type LucideIcon } from 'lucide-react'
 
 type Step = 'paste' | 'analyzing' | 'review' | 'creating'
 
-export function NewApplicationFlow() {
+/**
+ * Unsaved means closing the dialog would throw away an analysis; busy means a
+ * request is running and closing would lose it, so the dialog stays open.
+ */
+export type FlowState = 'idle' | 'unsaved' | 'busy'
+
+/** In a dialog, `onClose` is set: the flow shows a close button instead of the page header. */
+export function NewApplicationFlow({ onClose, onStateChange }: { onClose?: () => void; onStateChange?: (state: FlowState) => void } = {}) {
   const router = useRouter()
   const [step, setStep] = useState<Step>('paste')
   const [noJd, setNoJd] = useState(false)
+  const [pasting, setPasting] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
   const [manualBusy, setManualBusy] = useState(false)
   const [jd, setJd] = useState('')
   const [url, setUrl] = useState('')
@@ -42,6 +51,9 @@ export function NewApplicationFlow() {
 
   const [createdKey, setCreatedKey] = useState<string | null>(null)
   const [fetching, setFetching] = useState(false)
+  const busy = fetching || manualBusy || step === 'analyzing' || step === 'creating'
+  const state: FlowState = busy ? 'busy' : step === 'review' ? 'unsaved' : 'idle'
+  useEffect(() => { onStateChange?.(state) }, [state, onStateChange])
 
   /** Read the posting from its link, fill the form, then analyze it straight away. */
   async function fetchAndAnalyze() {
@@ -157,248 +169,283 @@ export function NewApplicationFlow() {
     }
   }
 
-  return (
-    <div className="mx-auto max-w-5xl space-y-7 pb-12">
-      <div className="border-b border-[var(--color-border)] pb-6">
-        <Link href="/applications" className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted)] hover:text-[var(--color-accent)]"><ArrowLeft className="size-3.5" /> Applications</Link>
-        <h1 className="mt-4 text-3xl font-semibold tracking-tight">New application</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[var(--color-muted)]">
-          {noJd ? 'Start with your general resume and add the opportunity details you know.' : 'Add a job posting, review what the AI finds, then create a workspace for this opportunity.'}
-        </p>
+  const resume = analysis ? analysis.baseCv ?? defaultBaseCv(analysis.archetype) : 'general'
+  const suggested = analysis ? defaultBaseCv(analysis.archetype) : 'general'
+  const facts = analysis ? [analysis.seniority, analysis.location, analysis.workMode].filter((fact): fact is string => !!fact && !/^(not |unknown|n\/a)/i.test(fact)) : []
+  const sponsorship = sponsorshipTone(analysis?.sponsorship)
+  const subtitle = noJd ? 'No posting? Track the opportunity with a copy of your general resume, ready to tweak.'
+    : step === 'review' ? 'Check what the AI read from the posting. Nothing is saved until you create the application.'
+    : step === 'creating' ? 'Saving the application and comparing it with your resume.'
+    : 'Give the job posting. The AI reads it, then you check the details before anything is saved.'
+
+  const body = (
+    <div className="space-y-5">
+      <div className="flex items-start gap-3">
+        <div className="min-w-0 flex-1">
+          <h1 id="new-application-title" className={onClose ? 'text-xl font-semibold tracking-tight' : 'text-2xl font-semibold tracking-tight'}>New application</h1>
+          <p className="mt-1 text-sm leading-relaxed text-[var(--color-muted)]">{subtitle}</p>
+        </div>
+        {!noJd && step !== 'review' && step !== 'creating' ? (
+          <button type="button" onClick={() => setShowSettings((open) => !open)} aria-expanded={showSettings} aria-controls="analysis-settings" aria-label="Analysis settings" title="Analysis settings" className={cn(iconButton, showSettings && 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]')}>
+            <Settings2 className="size-4" aria-hidden="true" />
+          </button>
+        ) : null}
+        {onClose ? <button type="button" onClick={onClose} disabled={busy} aria-label="Close" className={iconButton}><X className="size-4" aria-hidden="true" /></button> : null}
       </div>
 
-      {!noJd ? <ol className="grid grid-cols-3 gap-2 text-center text-[11px] font-medium text-[var(--color-muted)] sm:flex sm:items-center sm:text-xs" aria-label="Application setup progress">
-        <li aria-current={step === 'paste' || step === 'analyzing' ? 'step' : undefined} className={`rounded-lg px-2 py-2 sm:rounded-full sm:px-3 sm:py-1.5 ${step === 'paste' || step === 'analyzing' ? 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]' : 'bg-[var(--color-surface-2)]'}`}>1. Add posting</li>
-        <ArrowRight className="hidden size-3.5 sm:block" aria-hidden="true" />
-        <li aria-current={step === 'review' ? 'step' : undefined} className={`rounded-lg px-2 py-2 sm:rounded-full sm:px-3 sm:py-1.5 ${step === 'review' ? 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]' : 'bg-[var(--color-surface-2)]'}`}>2. Review analysis</li>
-        <ArrowRight className="hidden size-3.5 sm:block" aria-hidden="true" />
-        <li className={`rounded-lg px-2 py-2 sm:rounded-full sm:px-3 sm:py-1.5 ${step === 'creating' ? 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]' : 'bg-[var(--color-surface-2)]'}`}>3. Create workspace</li>
-      </ol> : null}
-
-      {step === 'creating' ? <p role="status" className="flex items-center gap-2 text-sm text-[var(--color-muted)]"><Spinner />{createdKey ? 'Comparing the job requirements with your master resume… This can take a minute.' : 'Creating the application…'}</p> : null}
-      {createdKey && error ? <Link href={`/applications/${createdKey}?tab=workspace&pane=fit`} className="text-sm text-[var(--color-accent)] underline">Open the analysis workspace</Link> : null}
-      {error ? (
-        <Card className="border-[var(--color-bad-soft)]">
-          <p className="px-4 py-2.5 text-xs text-[var(--color-bad)]">{error}</p>
-        </Card>
+      {!noJd ? (
+        <ol aria-label="Steps" className="flex items-center gap-2 text-xs font-medium">
+          <StepMarker n={1} label="Job posting" state={step === 'paste' || step === 'analyzing' ? 'current' : 'done'} />
+          <span aria-hidden="true" className={cn('h-px w-8 sm:w-12', step === 'review' || step === 'creating' ? 'bg-[var(--color-ok)]' : 'bg-[var(--color-border-strong)]')} />
+          <StepMarker n={2} label="Check & create" state={step === 'review' || step === 'creating' ? 'current' : 'next'} />
+        </ol>
       ) : null}
 
-      {step === 'paste' ? <div className="grid gap-3 sm:grid-cols-2" role="group" aria-label="Application starting point">
-        <button type="button" disabled={manualBusy} aria-pressed={!noJd} onClick={() => setNoJd(false)} className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left transition-colors hover:border-[var(--color-border-strong)] aria-pressed:border-[var(--color-accent)] aria-pressed:bg-[var(--color-accent-soft)]">
-          <ClipboardList className="mt-0.5 size-5 shrink-0 text-[var(--color-accent)]" aria-hidden="true" />
-          <span><span className="block text-sm font-semibold">I have a job description</span><span className="mt-1 block text-xs leading-relaxed text-[var(--color-muted)]">Analyze requirements and prepare a tailored application.</span></span>
-        </button>
-        <button type="button" disabled={manualBusy} aria-pressed={noJd} onClick={() => setNoJd(true)} className="flex items-start gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left transition-colors hover:border-[var(--color-border-strong)] aria-pressed:border-[var(--color-accent)] aria-pressed:bg-[var(--color-accent-soft)]">
-          <FileText className="mt-0.5 size-5 shrink-0 text-[var(--color-accent)]" aria-hidden="true" />
-          <span><span className="block text-sm font-semibold">No job description</span><span className="mt-1 block text-xs leading-relaxed text-[var(--color-muted)]">Track the opportunity using a copy of your general resume.</span></span>
-        </button>
-      </div> : null}
-      {noJd ? <Card><GeneralApplicationForm onBusy={setManualBusy} /></Card> : null}
-
-      {!noJd && (step === 'paste' || step === 'analyzing') ? (
-        <Card>
-          <CardHeader title="Job posting" hint="Paste a LinkedIn or career-page link to fetch the posting, or paste the full text." />
-          <div className="space-y-5 p-5">
-            <div>
-            <label htmlFor="posting-url" className="block text-xs font-medium text-[var(--color-muted)]">Posting URL</label>
-            <div className="mt-1.5 flex flex-wrap gap-2">
-              <span className="flex min-w-0 flex-1 basis-64 items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 focus-within:outline-2 focus-within:outline-[var(--color-accent)]"><Link2 className="size-4 text-[var(--color-faint)]" aria-hidden="true" /><input
-                id="posting-url"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && url.trim() && !fetching && step !== 'analyzing') void fetchAndAnalyze() }}
-                type="url"
-                placeholder="https://www.linkedin.com/jobs/view/… or a career-page link"
-                disabled={fetching || step === 'analyzing'}
-                className="h-10 w-full bg-transparent text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-faint)]"
-              /></span>
-              <button
-                type="button"
-                onClick={() => void fetchAndAnalyze()}
-                disabled={!url.trim() || fetching || step === 'analyzing'}
-                className="flex min-h-10 items-center gap-2 rounded-lg border border-[var(--color-border)] px-4 text-sm font-medium hover:bg-[var(--color-surface-2)] disabled:opacity-40"
-              >
-                {fetching ? <Spinner /> : null}
-                {fetching ? 'Fetching…' : 'Fetch & analyze'}
-              </button>
-            </div>
-            <p className="mt-1.5 text-[11px] text-[var(--color-faint)]">LinkedIn search links work too. Indeed blocks fetching, so paste those postings below.</p>
-            </div>
-            <label className="block text-xs font-medium text-[var(--color-muted)]">Job description
-            <textarea
-              value={jd}
-              onChange={(e) => setJd(e.target.value)}
-              placeholder="Paste the full job description here…"
-              rows={14}
-              disabled={step === 'analyzing'}
-              className="mt-1.5 w-full resize-y rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] p-4 text-sm leading-relaxed text-[var(--color-text)] outline-none placeholder:text-[var(--color-faint)] focus:border-[var(--color-accent)] disabled:opacity-60"
-            /></label>
-            <div className="flex flex-wrap items-center gap-3 border-t border-[var(--color-border)] pt-4">
-              <button
-                type="button"
-                onClick={() => void analyze()}
-                disabled={jd.trim().length < 40 || step === 'analyzing'}
-                className="flex min-h-10 items-center gap-2 rounded-lg bg-[var(--color-accent)] px-4 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-40"
-              >
-                {step === 'analyzing' ? <Spinner className="border-t-[var(--color-bg)]" /> : null}
-                {step === 'analyzing' ? 'Analyzing…' : 'Analyze job'}
-              </button>
-              <span className="text-xs text-[var(--color-faint)] tnum">{jd.trim().length.toLocaleString()} characters</span>
-              {progress.length ? <span role="status" className="min-w-0 flex-1 truncate text-xs text-[var(--color-muted)]">{progress.at(-1)}</span> : null}
-            </div>
-            {jd.trim().length > 0 && jd.trim().length < 40 ? <p className="text-xs text-[var(--color-warn)]">Add at least 40 characters from the posting to analyze it.</p> : null}
-            <details className="rounded-lg bg-[var(--color-surface-2)] p-3 text-xs">
-              <summary className="cursor-pointer font-medium text-[var(--color-muted)]">Analysis options</summary>
-              <div className="mt-3 flex flex-wrap items-center gap-3">
-              <FeatureEnginePicker feature="job-analysis" disabled={step === 'analyzing'} />
+      {showSettings && !noJd && (step === 'paste' || step === 'analyzing') ? (
+        <div id="analysis-settings" className="space-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4">
+          <div>
+            <p className="text-sm font-medium">Analysis settings</p>
+            <p className="mt-0.5 text-xs text-[var(--color-muted)]">Which AI reads the posting, and with which instructions. The model choice is kept for next time.</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <FeatureEnginePicker feature="job-analysis" disabled={step === 'analyzing'} />
+            <label className="flex items-center gap-1.5 text-xs text-[var(--color-muted)]">Skill
               <select
                 value={skillId}
                 onChange={(event) => setSkillId(event.target.value)}
                 disabled={step === 'analyzing'}
-                aria-label="Job analysis skill"
                 className="h-8 max-w-52 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs text-[var(--color-muted)] outline-none focus:border-[var(--color-accent)] disabled:opacity-40"
               >
                 {skills.length ? skills.map((skill) => (
                   <option key={skill.id} value={skill.id}>{skill.name} · v{skill.version}</option>
                 )) : <option value="analyze-job">Analyze job posting</option>}
               </select>
-              <Link href={`/skills/${skillId}`} className="text-xs text-[var(--color-accent)] hover:underline">Edit skill</Link>
-              <Link href="/settings" className="text-xs text-[var(--color-accent)] hover:underline">All AI settings</Link>
-              </div>
-            </details>
+            </label>
+          </div>
+          <p className="flex gap-4 text-xs">
+            <Link href={`/skills/${skillId}`} className="text-[var(--color-accent)] hover:underline">Edit the skill</Link>
+            <Link href="/settings" className="text-[var(--color-accent)] hover:underline">All AI settings</Link>
+          </p>
+        </div>
+      ) : null}
+
+      {noJd ? (
+        <div className="space-y-4">
+          <button type="button" disabled={manualBusy} onClick={() => setNoJd(false)} className={textButton}><ArrowLeft className="size-3.5" aria-hidden="true" /> I have a job posting</button>
+          <GeneralApplicationForm onBusy={setManualBusy} onCreated={onClose} />
+        </div>
+      ) : null}
+
+      {!noJd && (step === 'paste' || step === 'analyzing') ? (
+        <div className="space-y-4">
+          <div className="rounded-xl bg-[var(--color-accent-soft)] p-4 sm:p-5">
+            {pasting ? (
+              <>
+                <label htmlFor="posting-text" className="block text-sm font-semibold">Paste the job description</label>
+                <p className="mt-0.5 text-xs text-[var(--color-muted)]">The whole posting: title, company, responsibilities and requirements.</p>
+                <textarea
+                  id="posting-text"
+                  autoFocus
+                  value={jd}
+                  onChange={(e) => setJd(e.target.value)}
+                  rows={onClose ? 8 : 14}
+                  disabled={step === 'analyzing'}
+                  className="mt-3 w-full resize-y rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] p-3.5 text-sm leading-relaxed text-[var(--color-text)] outline-none focus:border-[var(--color-accent)] disabled:opacity-60"
+                />
+                <div className="mt-3 flex flex-wrap items-center gap-3">
+                  <button type="button" onClick={() => void analyze()} disabled={jd.trim().length < 40 || step === 'analyzing'} aria-busy={step === 'analyzing'} className={primaryButton}>
+                    {step === 'analyzing' ? <Spinner className="border-[var(--color-on-solid)]/30 border-t-[var(--color-on-solid)]" /> : null}
+                    {step === 'analyzing' ? 'Analyzing…' : 'Analyze posting'}
+                  </button>
+                  <span className={cn('text-xs tnum', jd.trim().length > 0 && jd.trim().length < 40 ? 'text-[var(--color-warn)]' : 'text-[var(--color-muted)]')}>
+                    {jd.trim().length > 0 && jd.trim().length < 40 ? 'Paste at least 40 characters.' : `${jd.trim().length.toLocaleString()} characters`}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <>
+                <label htmlFor="posting-url" className="block text-sm font-semibold">Paste the link to the job</label>
+                <p className="mt-0.5 text-xs text-[var(--color-muted)]">A LinkedIn job or search link, or a company careers page.</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <span className="flex h-11 min-w-0 flex-1 basis-72 items-center gap-2.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3.5 focus-within:border-[var(--color-accent)]">
+                    <Link2 className="size-4 shrink-0 text-[var(--color-accent)]" aria-hidden="true" />
+                    <input
+                      id="posting-url"
+                      autoFocus
+                      value={url}
+                      onChange={(e) => setUrl(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' && url.trim() && !busy) void fetchAndAnalyze() }}
+                      type="url"
+                      inputMode="url"
+                      placeholder="https://www.linkedin.com/jobs/view/…"
+                      disabled={busy}
+                      className="h-full w-full bg-transparent text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-faint)] disabled:opacity-60"
+                    />
+                  </span>
+                  <button type="button" onClick={() => void fetchAndAnalyze()} disabled={!url.trim() || busy} aria-busy={busy} className={cn(primaryButton, 'h-11')}>
+                    {busy ? <Spinner className="border-[var(--color-on-solid)]/30 border-t-[var(--color-on-solid)]" /> : null}
+                    {fetching ? 'Fetching…' : step === 'analyzing' ? 'Analyzing…' : 'Analyze posting'}
+                  </button>
+                </div>
+              </>
+            )}
             {step === 'analyzing' ? (
-              <p className="text-[11px] text-[var(--color-faint)]">
-                This runs your local CLI against your subscription, so it can take up to a minute.
+              <p role="status" className="mt-3 flex items-center gap-2 text-xs text-[var(--color-muted)]">
+                <span className="min-w-0 truncate">{progress.at(-1) ?? 'Starting the analysis…'}</span>
+                <span className="shrink-0">· usually under a minute</span>
               </p>
             ) : null}
           </div>
-        </Card>
+
+          {pasting ? (
+            <OptionRow icon={Link2} question="Have a link?" action="Use the link instead" disabled={step === 'analyzing'} onClick={() => { setPasting(false); setError(null) }} />
+          ) : (
+            <OptionRow icon={ClipboardList} question="No link, or an Indeed link?" action="Paste the job description" disabled={busy} onClick={() => { setPasting(true); setError(null) }} />
+          )}
+        </div>
       ) : null}
 
       {analysis && step === 'review' && !createdKey ? (
-        <>
-          {runId ? (
-            <div className="flex justify-end">
-              <Link href={`/runs/${runId}`} className="text-xs text-[var(--color-accent)] hover:underline">Inspect analysis run →</Link>
-            </div>
-          ) : null}
+        <div className="space-y-5">
           {duplicates.length ? <DuplicateWarning matches={duplicates} /> : null}
-          <Card>
-            <CardHeader
-              title="What the engine read"
-              hint="Check this before creating the folder. Everything below comes from the posting."
-              action={
-                <button onClick={() => setStep('paste')} className="text-xs text-[var(--color-accent)] hover:underline">
-                  Edit posting
-                </button>
-              }
-            />
-            <div className="grid gap-x-6 gap-y-3 p-5 sm:grid-cols-2">
-              <label className="block">
-                <span className="block text-[11px] text-[var(--color-faint)]">Company</span>
-                <input
-                  value={analysis.company}
-                  onChange={(e) => setAnalysis({ ...analysis, company: e.target.value })}
-                  onBlur={() => { if (!isUnnamedCompany(analysis.company)) void checkDuplicates(analysis) }}
-                  placeholder="Not named in the posting: type it"
-                  aria-invalid={missingCompany}
-                  className={cn(
-                    'mt-0.5 h-8 w-full rounded-md border bg-[var(--color-bg)] px-2 text-[13px] outline-none focus:border-[var(--color-accent)] placeholder:text-[var(--color-faint)]',
-                    missingCompany ? 'border-[var(--color-warn)]' : 'border-[var(--color-border)]',
-                  )}
-                />
-                {missingCompany ? <span className="mt-1 block text-[11px] text-[var(--color-warn)]">The posting doesn&apos;t name the employer. Add it to create the application.</span> : null}
-              </label>
-              <Field label="Role" value={analysis.role} />
-              <Field label="Archetype" value={analysis.archetype} />
-              <Field label="Seniority" value={analysis.seniority} />
-              <Field label="Location" value={analysis.location} />
-              <Field label="Work mode" value={analysis.workMode} />
-              <Field label="Language" value={analysis.language === 'fr' ? 'French → FR master' : 'English → EN master'} />
-              <label className="block">
-                <span className="block text-[11px] text-[var(--color-faint)]">Starting resume</span>
-                <select
-                  value={analysis.baseCv ?? defaultBaseCv(analysis.archetype)}
-                  onChange={(e) => setAnalysis({ ...analysis, baseCv: e.target.value as BaseCv })}
-                  className="mt-0.5 h-8 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 text-[13px] outline-none focus:border-[var(--color-accent)]"
-                >
-                  {BASE_CVS.map((base) => (
-                    <option key={base.id} value={base.id}>
-                      {base.label} {analysis.language.toUpperCase()}{base.id === defaultBaseCv(analysis.archetype) ? ' (suggested for this job)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <Field label="Paper" value={analysis.paperSize} />
-              <Field label="Sponsorship" value={analysis.sponsorship} />
-            </div>
-            {analysis.summary ? (
-              <p className="border-t border-[var(--color-border)] px-5 py-3 text-[13px] leading-relaxed text-[var(--color-muted)]">
-                {analysis.summary}
-              </p>
-            ) : null}
-          </Card>
-
-          <div className="grid gap-3 lg:grid-cols-2">
-            <Card>
-              <CardHeader
-                title="Requirements"
-                hint={`${analysis.requirements.filter((r) => r.weight === 'must').length} must · ${analysis.requirements.filter((r) => r.weight === 'nice').length} nice`}
-              />
-              <ul className="max-h-80 divide-y divide-[var(--color-border)] overflow-y-auto">
-                {[...analysis.requirements].sort((a, b) =>
-                  a.weight === b.weight ? a.rank - b.rank : a.weight === 'must' ? -1 : 1,
-                ).map((r, i) => (
-                  <li key={i} className="flex items-start gap-2.5 px-5 py-2">
-                    <Badge tone={r.weight === 'must' ? 'accent' : 'neutral'}>{r.weight} {r.rank}</Badge>
-                    <span className="min-w-0 text-[13px] leading-snug text-[var(--color-muted)]">
-                      <span className="block text-[var(--color-text)]">{r.text}</span>
-                      <span className="mt-0.5 block text-[11px] text-[var(--color-faint)]">{r.priorityReason}</span>
-                    </span>
-                  </li>
-                ))}
+          <section aria-labelledby="read-title" className="rounded-xl bg-[var(--color-surface-2)] p-4 sm:p-5">
+            <h2 id="read-title" className="text-lg font-semibold leading-snug tracking-tight text-balance">{analysis.role || 'Role not named'}</h2>
+            {facts.length || sponsorship ? (
+              <ul className="mt-2.5 flex flex-wrap gap-1.5">
+                {facts.map((fact) => <li key={fact} className="rounded-md bg-[var(--color-surface)] px-2 py-0.5 text-xs text-[var(--color-muted)]">{fact}</li>)}
+                {sponsorship ? <li className={cn('rounded-md px-2 py-0.5 text-xs font-medium', SPONSORSHIP_TONE[sponsorship.tone])}>{sponsorship.label}</li> : null}
               </ul>
-            </Card>
-
-            <Card>
-              <CardHeader title="Keywords" hint={`${analysis.keywords.length} extracted`} />
-              <div className="flex flex-wrap gap-1.5 p-5">
-                {analysis.keywords.length ? (
-                  analysis.keywords.map((k) => <Badge key={k}>{k}</Badge>)
-                ) : (
-                  <p className="text-xs text-[var(--color-faint)]">None named in the posting.</p>
-                )}
-              </div>
-            </Card>
+            ) : null}
+            {analysis.summary ? <p className="mt-3 max-w-[68ch] text-[13px] leading-relaxed text-[var(--color-muted)]">{analysis.summary}</p> : null}
+          </section>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="block text-sm font-medium">Company</span>
+              <input
+                value={analysis.company}
+                onChange={(e) => setAnalysis({ ...analysis, company: e.target.value })}
+                onBlur={() => { if (!isUnnamedCompany(analysis.company)) void checkDuplicates(analysis) }}
+                placeholder="Type the employer's name"
+                aria-invalid={missingCompany}
+                aria-describedby="company-help"
+                className={cn(field, missingCompany && 'border-[var(--color-warn)] bg-[var(--color-warn-soft)]')}
+              />
+              <span id="company-help" className={cn('mt-1.5 block text-xs', missingCompany ? 'font-medium text-[var(--color-warn)]' : 'text-[var(--color-faint)]')}>
+                {missingCompany ? 'The posting doesn’t name the employer. Type it to continue.' : 'Fix it if the AI got it wrong.'}
+              </span>
+            </label>
+            <label className="block">
+              <span className="block text-sm font-medium">Start from</span>
+              <select value={resume} onChange={(e) => setAnalysis({ ...analysis, baseCv: e.target.value as BaseCv })} className={field}>
+                {BASE_CVS.map((base) => (
+                  <option key={base.id} value={base.id}>{base.label} resume{base.id === suggested ? ' (suggested)' : ''}</option>
+                ))}
+              </select>
+              <span className="mt-1.5 block text-xs text-[var(--color-faint)]">
+                {resume === suggested ? <span className="font-medium text-[var(--color-accent)]">Suggested for this role. </span> : null}
+                Uses the {analysis.language === 'fr' ? 'French' : 'English'} version, the posting’s language.
+              </span>
+            </label>
           </div>
+        </div>
+      ) : null}
 
-          <Card>
-            <div className="flex flex-wrap items-center gap-3 px-5 py-4">
-              <div className="flex-1">
-                <p className="text-[13px]">Create the application folder</p>
-                <p className="mt-0.5 text-xs text-[var(--color-faint)]">
-                  Writes <code>jd.md</code>, a resume YAML seeded from your{' '}
-                  {BASE_CVS.find((base) => base.id === (analysis.baseCv ?? defaultBaseCv(analysis.archetype)))?.label}{' '}
-                  {analysis.language === 'fr' ? 'FR' : 'EN'} general resume, and <code>tailoring-notes.md</code> with the
-                  requirement map. Review the analysis and clarify questions with the AI before requesting tailoring.
-                </p>
-              </div>
-              <button
-                onClick={() => void create()}
-                disabled={missingCompany}
-                className={cn(
-                  'flex items-center gap-2 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-[13px] font-medium text-[var(--color-bg)] hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50',
-                )}
-              >
-                {blocking.length ? 'Create anyway' : error ? 'Retry creating application' : 'Create application'}
-              </button>
-            </div>
-          </Card>
-        </>
+      {step === 'creating' ? (
+        <ol role="status" className="space-y-2.5 rounded-xl bg-[var(--color-surface-2)] p-4 text-sm sm:p-5">
+          <li className={cn('flex items-center gap-2.5', createdKey ? 'text-[var(--color-ok)]' : 'text-[var(--color-text)]')}>
+            {createdKey ? <Check className="size-4" aria-hidden="true" /> : <Spinner />}
+            {createdKey ? 'Application saved' : 'Saving the application…'}
+          </li>
+          <li className={cn('flex items-center gap-2.5', createdKey ? 'text-[var(--color-text)]' : 'text-[var(--color-faint)]')}>
+            {createdKey ? <Spinner /> : <span className="size-3.5 rounded-full border-2 border-[var(--color-border-strong)]" aria-hidden="true" />}
+            Comparing the requirements with your resume, usually under a minute
+          </li>
+        </ol>
+      ) : null}
+
+      {error ? (
+        <p role="alert" className="flex gap-2 rounded-lg bg-[var(--color-bad-soft)] px-3.5 py-2.5 text-xs leading-relaxed text-[var(--color-bad)]">
+          <AlertTriangle className="mt-px size-3.5 shrink-0" aria-hidden="true" />
+          <span>{error}</span>
+        </p>
+      ) : null}
+      {createdKey && error ? <Link href={`/applications/${createdKey}?tab=workspace&pane=fit`} className="text-sm text-[var(--color-accent)] underline">Open the application</Link> : null}
+
+      {!noJd && (step === 'paste' || step === 'analyzing') ? (
+        <div className="border-t border-[var(--color-border)] pt-3">
+          <OptionRow icon={FileText} question="No job description at all?" action="Track it with your general resume" disabled={busy} onClick={() => { setNoJd(true); setError(null) }} />
+        </div>
+      ) : null}
+
+      {analysis && step === 'review' && !createdKey ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--color-border)] pt-4">
+          <button type="button" onClick={() => setStep('paste')} className={textButton}><ArrowLeft className="size-3.5" aria-hidden="true" /> Back to the posting</button>
+          <button type="button" onClick={() => void create()} disabled={missingCompany} className={blocking.length ? secondaryButton : primaryButton}>
+            {blocking.length ? 'Create it anyway' : error ? 'Try again' : 'Create application'}
+          </button>
+        </div>
       ) : null}
     </div>
   )
+
+  if (onClose) return body
+  return (
+    <div className="mx-auto max-w-3xl space-y-5 pb-12">
+      <Link href="/applications" className="inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted)] hover:text-[var(--color-accent)]"><ArrowLeft className="size-3.5" aria-hidden="true" /> Applications</Link>
+      <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6">{body}</div>
+    </div>
+  )
 }
+
+/** A secondary path, drawn as a whole clickable row so it never reads as a note. */
+function OptionRow({ icon: Icon, question, action, disabled, onClick }: { icon: LucideIcon; question: string; action: string; disabled?: boolean; onClick: () => void }) {
+  return (
+    <button type="button" disabled={disabled} onClick={onClick} className="group -mx-3 flex w-[calc(100%+1.5rem)] cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm transition-colors hover:bg-[var(--color-accent-soft)] focus-visible:outline-2 focus-visible:outline-offset-0 focus-visible:outline-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent">
+      <Icon className="size-4 shrink-0 text-[var(--color-accent)]" aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="text-[var(--color-muted)]">{question} </span>
+        <span className="font-medium text-[var(--color-accent)] underline-offset-4 group-hover:underline">{action}</span>
+      </span>
+      <ChevronRight className="size-4 shrink-0 text-[var(--color-accent)] transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+    </button>
+  )
+}
+
+function StepMarker({ n, label, state }: { n: number; label: string; state: 'done' | 'current' | 'next' }) {
+  return (
+    <li aria-current={state === 'current' ? 'step' : undefined} className={cn('flex items-center gap-1.5', state === 'current' ? 'text-[var(--color-text)]' : state === 'done' ? 'text-[var(--color-ok)]' : 'text-[var(--color-faint)]')}>
+      <span className={cn(
+        'grid size-5 place-items-center rounded-full text-[11px] font-semibold',
+        state === 'current' ? 'bg-[var(--color-accent)] text-[var(--color-on-solid)]' : state === 'done' ? 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]' : 'border border-[var(--color-border-strong)]',
+      )}>
+        {state === 'done' ? <Check className="size-3" aria-hidden="true" /> : n}
+      </span>
+      {label}
+    </li>
+  )
+}
+
+/** Colour the sponsorship line by what it says: offered, ruled out, or unclear. */
+function sponsorshipTone(text: string | null | undefined): { label: string; tone: 'ok' | 'bad' | 'neutral' } | null {
+  const value = text?.trim()
+  if (!value) return null
+  const label = /sponsor/i.test(value) ? value : `Sponsorship: ${value}`
+  if (/\b(no|not|none|unavailable|without|must already|cannot|can't)\b/i.test(value) && !/not (stated|mentioned|specified)/i.test(value)) return { label, tone: 'bad' }
+  if (/\b(yes|offered|available|provided|supported|possible|will sponsor)\b/i.test(value)) return { label, tone: 'ok' }
+  return { label, tone: 'neutral' }
+}
+
+const SPONSORSHIP_TONE = {
+  ok: 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]',
+  bad: 'bg-[var(--color-bad-soft)] text-[var(--color-bad)]',
+  neutral: 'bg-[var(--color-surface)] text-[var(--color-muted)]',
+} as const
+
+const iconButton = 'grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-[var(--color-border)] text-[var(--color-muted)] transition-colors hover:border-[var(--color-border-strong)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-40'
+const textButton = 'inline-flex cursor-pointer items-center gap-1.5 rounded text-xs font-medium text-[var(--color-accent)] underline-offset-4 transition-colors hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] disabled:cursor-not-allowed disabled:text-[var(--color-faint)] disabled:no-underline'
+const primaryButton = 'inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-4 text-sm font-semibold text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] transition-[filter,box-shadow] hover:brightness-110 hover:shadow-[0_2px_6px_oklch(0_0_0/0.18)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] disabled:cursor-not-allowed disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-faint)] disabled:shadow-none disabled:hover:brightness-100 disabled:aria-busy:cursor-progress disabled:aria-busy:bg-[var(--color-accent)] disabled:aria-busy:text-[var(--color-on-solid)]'
+const secondaryButton = 'inline-flex min-h-10 cursor-pointer items-center justify-center gap-2 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-4 text-sm font-medium text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-40'
+const field = 'mt-1.5 h-10 w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 text-sm outline-none placeholder:text-[var(--color-faint)] focus:border-[var(--color-accent)]'
 
 const REASONS: Record<DuplicateMatch['reason'], string> = {
   'same-posting': 'Same posting',
@@ -410,32 +457,20 @@ function DuplicateWarning({ matches }: { matches: DuplicateMatch[] }) {
   const blocking = matches.some((match) => match.reason !== 'same-company')
   const applied = matches.some((match) => match.applied && match.reason !== 'same-company')
   return (
-    <Card className={blocking ? 'border-[var(--color-warn)]' : undefined}>
-      <CardHeader
-        title={applied ? 'You already applied to this job' : blocking ? 'You already have an application for this job' : 'You have other applications at this company'}
-        hint={blocking ? 'Open the existing application instead, or create a new one anyway if this is a different opening.' : 'Check these are different roles before creating a new application.'}
-      />
-      <ul className="divide-y divide-[var(--color-border)]">
+    <div className={cn('rounded-lg px-4 py-3', blocking ? 'bg-[var(--color-warn-soft)]' : 'bg-[var(--color-surface-2)]')}>
+      <p className="flex items-center gap-2 text-sm font-medium">
+        <AlertTriangle className={cn('size-4 shrink-0', blocking ? 'text-[var(--color-warn)]' : 'text-[var(--color-muted)]')} aria-hidden="true" />
+        {applied ? 'You already applied to this job' : blocking ? 'You already have an application for this job' : 'You have other applications at this company'}
+      </p>
+      <ul className="mt-2 space-y-1.5 pl-6">
         {matches.map((match) => (
-          <li key={match.key} className="flex flex-wrap items-center gap-3 px-5 py-3">
-            <Badge tone={match.reason === 'same-company' ? 'neutral' : 'warn'}>{REASONS[match.reason]}</Badge>
-            <span className="min-w-0 flex-1 text-[13px]">
-              <span className="block">{match.company} · {match.role || 'Role not recorded'}</span>
-              <span className="mt-0.5 block text-[11px] text-[var(--color-faint)]">{match.date || 'No date'} · {match.status || 'No status'}</span>
-            </span>
-            <Link href={`/applications/${encodeURIComponent(match.key)}`} className="text-xs text-[var(--color-accent)] hover:underline">Open</Link>
+          <li key={match.key} className="flex flex-wrap items-baseline gap-x-2 text-[13px]">
+            <Link href={`/applications/${encodeURIComponent(match.key)}`} className="font-medium text-[var(--color-accent)] hover:underline">{match.company} · {match.role || 'Role not recorded'}</Link>
+            <span className="text-xs text-[var(--color-muted)]">{REASONS[match.reason]} · {match.date || 'No date'} · {match.status || 'No status'}</span>
           </li>
         ))}
       </ul>
-    </Card>
-  )
-}
-
-function Field({ label, value }: { label: string; value?: string | null }) {
-  return (
-    <div>
-      <p className="text-[11px] text-[var(--color-faint)]">{label}</p>
-      <p className="mt-0.5 text-[13px]">{value || <span className="text-[var(--color-faint)]">—</span>}</p>
+      {blocking ? <p className="mt-2 pl-6 text-xs text-[var(--color-muted)]">Open it instead, or create a new one if this is a different opening.</p> : null}
     </div>
   )
 }

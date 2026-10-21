@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Nav } from '@/components/Nav'
+import '@fontsource-variable/schibsted-grotesk/wght.css'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -19,7 +20,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <Nav />
-        <main className="mx-auto max-w-[1600px] px-4 py-7 sm:px-6 sm:py-8">{children}</main>
+        <main className="mx-auto max-w-[1600px] px-4 py-4 sm:px-6 sm:py-5">{children}</main>
       </body>
     </html>
   )

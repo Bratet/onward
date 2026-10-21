@@ -5,6 +5,7 @@ export const LEARNABLE_SKILLS = {
   'profile-fit': 'profile fit analysis',
   'write-cover-letter': 'cover letter writing',
   'write-outreach': 'application email and LinkedIn message writing',
+  'write-form-answers': 'application form answers',
 } as const
 export type LearnableSkill = keyof typeof LEARNABLE_SKILLS
 

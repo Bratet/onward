@@ -1,6 +1,6 @@
 import type { Application } from '../src/lib/applications'
 import { stageLabelForStatus, STAGE_ORDER, stageForStatus } from '../src/lib/journey'
-import { needsYou } from '../src/lib/needsYou'
+import { interviewsAhead, needsYou } from '../src/lib/needsYou'
 
 let failures = 0
 function check(name: string, condition: boolean, detail = '') {
@@ -51,6 +51,15 @@ const newer = app('Preparing', '2026-10-15', ws({}), true)
 const older = app('Preparing', '2026-10-10', ws({}), true)
 const ties = needsYou([newer, older], now).map((item) => item.app.key)
 check('the finished draft that has waited longest comes first', JSON.stringify(ties) === JSON.stringify([older.key, newer.key]), JSON.stringify(ties))
+
+const ahead = app('Interview', '2026-09-20', ws({ step: { label: 'Final round', date: '2026-11-10', state: 'booked' } }))
+const pastBooked = app('Interview', '2026-09-20', ws({ step: { label: 'Intro call', date: '2026-10-19', state: 'booked' } }))
+const happened = app('Interview', '2026-09-20', ws({ step: { label: 'Intro call', date: '2026-10-19', state: 'done' } }))
+const rejected = app('Rejected', '2026-09-20', ws({ step: { label: 'Tech round', date: '2026-10-25', state: 'booked' } }))
+const interviews = interviewsAhead([ahead, happened, rejected, pastBooked, interviewSoon], now)
+check('interviews: unconfirmed past ones first, then upcoming by date', JSON.stringify(interviews.map((item) => item.app.key)) === JSON.stringify([pastBooked.key, interviewSoon.key, ahead.key]), JSON.stringify(interviews.map((item) => item.app.key)))
+check('interviews: a past booked step asks to be confirmed', interviews[0].confirm && !interviews[1].confirm)
+check('interviews: done steps and closed applications stay off the list', !interviews.some((item) => item.app.key === happened.key || item.app.key === rejected.key))
 
 check('stage labels read plainly', stageLabelForStatus('Interview') === 'Interviewing' && stageLabelForStatus('Rejected') === 'Closed · Rejected' && stageLabelForStatus('SKIP') === 'Closed · Did not apply' && stageLabelForStatus('Responded') === 'Interviewing')
 check('journey order puts offers first and closed last', STAGE_ORDER[stageForStatus('Offer').stage] < STAGE_ORDER[stageForStatus('Interview').stage] && STAGE_ORDER[stageForStatus('Applied').stage] < STAGE_ORDER[stageForStatus('Preparing').stage] && STAGE_ORDER[stageForStatus('Rejected').stage] === 4)

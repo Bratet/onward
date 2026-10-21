@@ -38,7 +38,7 @@ export interface Application {
     pending: boolean
     resume: 'draft' | 'finalized' | 'missing'
     appliedAt?: string | null
-    /** The journey's next action and current step, once the companion or the candidate set them. */
+    /** The journey's next action and current step, once the candidate set them. */
     next?: NextAction | null
     step?: Pick<Step, 'label' | 'date' | 'state'> | null
   }

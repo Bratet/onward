@@ -91,8 +91,8 @@ export function PdfPreview({ token, document: label = 'CV', engine = 'RenderCV',
   if (!pages.length) return <Empty title="No preview yet" hint={`The ${label} appears here once the ${source} renders.`} />
 
   return (
-    <div className="relative h-full overflow-y-auto bg-[var(--color-surface-2)] p-3">
-      <div className="mx-auto flex max-w-[900px] flex-col gap-3">
+    <div className="relative h-full overflow-y-auto bg-[var(--color-surface-2)] p-3 sm:p-5">
+      <div className="mx-auto flex max-w-[900px] flex-col gap-4">
         {pages.map((page, index) => (
           // The whole page set swaps only after the new PDF has rendered, avoiding
           // the white flash and scroll reset caused by replacing an iframe.
@@ -103,7 +103,7 @@ export function PdfPreview({ token, document: label = 'CV', engine = 'RenderCV',
             width={page.width}
             height={page.height}
             alt={`${label} preview page ${index + 1}`}
-            className="h-auto w-full bg-white shadow-sm"
+            className="h-auto w-full rounded-sm bg-white shadow-[0_1px_2px_oklch(0_0_0/0.12),0_8px_24px_-8px_oklch(0_0_0/0.25)] ring-1 ring-black/5"
           />
         ))}
       </div>

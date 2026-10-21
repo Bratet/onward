@@ -63,6 +63,8 @@ test: node_modules ## Tracker and tailoring tests
 	@npm run test:app-index
 	@npm run test:journey
 	@npm run test:needs-you
+	@npm run test:application-answers
+	@npm run test:form-answers
 	@npm run test:engine-settings
 	@npm run test:model-catalogs
 	@npm run test:application-delete

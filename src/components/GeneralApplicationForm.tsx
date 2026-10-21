@@ -13,7 +13,7 @@ export function GeneralApplicationForm({ onCreated, onBusy }: { onCreated?: () =
   const [language, setLanguage] = useState('en')
 
   return (
-    <form className="space-y-4 p-5" onSubmit={async (event) => {
+    <form className="space-y-4" onSubmit={async (event) => {
       event.preventDefault()
       const fields = Object.fromEntries(new FormData(event.currentTarget))
       setBusy(true)
@@ -28,7 +28,6 @@ export function GeneralApplicationForm({ onCreated, onBusy }: { onCreated?: () =
         router.push(`/applications/${data.key}?tab=workspace&pane=preview`)
       } catch (reason) { setError((reason as Error).message) } finally { setBusy(false); onBusy?.(false) }
     }}>
-      <p className="text-xs leading-relaxed text-[var(--color-muted)]">Choose a general resume and enter what you know. We’ll create a tracked application with its own copy, ready to tweak and finalize.</p>
       <fieldset disabled={busy || !!created} className="space-y-2">
         <legend className="text-xs font-medium text-[var(--color-text)]">Choose your general resume</legend>
         <div className="grid gap-2 sm:grid-cols-2">
