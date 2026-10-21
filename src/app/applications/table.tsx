@@ -34,8 +34,9 @@ export function ApplicationsTable({ applications, folders }: { applications: App
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<string>('all')
   const [phase, setPhase] = useState<PhaseFilter>('all')
-  const [sort, setSort] = useState<SortKey>('stage')
-  const [asc, setAsc] = useState(true)
+  // Newest first by default; a column header re-sorts for this visit only.
+  const [sort, setSort] = useState<SortKey>('date')
+  const [asc, setAsc] = useState(false)
   const [linking, setLinking] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState<string[] | null>(null)
@@ -73,7 +74,9 @@ export function ApplicationsTable({ applications, folders }: { applications: App
             || (a.workspace?.next?.due ?? '9999').localeCompare(b.workspace?.next?.due ?? '9999')
             || (b.row?.date ?? b.folder?.date ?? '').localeCompare(a.row?.date ?? a.folder?.date ?? '')
         default:
-          return dir * (a.row?.date ?? a.folder?.date ?? '').localeCompare(b.row?.date ?? b.folder?.date ?? '')
+          // Same day: the later tracker row first, so the order matches when they were added.
+          return dir * ((a.row?.date ?? a.folder?.date ?? '').localeCompare(b.row?.date ?? b.folder?.date ?? '')
+            || (Number(a.row?.id) || 0) - (Number(b.row?.id) || 0))
       }
     })
   }, [applications, q, status, phase, sort, asc])

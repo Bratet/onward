@@ -9,8 +9,8 @@ import { Settings2 } from 'lucide-react'
 
 const LINKS = [
   { href: '/', label: 'Overview' },
-  { href: '/plan', label: 'Saved searches' },
   { href: '/applications', label: 'Applications' },
+  { href: '/plan', label: 'Saved searches' },
   { href: '/profile', label: 'Profile' },
   { href: '/skills', label: 'Skills' },
   { href: '/runs', label: 'AI runs' },
