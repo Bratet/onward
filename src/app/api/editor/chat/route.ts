@@ -30,7 +30,10 @@ export async function POST(req: Request) {
   const encoder = new TextEncoder()
   const responseStream = new ReadableStream({
     async start(controller) {
-      const send = (event: Record<string, unknown>) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`))
+      // The client may have stopped the run; writing to a closed stream would throw over the real outcome.
+      const send = (event: Record<string, unknown>) => {
+        try { controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`)) } catch { /* reader is gone */ }
+      }
       try {
         const applicationKey = typeof body.applicationKey === 'string' && body.applicationKey
           ? body.applicationKey
@@ -58,7 +61,7 @@ export async function POST(req: Request) {
       } catch (error) {
         send({ type: 'error', message: (error as Error).message })
       } finally {
-        controller.close()
+        try { controller.close() } catch { /* already closed or cancelled */ }
       }
     },
   })

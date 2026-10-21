@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 import { FileText, Home, Mail, Sparkles, Wrench } from 'lucide-react'
 import type { Application } from '@/lib/applications'
 import type { ApplicationRecord } from '@/lib/applicationRecord'
-import { applicationPhase, wasSent } from '@/lib/applicationPhase'
+import { applicationStanding, wasSent } from '@/lib/applicationPhase'
 import { coverLetterFromWorkspace, letterSalutation, senderFromResume } from '@/lib/coverLetter'
 import { emptyInterviewState, prepProgress, type InterviewState } from '@/lib/interviewPrep'
 import type { Lang } from '@/lib/paths'
@@ -15,7 +15,10 @@ import type { ApplicationWorkspace } from '@/lib/workspaces'
 import type { FinalizedState } from '@/components/FinalizeStatus'
 import { Card } from '@/components/ui/primitives'
 import { ErrorNotice } from '@/components/ErrorNotice'
-import { SegmentedNav, celebrate } from '@/components/ui/flair'
+import { JourneyCompanion } from '@/components/JourneyCompanion'
+import { parseJourney } from '@/lib/journey'
+import { celebrate } from '@/components/ui/flair'
+import { PaneTabs, paneTabPanelProps } from '@/components/ui/PaneTabs'
 import { ApplicationHeader } from './header'
 import { InterviewPrep } from './interview-prep'
 import { NextStepsPanel, type NextStep } from './next-steps-panel'
@@ -52,7 +55,7 @@ export function PostApplicationView({ app, record, analysis, initialWorkspace, c
   const [error, setError] = useState<string | null>(null)
   const [located, setLocated] = useState<string | null>(null)
   const base = `/api/applications/${encodeURIComponent(app.key)}`
-  const phase = applicationPhase(status)
+  const standing = applicationStanding(status)
   const interview: InterviewState = { ...emptyInterviewState(), ...workspace.interview }
   const prep = prepProgress(interview)
 
@@ -72,20 +75,22 @@ export function PostApplicationView({ app, record, analysis, initialWorkspace, c
   }
 
   /** The preparation tools live on the pre-application page; this opens them there. */
-  function openPreparation(view: 'overview' | 'resume' = 'overview') {
-    router.push(`/applications/${encodeURIComponent(app.key)}?view=prepare&tab=${view}`)
+  function openPreparation(pane: 'fit' | 'preview' = 'fit') {
+    router.push(`/applications/${encodeURIComponent(app.key)}?view=prepare&tab=workspace&pane=${pane}`)
   }
 
   function statusChanged(previous: string, next: string, origin?: { x: number; y: number }) {
-    if ((next === 'Interview' && previous !== 'Interview') || (next === 'Offer' && previous !== 'Offer')) celebrate(origin)
+    if ((next === 'Responded' && previous === 'Applied') || (next === 'Interview' && previous !== 'Interview') || (next === 'Offer' && previous !== 'Offer')) celebrate(origin)
     // Back to not-sent (a mis-click, say): the server renders the pre-application page again.
     router.refresh()
   }
 
-  async function patchStatus(next: string, origin?: { x: number; y: number }) {
+  async function patchStatus(next: string, origin?: { x: number; y: number }, note?: string) {
     setBusy(true); setError(null)
     try {
-      const response = await fetch(base, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: next }) })
+      const existing = app.row?.notes?.trim() ?? ''
+      const body = note ? { status: next, notes: existing ? `${existing} ${note}` : note } : { status: next }
+      const response = await fetch(base, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       const data = await response.json()
       if (!response.ok) throw new Error(data.error ?? 'status update failed')
       const previous = status
@@ -107,25 +112,32 @@ export function PostApplicationView({ app, record, analysis, initialWorkspace, c
   }
 
   return <div className="space-y-4">
-    <ApplicationHeader app={app} status={status} phase={phase} busy={busy} postingUrl={record.posting.url} appliedAt={workspace.appliedAt} onStatus={(next, origin) => void patchStatus(next, origin)} />
+    <ApplicationHeader app={app} status={status} interviewed={interview.rounds.length > 0} busy={busy} postingUrl={record.posting.url} appliedAt={workspace.appliedAt} onStatus={(next, origin, note) => void patchStatus(next, origin, note)} />
     {error ? <Card className="overflow-hidden border-[var(--color-bad-soft)]"><ErrorNotice error={error} onDismiss={() => setError(null)} /></Card> : null}
 
     <div className="anim-rise flex flex-wrap items-center gap-3">
-      <SegmentedNav label="Application" value={tab} onChange={goTo} className="min-w-0 flex-1 sm:flex-none" items={[
+      <PaneTabs label="Application" idBase="sent" value={tab} onChange={goTo} className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden border-b border-[var(--color-border)] [scrollbar-width:none] sm:flex-none" items={[
         { value: 'home', label: 'Overview', icon: <Home size={15} /> },
-        { value: 'prep', label: 'Interview prep', icon: <Sparkles size={15} />, badge: prep.total ? <span className="rounded-full bg-[var(--color-accent-soft)] px-1.5 text-[10px] font-semibold text-[var(--color-accent)] tnum">{prep.percent}%</span> : undefined },
+        { value: 'prep', label: 'Interview prep', icon: <Sparkles size={15} />, badge: prep.total ? <span className="rounded-full bg-[var(--color-surface-2)] px-1.5 text-xs font-semibold text-[var(--color-text)] tnum">{prep.percent}%</span> : undefined },
         { value: 'next', label: 'Messages & status', icon: <Mail size={15} /> },
         { value: 'record', label: 'Job & documents', icon: <FileText size={15} /> },
       ]} />
-      <button type="button" onClick={() => openPreparation()} className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-[var(--color-faint)] transition-colors hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]" title="The fit analysis and resume editor you used before applying"><Wrench size={13} aria-hidden="true" /> Analysis & resume</button>
+      <button type="button" onClick={() => openPreparation()} className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]" title="The fit analysis and resume you prepared this application with"><Wrench size={13} aria-hidden="true" /> Preparation tools</button>
     </div>
 
+    <div {...paneTabPanelProps('sent', tab)}>
     {tab === 'home' ? <PostHome
       app={app}
       record={record}
       workspace={workspace}
+      journey={parseJourney(workspace.journey)}
+      companion={<JourneyCompanion
+        appKey={app.key}
+        onJourney={(journey) => setWorkspace((current) => ({ ...current, journey }))}
+        onStatus={(next) => { setStatus(next); router.refresh() }}
+      />}
       status={status}
-      phase={phase}
+      phase={standing}
       contact={contact}
       analysis={analysis}
       prep={prep}
@@ -159,7 +171,7 @@ export function PostApplicationView({ app, record, analysis, initialWorkspace, c
       letterFinalized={finalized.letter}
       step={nextStep}
       onStep={(step) => { setNextStep(step); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
-      onGoToResume={() => openPreparation('resume')}
+      onGoToResume={() => openPreparation('preview')}
       onLocatePdf={(reveal) => void locatePdf(reveal)}
     /></div> : null}
     {tab === 'next' && located ? <p role="status" className="text-xs text-[var(--color-accent)]">{located}</p> : null}
@@ -170,7 +182,8 @@ export function PostApplicationView({ app, record, analysis, initialWorkspace, c
       workspace={workspace}
       contact={contact}
       letter={finalized.letter?.letter ?? workspace.coverLetter ?? null}
-      onGoToAnalysis={() => openPreparation('overview')}
+      onGoToAnalysis={() => openPreparation('fit')}
     /> : null}
+    </div>
   </div>
 }

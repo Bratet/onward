@@ -1,72 +1,148 @@
 'use client'
 
 import Link from 'next/link'
-import { Check, ExternalLink, Send, Sparkles } from 'lucide-react'
+import { ArrowLeft, Check, ExternalLink, Lock, MessageSquareReply, Sparkles } from 'lucide-react'
 import type { Application } from '@/lib/applications'
-import { JOURNEY, journeyIndex, PHASE_COPY, type Phase } from '@/lib/applicationPhase'
+import { applicationPhase, applicationStanding, PHASE_LABEL, PHASE_STEPS, phaseStep } from '@/lib/applicationPhase'
+import { stageLabelForStatus } from '@/lib/journey'
 import { daysSince } from '@/lib/postingSource'
-import { STATUSES } from '@/lib/statuses'
+import { STATUSES, statusLabel } from '@/lib/statuses'
 import { Badge, Spinner, statusTone } from '@/components/ui/primitives'
 import { CompanyAvatar } from '@/components/ui/flair'
-import { cn } from '@/lib/utils'
+import { Menu, MenuItem as MenuRow } from '@/components/ui/Menu'
+import { cn, fmtDate } from '@/lib/utils'
 
-/** Company, role, status controls, and where this application is on its way to an offer. */
-export function ApplicationHeader({ app, status, phase, busy, postingUrl, appliedAt, onStatus }: {
+/** A step of the Applying phase, shown as a tab inside the phase strip while preparing. */
+export interface ApplyingStep<T extends string> {
+  value: T
+  label: string
+  done: boolean
+  locked: boolean
+  /** The step to do next, marked so it can be found without a glow. */
+  next: boolean
+}
+
+/**
+ * Company, role, status, and the one progress indicator on the page: a strip
+ * with the two phases. While preparing, the Applying segment holds the
+ * steps themselves, so where you are and where you're looking are one control.
+ */
+export function ApplicationHeader<T extends string>({ app, status, interviewed, busy, postingUrl, appliedAt, onStatus, steps, step, onStep }: {
   app: Application
   status: string
-  phase: Phase
+  /** Whether any interview was logged, which places a rejection in Interviewing rather than Applying. */
+  interviewed: boolean
   busy: boolean
   postingUrl: string | null
   appliedAt: string | null
-  onStatus: (status: string, origin?: { x: number; y: number }) => void
+  /** `note` is added to the tracker notes, for moves the status alone can't say, like withdrawing. */
+  onStatus: (status: string, origin?: { x: number; y: number }, note?: string) => void
+  steps?: ApplyingStep<T>[]
+  step?: T
+  onStep?: (step: T) => void
 }) {
   const company = app.row?.company ?? app.folder?.slug ?? 'Application'
-  const at = journeyIndex(status)
-  const closed = phase === 'closed'
-  const days = phase !== 'prepare' && phase !== 'closed' ? daysSince(appliedAt ?? app.row?.date) : null
-  const copy = PHASE_COPY[phase]
+  const standing = applicationStanding(status)
+  const phase = applicationPhase(status, interviewed)
+  const closed = standing === 'closed'
+  const sentAt = appliedAt ?? (standing !== 'prepare' && !['Discarded', 'SKIP'].includes(status) ? app.row?.date ?? null : null)
+  const days = standing !== 'prepare' && !closed ? daysSince(sentAt) : null
+  // While preparing, sending is recorded from the Send step; once sent and waiting, only the moves
+  // that make sense from there. Interviewing and closed applications keep the full status select.
+  const menu: MenuItem[] | null = standing === 'prepare'
+    ? [
+      { status: 'Discarded', label: 'Set aside', hint: 'Not applying for now' },
+      { status: 'SKIP', label: 'Skip this role', hint: 'Not a fit' },
+    ]
+    : standing === 'waiting'
+      ? [
+        { status: 'Responded', label: 'They replied', hint: 'Move to Interviewing' },
+        { status: 'Rejected', label: 'Rejected', hint: 'They said no' },
+        { status: 'Rejected', label: 'Withdraw', hint: 'You pulled out', note: `Withdrew on ${new Date().toISOString().slice(0, 10)}.` },
+        { status: 'Preparing', label: 'Undo sent', hint: 'Marked as sent by mistake' },
+      ]
+      : null
+  const link = 'inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 text-xs text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)]'
 
-  return <header className="anim-rise space-y-4">
-    <Link href="/applications" className="text-xs text-[var(--color-faint)] hover:text-[var(--color-accent)]">← Applications</Link>
-    <div className="flex flex-wrap items-start gap-4">
-      <CompanyAvatar name={company} size={52} />
+  return <header className="anim-rise relative z-30 space-y-3">
+    <div className="flex flex-wrap items-center gap-3">
+      <Link href="/applications" aria-label="Back to applications" title="Applications" className="grid size-8 place-items-center rounded-lg text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><ArrowLeft size={16} aria-hidden="true" /></Link>
+      <CompanyAvatar name={company} size={40} />
       <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="truncate text-xl font-semibold tracking-tight">{company}</h1>
-          {app.row ? <Badge tone={statusTone(status)}>{status}</Badge> : null}
-          {days !== null ? <span className="text-xs text-[var(--color-faint)] tnum" suppressHydrationWarning>· day {days}</span> : null}
-        </div>
-        <p className="mt-0.5 truncate text-sm text-[var(--color-muted)]">{app.row?.role ?? 'No tracker row linked'}</p>
+        <h1 className="truncate text-lg font-semibold leading-tight tracking-tight">{company}</h1>
+        <p className="truncate text-sm text-[var(--color-muted)]">
+          {app.row?.role ?? 'No tracker row linked'}
+          {days !== null ? <span className="tnum" suppressHydrationWarning> · day {days}</span> : null}
+        </p>
       </div>
       <div className="flex flex-wrap items-center gap-2">
-        {postingUrl ? <a href={postingUrl} target="_blank" rel="noreferrer" title={postingUrl} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 text-xs text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)]"><ExternalLink size={13} aria-hidden="true" /> Posting</a> : null}
-        {app.folder ? <Link href={`/runs?applicationKey=${encodeURIComponent(app.key)}`} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 text-xs text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)]"><Sparkles size={13} aria-hidden="true" /> AI runs</Link> : null}
-        {app.row ? <select aria-label="Status" value={status} disabled={busy} onChange={(event) => onStatus(event.target.value)} className="h-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs">{STATUSES.map((value) => <option key={value}>{value}</option>)}{!STATUSES.includes(status as never) && status ? <option>{status}</option> : null}</select> : null}
-        {app.row && phase === 'prepare' ? <button disabled={busy} onClick={(event) => onStatus('Applied', { x: event.clientX, y: event.clientY })} className="inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 text-xs font-semibold text-[var(--color-bg)] hover:opacity-90 disabled:opacity-40">{busy ? <Spinner /> : <Send size={13} aria-hidden="true" />} Mark as applied</button> : null}
+        {postingUrl ? <a href={postingUrl} target="_blank" rel="noreferrer" title={postingUrl} className={link}><ExternalLink size={13} aria-hidden="true" /> Posting</a> : null}
+        {app.folder ? <Link href={`/runs?applicationKey=${encodeURIComponent(app.key)}`} className={link}><Sparkles size={13} aria-hidden="true" /> AI runs</Link> : null}
+        {app.row && menu ? <ActionMenu busy={busy} items={menu} onSelect={(item) => onStatus(item.status, undefined, item.note)} /> : null}
+        {app.row && !menu ? <select aria-label="Change status" title="Change status" value={status} disabled={busy} onChange={(event) => onStatus(event.target.value)} className="h-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs text-[var(--color-muted)]">{STATUSES.map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}{!STATUSES.includes(status as never) && status ? <option value={status}>{statusLabel(status)}</option> : null}</select> : null}
+        {app.row && standing === 'waiting' ? <button disabled={busy} onClick={(event) => onStatus('Responded', { x: event.clientX, y: event.clientY })} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-accent)] px-3 text-xs font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-40">{busy ? <Spinner /> : <MessageSquareReply size={13} aria-hidden="true" />} They replied</button> : null}
       </div>
     </div>
 
-    {app.row && phase !== 'prepare' ? <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-5 py-4">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-semibold">{copy.title}</p>
-        <p className="text-xs text-[var(--color-muted)]">{copy.hint}</p>
-      </div>
-      <div className="mt-4">
-        <div className="journey-track"><span className={cn('journey-fill', closed && 'opacity-40')} style={{ width: `${at <= 0 ? 4 : (at / (JOURNEY.length - 1)) * 100}%` }} /></div>
-        <ol className="relative mt-2 h-5 text-[11px]">
-          {JOURNEY.map((step, index) => {
-            const done = at >= index && !closed
-            const current = at === index && !closed
-            const left = (index / (JOURNEY.length - 1)) * 100
-            // Each milestone's dot sits exactly where the bar reaches it.
-            return <li key={step} className={cn("absolute top-0 flex items-center gap-1.5 whitespace-nowrap", index === JOURNEY.length - 1 && "flex-row-reverse")} style={{ left: `${left}%`, transform: index === 0 ? 'none' : index === JOURNEY.length - 1 ? 'translateX(-100%)' : 'translateX(-8px)' }}>
-              <span className={cn('grid size-4 place-items-center rounded-full border text-[9px]', done ? 'border-transparent bg-[var(--color-accent)] text-[var(--color-bg)]' : 'border-[var(--color-border-strong)] text-transparent', current && 'anim-pulse')}>{done ? <Check size={10} strokeWidth={3} /> : null}</span>
-              <span className={cn(current ? 'font-semibold text-[var(--color-text)]' : done ? 'text-[var(--color-muted)]' : 'text-[var(--color-faint)]')}>{step}</span>
-            </li>
-          })}
-        </ol>
-        {closed ? <p className="mt-2 text-xs text-[var(--color-muted)]">{status === 'Rejected' ? 'This one didn’t work out. Your materials and notes are kept below.' : 'This application was set aside.'}</p> : null}
-      </div>
-    </div> : null}
+    {app.row ? <nav aria-label="Where this application stands" className="phase-strip">
+      <Segment index={0} label={PHASE_LABEL.applying} here={phase === 'applying' && !closed} done={phase === 'interviewing'}>
+        {steps && phase === 'applying' && !closed
+          ? <ol className="flex flex-wrap items-center gap-1">
+            {steps.map((each, position) => <li key={each.value} className="flex items-center gap-1">
+              {position ? <span aria-hidden="true" className="text-[var(--color-faint)]">›</span> : null}
+              <button
+                type="button"
+                onClick={() => onStep?.(each.value)}
+                aria-current={each.value === step ? 'page' : undefined}
+                aria-disabled={each.locked || undefined}
+                title={each.locked ? 'Finalize your resume first' : undefined}
+                className={cn('phase-step', each.value === step && 'phase-step-active', each.locked && 'cursor-not-allowed')}
+              >
+                {each.done ? <Check size={13} strokeWidth={2.5} className="text-[var(--color-ok)]" aria-hidden="true" /> : each.locked ? <Lock size={12} aria-hidden="true" /> : null}
+                {each.label}
+                {each.done ? <span className="sr-only">(done)</span> : each.locked ? <span className="sr-only">(locked)</span> : null}
+                {each.next ? <span className="rounded-full bg-[var(--color-accent)] px-1.5 text-xs font-semibold text-[var(--color-bg)]">Next</span> : null}
+              </button>
+            </li>)}
+          </ol>
+          : <span className="text-xs text-[var(--color-muted)]" suppressHydrationWarning>{sentAt ? `Sent ${fmtDate(sentAt.slice(0, 10))}` : closed ? 'Not sent' : phase === 'interviewing' ? 'Done' : 'Preparing'}</span>}
+      </Segment>
+      <span aria-hidden="true" className="phase-link" />
+      <Segment index={1} label={PHASE_LABEL.interviewing} here={phase === 'interviewing' && !closed} done={false}>
+        {phase === 'interviewing'
+          ? <ol className="flex items-center gap-2 text-xs">
+            {PHASE_STEPS.interviewing.map((each, position) => {
+              const at = phaseStep(standing)
+              return <li key={each} className={cn(position === at && !closed ? 'font-semibold text-[var(--color-text)]' : 'text-[var(--color-muted)]')}>{position ? <span aria-hidden="true" className="mr-2 text-[var(--color-faint)]">›</span> : null}{each}</li>
+            })}
+          </ol>
+          : <span className="text-xs text-[var(--color-muted)]">Once they reply</span>}
+      </Segment>
+      {closed ? <Badge tone={statusTone(status)}>{stageLabelForStatus(status)}</Badge> : null}
+    </nav> : null}
   </header>
+}
+
+interface MenuItem {
+  status: string
+  label: string
+  hint: string
+  note?: string
+}
+
+/** A small ⋯ menu of status moves. */
+function ActionMenu({ items, busy, onSelect }: { items: MenuItem[]; busy: boolean; onSelect: (item: MenuItem) => void }) {
+  return <Menu label="More actions" width="w-56">
+    {(close) => items.map((item) => <MenuRow key={item.label} label={item.label} hint={item.hint} disabled={busy} onSelect={() => { close(); onSelect(item) }} />)}
+  </Menu>
+}
+
+function Segment({ index, label, here, done, children }: { index: number; label: string; here: boolean; done: boolean; children: React.ReactNode }) {
+  return <div aria-current={here ? 'step' : undefined} className={cn('flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1', here && 'phase-segment-here')}>
+    <span className="flex items-center gap-2">
+      <span className={cn('grid size-5 shrink-0 place-items-center rounded-full text-xs font-semibold', done ? 'bg-[var(--color-ok)] text-[var(--color-bg)]' : here ? 'bg-[var(--color-accent)] text-[var(--color-bg)]' : 'border border-[var(--color-border-strong)] text-[var(--color-muted)]')}>{done ? <Check size={11} strokeWidth={3} aria-hidden="true" /> : index + 1}</span>
+      <span className={cn('text-sm font-semibold', !here && !done && 'text-[var(--color-muted)]')}>{label}</span>
+    </span>
+    {children}
+  </div>
 }

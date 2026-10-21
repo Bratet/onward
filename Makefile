@@ -59,6 +59,10 @@ test: node_modules ## Tracker and tailoring tests
 	@npm run test:skills
 	@npm run test:runs
 	@npm run test:editor-chat
+	@npm run test:chat-markdown
+	@npm run test:app-index
+	@npm run test:journey
+	@npm run test:needs-you
 	@npm run test:engine-settings
 	@npm run test:model-catalogs
 	@npm run test:application-delete

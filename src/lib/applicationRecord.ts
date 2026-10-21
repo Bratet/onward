@@ -82,6 +82,6 @@ function timeline(app: Application, workspace: ApplicationWorkspace | null, file
     const file = files.find((entry) => entry.key === key && entry.name.endsWith('.pdf'))
     if (file?.modifiedAt && (!applied || file.modifiedAt <= applied)) events.push({ at: file.modifiedAt, label, detail: file.name })
   }
-  if (applied) events.push({ at: applied, label: 'Marked as applied' })
+  if (applied) events.push({ at: applied, label: 'Marked as sent' })
   return events.sort((a, b) => a.at.localeCompare(b.at))
 }

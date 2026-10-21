@@ -25,7 +25,7 @@ export function GeneralApplicationForm({ onCreated, onBusy }: { onCreated?: () =
         if (!response.ok) throw new Error(data.error || 'Could not create application')
         if (data.warning) { setCreated(data.key); setError(data.warning); return }
         onCreated?.()
-        router.push(`/applications/${data.key}?tab=resume`)
+        router.push(`/applications/${data.key}?tab=workspace&pane=preview`)
       } catch (reason) { setError((reason as Error).message) } finally { setBusy(false); onBusy?.(false) }
     }}>
       <p className="text-xs leading-relaxed text-[var(--color-muted)]">Choose a general resume and enter what you know. We’ll create a tracked application with its own copy, ready to tweak and finalize.</p>
@@ -55,7 +55,7 @@ export function GeneralApplicationForm({ onCreated, onBusy }: { onCreated?: () =
         </label>
       </fieldset>
       {error ? <p role="alert" className="text-xs text-[var(--color-bad)]">{error}</p> : null}
-      {created ? <Link href={`/applications/${created}?tab=resume`} onClick={onCreated} className="text-sm text-[var(--color-accent)] underline">Open saved application</Link> : null}
+      {created ? <Link href={`/applications/${created}?tab=workspace&pane=preview`} onClick={onCreated} className="text-sm text-[var(--color-accent)] underline">Open saved application</Link> : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href={`/profile?src=general-${language}`} onClick={onCreated} className="text-xs text-[var(--color-accent)] underline">Edit general CV in Profile</Link>
         <button disabled={busy || !!created} className="flex items-center gap-2 rounded-md bg-[var(--color-accent)] px-3 py-2 text-xs font-medium text-[var(--color-bg)] disabled:opacity-50">{busy ? <Spinner /> : null}{busy ? 'Creating…' : `Create with ${language === 'en' ? 'English' : 'French'} resume`}</button>

@@ -24,6 +24,8 @@ export interface EditorChatTurn {
     skillId: string
     runId?: string
     events: ChatSkillEvent[]
+    /** What became of the proposal this run made: "Accepted 7 of 9 changes", "Rejected". */
+    outcome?: string
   }
   review?: {
     report: ResumeReview
@@ -113,6 +115,7 @@ function parseTurn(value: unknown): EditorChatTurn | null {
       skillId: skillRun.skillId,
       runId: typeof skillRun.runId === 'string' ? skillRun.runId : undefined,
       events: events as ChatSkillEvent[],
+      ...(typeof skillRun.outcome === 'string' ? { outcome: skillRun.outcome } : {}),
     }
   }
   if (row.proposal !== undefined) {

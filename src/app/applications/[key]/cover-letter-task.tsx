@@ -1,7 +1,9 @@
 'use client'
 
+import { PaneTabs, paneTabPanelProps } from '@/components/ui/PaneTabs'
 import { useEffect, useRef, useState } from 'react'
 import { Square } from 'lucide-react'
+import { Menu, MenuItem } from '@/components/ui/Menu'
 import type { Application } from '@/lib/applications'
 import { LETTER_WORD_TARGET, letterMatchesFinalized, wordCount, type CoverLetter, type LetterTurn } from '@/lib/coverLetter'
 import type { Failure } from '@/lib/validate'
@@ -15,7 +17,7 @@ import { cn } from '@/lib/utils'
 type SaveState = 'saved' | 'saving' | 'error'
 type Pane = 'ai' | 'letter'
 
-const field = 'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1.5 text-sm outline-none placeholder:text-[var(--color-faint)] focus:border-[var(--color-accent)] disabled:opacity-60'
+const field = 'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1.5 text-sm outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:opacity-60'
 const outline = 'rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-text)]'
 const QUICK_PROMPTS = ['Draft my cover letter for this role.', 'Make it shorter and more direct.', 'Write it in French.']
 
@@ -192,37 +194,56 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
   const blocking = preview.failures.length > 0 || (preview.pages !== null && preview.pages !== 1)
   const wordTone = words === 0 ? 'neutral' : words > LETTER_WORD_TARGET.max + 50 ? 'warn' : 'ok'
 
+  const empty = !letter.content.trim()
+  // Why Finalize can't run yet, so the disabled button explains itself.
+  const finalizeBlocked = empty ? 'Write the letter first'
+    : conflict ? 'Reload to continue from the latest version'
+    : preview.failures.length ? 'Fix the errors in the letter first'
+    : preview.pages !== null && preview.pages !== 1 ? 'The letter has to fit on one page'
+    : saveState === 'saving' ? 'Saving your latest edits'
+    : busy ? 'Wait for the AI to finish'
+    : null
+
   return <div className="space-y-3">
-    <div className="flex flex-wrap items-center gap-2">
-      <FinalizeStatus saveState={saveState} pendingReview={!!undo} finalized={letterFinalized} upToDate={letterMatchesFinalized(letter, letterFinalized?.letter ?? null)} />
-      {rendering ? <span className="flex items-center gap-1 text-xs text-[var(--color-faint)]"><Spinner /> Rendering…</span> : preview.pages ? <Badge tone={blocking ? 'warn' : 'ok'}>{preview.pages} page</Badge> : null}
-      <Badge tone={wordTone}>{words} words · aim {LETTER_WORD_TARGET.min}–{LETTER_WORD_TARGET.max}</Badge>
-      {notice ? <span role="status" className="text-xs text-[var(--color-accent)]">{notice}</span> : null}
-      <div className="ml-auto flex items-center gap-2">
-        {finalizedPdf ? <>
-          <a href={`/api/applications/${encodeURIComponent(app.key)}/file/${encodeURIComponent(finalizedPdf)}`} target="_blank" rel="noreferrer" className={outline}>Open PDF</a>
-          <button type="button" onClick={() => void locate(true)} className={outline}>Reveal in Finder</button>
-          <button type="button" onClick={() => void locate(false)} className={outline}>Copy path</button>
-        </> : null}
-        <button type="button" disabled={busy || conflict || blocking || saveState === 'saving' || !letter.content.trim()} onClick={() => void finalize()} className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-bg)] disabled:opacity-40">
-          {finalizing ? 'Finalizing…' : finalizedPdf ? 'Finalize again' : 'Finalize cover letter'}
-        </button>
-      </div>
-    </div>
     {conflict ? <Card className="flex flex-wrap items-center gap-3 border-[var(--color-bad-soft)] px-4 py-3">
       <p role="alert" className="flex-1 text-xs text-[var(--color-bad)]">This cover letter was changed somewhere else, in another tab or by Claude. Your edits here are not saved. Reload to continue from the latest version.</p>
       <button type="button" onClick={() => window.location.reload()} className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-bg)]">Reload</button>
     </Card> : error ? <ErrorNotice error={error} className="rounded-md" onRetry={retry && !busy ? () => void send(retry) : undefined} onDismiss={() => { setError(null); setRetry(null) }} /> : null}
     {preview.failures.length ? <Card className="border-[var(--color-bad-soft)]"><ul className="list-disc px-8 py-2 text-xs text-[var(--color-bad)]">{preview.failures.map((failure, index) => <li key={index}>{failure.why}</li>)}</ul></Card> : null}
 
-    <div className="grid min-h-[70vh] items-start gap-5 lg:grid-cols-2">
-      <Card className="flex h-[680px] min-h-0 flex-col overflow-hidden">
-        <div className="flex shrink-0 items-center gap-1 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5" role="tablist" aria-label="Cover letter workspace mode">
-          {([['ai', 'A.I Companion'], ['letter', 'Letter']] as const).map(([value, label]) => <button key={value} type="button" role="tab" aria-selected={pane === value} onClick={() => setPane(value)} className={cn('rounded-md px-3 py-1.5 text-xs transition-colors', pane === value ? 'bg-[var(--color-surface-2)] font-medium text-[var(--color-text)]' : 'text-[var(--color-muted)] hover:text-[var(--color-text)]')}>{label}</button>)}
-          <span className="ml-auto pr-1 text-[10px] text-[var(--color-faint)]">{pane === 'ai' ? 'Draft and revise with AI' : 'Edit the letter directly'}</span>
+    {/* Same layout as the resume workspace: the document and its main action on the left, the AI on the right. */}
+    <div className="grid items-start gap-4 lg:grid-cols-2">
+      <section aria-label="Cover letter preview" className="min-w-0 space-y-3">
+        <div className="flex flex-wrap items-center gap-2">
+          {empty && !letterFinalized ? <Badge>No draft yet</Badge> : <FinalizeStatus saveState={saveState} pendingReview={!!undo} finalized={letterFinalized} upToDate={letterMatchesFinalized(letter, letterFinalized?.letter ?? null)} />}
+          {rendering ? <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]"><Spinner /> Rendering…</span> : preview.pages ? <Badge tone={blocking ? 'warn' : 'ok'}>{preview.pages} page</Badge> : null}
+          <Badge tone={wordTone}>{words} words · aim {LETTER_WORD_TARGET.min}–{LETTER_WORD_TARGET.max}</Badge>
+          {notice ? <span role="status" className="text-xs text-[var(--color-accent)]">{notice}</span> : null}
+          <div className="ml-auto flex items-center gap-2">
+            {finalizedPdf ? <>
+              <a href={`/api/applications/${encodeURIComponent(app.key)}/file/${encodeURIComponent(finalizedPdf)}`} target="_blank" rel="noreferrer" className={outline}>Open PDF</a>
+              <Menu label="More file actions" width="w-48">
+                {(close) => <>
+                  <MenuItem label="Show the file in Finder" onSelect={() => { close(); void locate(true) }} />
+                  <MenuItem label="Copy the file’s path" onSelect={() => { close(); void locate(false) }} />
+                </>}
+              </Menu>
+            </> : null}
+            <button type="button" disabled={!!finalizeBlocked} title={finalizeBlocked ?? 'Saves this letter as the PDF you send'} onClick={() => void finalize()} className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-bg)] disabled:opacity-40">
+              {finalizing ? 'Finalizing…' : finalizedPdf ? 'Finalize again' : 'Finalize cover letter'}
+            </button>
+          </div>
+        </div>
+        {finalizeBlocked && !finalizing ? <p className="text-xs text-[var(--color-muted)]">{finalizeBlocked === 'Write the letter first' ? 'Finalize unlocks once the letter has text. Ask the AI for a first draft, or write it in Letter.' : `Finalize is waiting: ${finalizeBlocked.charAt(0).toLowerCase()}${finalizeBlocked.slice(1)}.`}</p> : null}
+        <Card className="workspace-pane overflow-hidden"><PdfPreview token={preview.token} document="cover letter" engine="Typst" source="letter" /></Card>
+      </section>
+      <Card className="workspace-pane flex min-h-0 flex-col overflow-hidden lg:sticky lg:top-24">
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--color-border)] px-3 pt-2">
+          <PaneTabs label="Cover letter" idBase="letter-pane" value={pane} onChange={setPane} items={[{ value: 'ai', label: 'AI' }, { value: 'letter', label: 'Letter' }]} />
+          <span className="ml-auto pb-2 text-xs text-[var(--color-muted)]">{pane === 'ai' ? 'Draft and revise with AI' : 'Edit the letter directly'}</span>
         </div>
 
-        {pane === 'ai' ? <div className="flex min-h-0 flex-1 flex-col">
+        {pane === 'ai' ? <div {...paneTabPanelProps('letter-pane', 'ai')} className="flex min-h-0 flex-1 flex-col">
           {turns.length >= 2 ? <LearnFromChat skillId="write-cover-letter" turns={turns} disabled={busy} /> : null}
           <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
             {turns.length ? turns.map((turn, index) => <div key={index} className={turn.role === 'user'
@@ -238,12 +259,12 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
           </div>
           {undo && !thinking ? <div className="flex items-center gap-2 border-t border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2 text-xs">
             <span className="text-[var(--color-muted)]">The letter was updated. Check the preview.</span>
-            <button type="button" onClick={() => setUndo(null)} className="ml-auto rounded-md bg-[var(--color-ok)] px-2.5 py-1 text-[11px] font-medium text-white">Keep</button>
-            <button type="button" onClick={() => { setLetter(undo); setUndo(null) }} className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-[11px] hover:bg-[var(--color-surface-2)]">Undo</button>
+            <button type="button" onClick={() => setUndo(null)} className="ml-auto rounded-md bg-[var(--color-ok)] px-2.5 py-1 text-xs font-medium text-white">Keep</button>
+            <button type="button" onClick={() => { setLetter(undo); setUndo(null) }} className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs hover:bg-[var(--color-surface-2)]">Undo</button>
           </div> : null}
           <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3">
             <div className="mb-2 flex flex-wrap gap-1.5">
-              {(letter.content.trim() ? QUICK_PROMPTS.slice(1) : QUICK_PROMPTS.slice(0, 1)).map((prompt) => <button key={prompt} type="button" disabled={busy} onClick={() => void send(prompt)} className="rounded-md bg-[var(--color-accent-soft)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-accent)] hover:opacity-80 disabled:opacity-40">{prompt}</button>)}
+              {(letter.content.trim() ? QUICK_PROMPTS.slice(1) : QUICK_PROMPTS.slice(0, 1)).map((prompt) => <button key={prompt} type="button" disabled={busy} onClick={() => void send(prompt)} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] disabled:opacity-40">{prompt}</button>)}
             </div>
             <textarea
               value={message}
@@ -259,10 +280,10 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
               disabled={busy}
               maxLength={8000}
               rows={3}
-              className="w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-[var(--color-faint)] focus:border-[var(--color-accent)] disabled:opacity-60"
+              className="w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:opacity-60"
             />
             <div className="mt-2 flex items-center justify-between gap-2">
-              <span className="text-[10px] text-[var(--color-faint)]">Uses your finalized resume and the job posting. Nothing is sent.</span>
+              <span className="text-xs text-[var(--color-muted)]">Uses your finalized resume and the job posting. Nothing is sent.</span>
               <button
                 type="button"
                 onClick={() => thinking ? abortRef.current?.abort() : void send()}
@@ -274,7 +295,7 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
               </button>
             </div>
           </div>
-        </div> : <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
+        </div> : <div {...paneTabPanelProps('letter-pane', 'letter')} className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
           <div className="grid gap-3 sm:grid-cols-2">
             <LetterField label="Recipient name" value={letter.recipientName} disabled={busy} placeholder="Leave empty if unknown" onChange={(recipientName) => edit({ recipientName })} />
             <LetterField label="Recipient title" value={letter.recipientTitle} disabled={busy} placeholder="e.g. Talent Acquisition" onChange={(recipientTitle) => edit({ recipientTitle })} />
@@ -291,12 +312,11 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
             </label>
           </div>
           <label className="flex min-h-[260px] flex-1 flex-col gap-1 text-xs text-[var(--color-muted)]">
-            <span className="flex items-center justify-between"><span>Letter body</span><span className="text-[10px] text-[var(--color-faint)]">Separate paragraphs with a blank line</span></span>
-            <textarea value={letter.content} disabled={busy} onChange={(event) => edit({ content: event.target.value })} placeholder="Write the letter here, or ask the A.I Companion for a first draft." className={cn(field, 'min-h-0 flex-1 resize-none leading-relaxed')} />
+            <span className="flex items-center justify-between"><span>Letter body</span><span className="text-xs text-[var(--color-muted)]">Separate paragraphs with a blank line</span></span>
+            <textarea value={letter.content} disabled={busy} onChange={(event) => edit({ content: event.target.value })} placeholder="Write the letter here, or ask the AI for a first draft." className={cn(field, 'min-h-0 flex-1 resize-none leading-relaxed')} />
           </label>
         </div>}
       </Card>
-      <Card className="h-[680px] overflow-hidden"><PdfPreview token={preview.token} document="cover letter" engine="Typst" source="letter" /></Card>
     </div>
   </div>
 }

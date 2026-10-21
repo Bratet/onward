@@ -1,10 +1,12 @@
 'use client'
 
+import { statusLabel } from '@/lib/statuses'
 import Link from 'next/link'
 import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CalendarDays, Clock, Copy, ExternalLink, FileText, FolderOpen, Highlighter, Linkedin, Mail, Search, Send, Sparkles, Trophy, X } from 'lucide-react'
-import type { Phase } from '@/lib/applicationPhase'
+import type { Standing } from '@/lib/applicationPhase'
 import type { InterviewRound, PrepProgress } from '@/lib/interviewPrep'
+import { currentStep, journeyFocus, STEP_STATE_LABEL, stepProgress, type Journey, type JourneyFocus } from '@/lib/journey'
 import { ProgressRing } from '@/components/ui/flair'
 import type { Application } from '@/lib/applications'
 import type { ApplicationRecord, RecordFile } from '@/lib/applicationRecord'
@@ -85,12 +87,15 @@ export interface HomeAction { label: string; icon: ReactNode; onClick: () => voi
  * The landing view once an application is out: where it stands, the one or
  * two things worth doing now, notes to log replies, and the timeline.
  */
-export function PostHome({ app, record, workspace, status, phase, contact, analysis, prep, rounds, onGo, onFollowUp, onNotesSaved }: {
+export function PostHome({ app, record, workspace, journey, companion, status, phase, contact, analysis, prep, rounds, onGo, onFollowUp, onNotesSaved }: {
   app: Application
   record: ApplicationRecord
   workspace: ApplicationWorkspace
+  journey: Journey | null
+  /** The companion, shown under the hero so the next action reads first. */
+  companion?: ReactNode
   status: string
-  phase: Phase
+  phase: Standing
   contact: PostingContact
   analysis: JdAnalysis | null
   prep: PrepProgress
@@ -104,7 +109,10 @@ export function PostHome({ app, record, workspace, status, phase, contact, analy
   const due = phase === 'waiting' && days !== null && days >= FOLLOW_UP_AFTER_DAYS && days <= FOLLOW_UP_UNTIL_DAYS
   const today = new Date().toISOString().slice(0, 10)
   const upcoming = rounds.find((round) => round.date.slice(0, 10) >= today) ?? null
-  const hero = homeHero({ phase, status, days, due, upcoming, prep, onGo, onFollowUp, hasPack: prep.total > 0 })
+  const focus = journeyFocus(journey, today)
+  const hero = homeHero({ phase, status, days, due, upcoming, focus, prep, onGo, onFollowUp, hasPack: prep.total > 0 })
+  const steps = journey && journey.steps.length > 1 ? stepProgress(journey) : null
+  const step = journey ? currentStep(journey) : null
 
   return <div className="space-y-4">
     {feedback}
@@ -119,10 +127,13 @@ export function PostHome({ app, record, workspace, status, phase, contact, analy
       </div>
     </Card>
 
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-      <Stat delay={40} label={phase === 'closed' ? 'Days it ran' : 'Since you applied'} value={days === null ? '—' : `${days}d`} hint={workspace.appliedAt ? fmtDay(workspace.appliedAt) : app.row ? fmtDay(app.row.date) : undefined} />
+    {companion}
+
+    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
       <Stat delay={90} label="Interview prep" value={prep.total ? `${prep.percent}%` : 'Not started'} hint={prep.total ? `${prep.solid}/${prep.total} questions nailed` : 'Build a prep pack'} onClick={() => onGo('prep')} ring={prep.total ? prep.percent : undefined} />
-      <Stat delay={140} label="Interview rounds" value={rounds.length ? String(rounds.length) : '0'} hint={upcoming ? `Next: ${upcoming.kind}, ${fmtDay(upcoming.date.slice(0, 10))}` : rounds.length ? 'All done' : 'None scheduled'} onClick={() => onGo('prep')} />
+      {steps && step
+        ? <Stat delay={140} label="Steps done" value={`${steps.finished}/${steps.total}`} hint={`${step.label}: ${STEP_STATE_LABEL[step.state].toLowerCase()}`} />
+        : <Stat delay={140} label="Interview rounds" value={rounds.length ? String(rounds.length) : '0'} hint={upcoming ? `Next: ${upcoming.kind}, ${fmtDay(upcoming.date.slice(0, 10))}` : rounds.length ? 'All done' : 'None scheduled'} onClick={() => onGo('prep')} />}
       <Stat delay={190} label="Fit" value={workspace.fit.report?.verdict ?? '—'} hint={workspace.fit.report ? `${workspace.fit.report.coverage.must.evidenced} of ${workspace.fit.report.coverage.must.total} must-haves backed` : 'Not analyzed'} />
     </div>
 
@@ -155,9 +166,9 @@ export function PostHome({ app, record, workspace, status, phase, contact, analy
 
 function Stat({ label, value, hint, onClick, ring, delay }: { label: string; value: string; hint?: string; onClick?: () => void; ring?: number; delay: number }) {
   const body = <>
-    <span className="flex items-center justify-between gap-2"><span className="text-[11px] text-[var(--color-faint)]">{label}</span>{ring !== undefined ? <ProgressRing value={ring} size={26} stroke={3} /> : null}</span>
+    <span className="flex items-center justify-between gap-2"><span className="text-xs text-[var(--color-muted)]">{label}</span>{ring !== undefined ? <ProgressRing value={ring} size={26} stroke={3} /> : null}</span>
     <span className="mt-1 block text-xl font-semibold tracking-tight tnum" suppressHydrationWarning>{value}</span>
-    {hint ? <span className="mt-0.5 block truncate text-[11px] text-[var(--color-muted)]" suppressHydrationWarning>{hint}</span> : null}
+    {hint ? <span className="mt-0.5 block truncate text-xs text-[var(--color-muted)]" suppressHydrationWarning>{hint}</span> : null}
   </>
   const className = 'anim-rise block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left'
   return onClick
@@ -165,19 +176,29 @@ function Stat({ label, value, hint, onClick, ring, delay }: { label: string; val
     : <div className={className} style={{ ['--delay' as string]: `${delay}ms` }}>{body}</div>
 }
 
-function homeHero({ phase, status, days, due, upcoming, prep, hasPack, onGo, onFollowUp }: {
-  phase: Phase; status: string; days: number | null; due: boolean; upcoming: InterviewRound | null; prep: PrepProgress; hasPack: boolean
+function homeHero({ phase, status, days, due, upcoming, focus, prep, hasPack, onGo, onFollowUp }: {
+  phase: Standing; status: string; days: number | null; due: boolean; upcoming: InterviewRound | null; focus: JourneyFocus | null; prep: PrepProgress; hasPack: boolean
   onGo: (view: 'prep' | 'next' | 'record') => void; onFollowUp: () => void
 }): { title: string; body: string; icon: ReactNode; tone: 'accent' | 'warn' | 'ok' | 'muted'; pulse?: boolean; actions: HomeAction[] } {
   const when = days === null ? 'recently' : days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`
   const prepAction: HomeAction = { label: hasPack ? 'Continue prep' : 'Start interview prep', icon: <Sparkles size={14} aria-hidden="true" />, onClick: () => onGo('prep') }
+  const ready = `You’re ${prep.percent}% ready. ${prep.total ? `${prep.total - prep.solid} question${prep.total - prep.solid === 1 ? '' : 's'} still to polish.` : 'Build your prep pack to start practicing.'}`
+  // The journey knows more than the status: a booked step or a next action leads when there is one.
+  if (focus?.kind === 'step') return { title: `${focus.step.label} ${countdown(focus.step.date)}`, body: `${focus.step.with ? `With ${focus.step.with}. ` : ''}${ready}`, icon: <CalendarDays size={24} />, tone: 'warn', pulse: true, actions: [{ label: 'Practice now', icon: <Sparkles size={14} aria-hidden="true" />, onClick: () => onGo('prep'), primary: true }] }
+  if (focus?.kind === 'next') {
+    const { next, overdue } = focus
+    const when = next.due ? overdue ? `This was due ${fmtDay(next.due)}.` : `Due ${countdown(next.due)}.` : 'No date set.'
+    const email: HomeAction = { label: 'Write an email', icon: <Mail size={14} aria-hidden="true" />, onClick: () => onGo('next') }
+    const interviewing = phase === 'interview' || phase === 'talking'
+    return { title: next.text, body: `${when} Once it’s done, tell the companion below and it will move things along.`, icon: phase === 'offer' ? <Trophy size={24} /> : <Clock size={24} />, tone: overdue ? 'warn' : phase === 'offer' ? 'ok' : 'accent', pulse: overdue, actions: interviewing ? [{ ...prepAction, primary: true }, email] : [{ ...email, primary: true }] }
+  }
   if (phase === 'waiting' && days !== null && days > FOLLOW_UP_UNTIL_DAYS) return { title: `${days} days and no reply`, body: 'Most companies that answer do so within a month, so this one has probably gone quiet. You can send one last short note, or close it and put your energy into newer applications.', icon: <Clock size={24} />, tone: 'muted', actions: [{ label: 'Send one last note', icon: <Mail size={14} aria-hidden="true" />, onClick: onFollowUp }, { label: 'Update status', icon: <FileText size={14} aria-hidden="true" />, onClick: () => onGo('next') }] }
   if (phase === 'waiting') return due
     ? { title: 'Time for a friendly follow-up', body: `You applied ${when} and haven’t heard back. A short, polite note to the recruiter keeps you on their radar.`, icon: <Clock size={24} />, tone: 'warn', pulse: true, actions: [{ label: 'Draft a follow-up', icon: <Mail size={14} aria-hidden="true" />, onClick: onFollowUp, primary: true }, prepAction] }
-    : { title: 'Application sent. Nice work.', body: `You applied ${when}. Give it about a week before following up${days !== null && days < FOLLOW_UP_AFTER_DAYS ? ` (${FOLLOW_UP_AFTER_DAYS - days} more day${FOLLOW_UP_AFTER_DAYS - days === 1 ? '' : 's'})` : ''}. Meanwhile, getting a head start on interview prep makes a call easy to say yes to.`, icon: <Send size={24} />, tone: 'accent', actions: [{ ...prepAction, primary: true }] }
+    : { title: days !== null && days < FOLLOW_UP_AFTER_DAYS ? `Follow up in ${FOLLOW_UP_AFTER_DAYS - days} day${FOLLOW_UP_AFTER_DAYS - days === 1 ? '' : 's'}` : 'Follow up when you’re ready', body: `Nice work, you applied ${when}. Give it about a week before a short follow-up. Meanwhile, a head start on interview prep makes a call easy to say yes to.`, icon: <Send size={24} />, tone: 'accent', actions: [{ ...prepAction, primary: true }] }
   if (phase === 'talking') return { title: 'They got back to you', body: 'Log what they said in your notes, then get ready for the first conversation.', icon: <Mail size={24} />, tone: 'ok', pulse: true, actions: [{ ...prepAction, primary: true }, { label: 'Reply', icon: <Mail size={14} aria-hidden="true" />, onClick: () => onGo('next') }] }
   if (phase === 'interview') return upcoming
-    ? { title: `${upcoming.kind} ${countdown(upcoming.date)}`, body: `You’re ${prep.percent}% ready. ${prep.total ? `${prep.total - prep.solid} question${prep.total - prep.solid === 1 ? '' : 's'} still to polish.` : 'Build your prep pack to start practicing.'}`, icon: <CalendarDays size={24} />, tone: 'warn', pulse: true, actions: [{ label: 'Practice now', icon: <Sparkles size={14} aria-hidden="true" />, onClick: () => onGo('prep'), primary: true }] }
+    ? { title: `${upcoming.kind} ${countdown(upcoming.date)}`, body: ready, icon: <CalendarDays size={24} />, tone: 'warn', pulse: true, actions: [{ label: 'Practice now', icon: <Sparkles size={14} aria-hidden="true" />, onClick: () => onGo('prep'), primary: true }] }
     : { title: 'You’re interviewing', body: 'Add each round with its date to get a countdown, and practice the questions they are most likely to ask.', icon: <CalendarDays size={24} />, tone: 'accent', actions: [{ ...prepAction, primary: true }] }
   if (phase === 'offer') return { title: 'You got an offer', body: 'Congratulations. Before you answer, reread the posting and your notes so you negotiate from what they asked for.', icon: <Trophy size={24} />, tone: 'ok', actions: [{ label: 'Reread the posting', icon: <FileText size={14} aria-hidden="true" />, onClick: () => onGo('record'), primary: true }] }
   return { title: status === 'Rejected' ? 'This one didn’t work out' : 'This application is closed', body: status === 'Rejected' ? 'It happens to everyone, and it says little about you. Your posting, documents and notes stay here if the company opens a similar role later.' : 'Everything you prepared is kept here for reference.', icon: <FileText size={24} />, tone: 'muted', actions: [{ label: 'See what you sent', icon: <FileText size={14} aria-hidden="true" />, onClick: () => onGo('record') }] }
@@ -221,12 +242,12 @@ function PostingCard({ appKey, record, keywords, hasJd, onCopy }: { appKey: stri
           <span className="sr-only">Find in posting</span>
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-faint)]" aria-hidden="true" />
           <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find in posting…" className="h-8 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] pl-8 pr-16 text-xs outline-none focus:border-[var(--color-accent)]" />
-          {query ? <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 text-[11px] text-[var(--color-faint)] tnum">{matches} {matches === 1 ? 'match' : 'matches'}<button type="button" onClick={() => setQuery('')} aria-label="Clear search" className="hover:text-[var(--color-text)]"><X size={12} /></button></span> : null}
+          {query ? <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 text-xs text-[var(--color-muted)] tnum">{matches} {matches === 1 ? 'match' : 'matches'}<button type="button" onClick={() => setQuery('')} aria-label="Clear search" className="hover:text-[var(--color-text)]"><X size={12} /></button></span> : null}
         </label>
         {keywords.length ? <button type="button" aria-pressed={highlight} onClick={() => setHighlight((value) => !value)} className={cn(button, highlight && 'border-[var(--color-accent)] text-[var(--color-accent)]')}><Highlighter size={13} aria-hidden="true" /> Keywords</button> : null}
       </div>
       {highlight && present.length ? <div className="flex flex-wrap gap-1.5 border-b border-[var(--color-border)] px-5 py-2.5">
-        {present.map((word) => <button key={word} type="button" onClick={() => setQuery((current) => current === word ? '' : word)} className={cn('rounded-md border px-1.5 py-0.5 text-[11px]', query === word ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-text)]')}>{word}</button>)}
+        {present.map((word) => <button key={word} type="button" onClick={() => setQuery((current) => current === word ? '' : word)} className={cn('rounded-md border px-1.5 py-0.5 text-xs', query === word ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)] text-[var(--color-accent)]' : 'border-[var(--color-border)] text-[var(--color-muted)] hover:text-[var(--color-text)]')}>{word}</button>)}
       </div> : null}
       <div ref={scroller} className="relative max-h-[75vh] overflow-y-auto px-5 py-4">
         <PostingText text={body} terms={terms} query={query} />
@@ -373,7 +394,7 @@ function noteTitle(name: string): string {
 function DocRow({ icon, title, meta, children }: { icon: ReactNode; title: string; meta: ReactNode; children?: ReactNode }) {
   return <div className="flex flex-wrap items-center gap-3 px-5 py-3">
     <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)]" aria-hidden="true">{icon}</span>
-    <div className="min-w-40 flex-1"><p className="text-sm font-medium">{title}</p><p className="truncate text-[11px] text-[var(--color-faint)]">{meta}</p></div>
+    <div className="min-w-40 flex-1"><p className="text-sm font-medium">{title}</p><p className="truncate text-xs text-[var(--color-muted)]">{meta}</p></div>
     <div className="flex flex-wrap gap-2">{children}</div>
   </div>
 }
@@ -460,11 +481,11 @@ function TimelineCard({ app, record, status, rounds = [] }: { app: Application; 
       <span className="absolute bottom-6 left-[1.4rem] top-6 w-px bg-[var(--color-border)]" aria-hidden="true" />
       {events.map((event, index) => <li key={`${event.label}-${index}`} className="relative flex gap-3">
         <span className="relative mt-1 size-2.5 shrink-0 rounded-full border-2 border-[var(--color-surface)] bg-[var(--color-faint)] outline outline-1 outline-[var(--color-border)] ml-[0.3rem]" aria-hidden="true" />
-        <div className="min-w-0"><p className="text-xs font-medium">{event.label}</p><p className="text-[11px] text-[var(--color-faint)]"><When iso={event.at} time />{event.detail ? ` · ${event.detail}` : ''}</p></div>
+        <div className="min-w-0"><p className="text-xs font-medium">{event.label}</p><p className="text-xs text-[var(--color-muted)]"><When iso={event.at} time />{event.detail ? ` · ${event.detail}` : ''}</p></div>
       </li>)}
       {app.row ? <li className="relative flex gap-3">
         <span className="relative mt-1 size-2.5 shrink-0 rounded-full border-2 border-[var(--color-surface)] bg-[var(--color-accent)] ml-[0.3rem]" aria-hidden="true" />
-        <div><p className="flex items-center gap-2 text-xs font-medium">Now <Badge tone={statusTone(status)}>{status}</Badge></p></div>
+        <div><p className="flex items-center gap-2 text-xs font-medium">Now <Badge tone={statusTone(status)}>{statusLabel(status)}</Badge></p></div>
       </li> : null}
       {!events.length && !app.row ? <li className="text-xs text-[var(--color-faint)]">No dated events recorded.</li> : null}
     </ol>
@@ -480,7 +501,7 @@ function FilesCard({ app, base, files, onCopy }: { app: Application; base: strin
       {files.map((file) => <li key={file.name}>
         <a href={`${base}/file/${encodeURIComponent(file.name)}`} target="_blank" rel="noreferrer" className="flex items-center gap-2 px-4 py-2 text-xs hover:bg-[var(--color-surface-2)]">
           <span className="min-w-0 flex-1 truncate">{file.name}</span>
-          <span className="shrink-0 text-[10px] text-[var(--color-faint)] tnum">{kb(file.size)}</span>
+          <span className="shrink-0 text-xs text-[var(--color-muted)] tnum">{kb(file.size)}</span>
         </a>
       </li>)}
     </ul>

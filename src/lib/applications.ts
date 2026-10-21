@@ -5,6 +5,7 @@ import { readIndex } from './appIndex'
 import { readRows, type TrackerRow } from './tracker'
 import { RESPONDED_STATUSES, SENT_STATUSES } from './statuses'
 import { emptyInterviewState, nextRound, prepProgress, type InterviewState } from './interviewPrep'
+import { currentStep, parseJourney, type NextAction, type Step } from './journey'
 
 /**
  * Joins the tracker to what is actually on disk.
@@ -42,6 +43,9 @@ export interface Application {
     prep?: number | null
     /** The next scheduled interview round's date, if any. */
     nextRound?: string | null
+    /** The journey's next action and current step, once the companion or the candidate set them. */
+    next?: NextAction | null
+    step?: Pick<Step, 'label' | 'date' | 'state'> | null
   }
 }
 
@@ -115,8 +119,10 @@ export async function listApplications(): Promise<Application[]> {
     try {
       const workspace = JSON.parse(await readFile(join(PATHS.workspaces, `${app.key}.json`), 'utf-8')) as {
         draftYaml?: string; pendingProposal?: unknown; fit?: { report?: { verdict?: string } | null }
-        appliedAt?: string | null; interview?: Partial<InterviewState>
+        appliedAt?: string | null; interview?: Partial<InterviewState>; journey?: unknown
       }
+      const journey = parseJourney(workspace.journey)
+      const step = journey ? currentStep(journey) : null
       const interview = { ...emptyInterviewState(), ...workspace.interview }
       app.workspace = {
         fit: workspace.fit?.report?.verdict ?? null,
@@ -125,6 +131,8 @@ export async function listApplications(): Promise<Application[]> {
         appliedAt: workspace.appliedAt ?? null,
         prep: interview.pack ? prepProgress(interview).percent : null,
         nextRound: nextRound(interview.rounds, new Date().toISOString().slice(0, 10))?.date ?? null,
+        next: journey?.next ?? null,
+        step: step ? { label: step.label, date: step.date, state: step.state } : null,
       }
     } catch {
       app.workspace = { fit: null, pending: false, resume: app.folder?.has.pdf ? 'finalized' : app.folder?.has.yaml ? 'draft' : 'missing' }

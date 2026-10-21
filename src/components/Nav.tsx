@@ -34,7 +34,7 @@ export function Nav() {
                 className={cn(
                   'flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors',
                   active
-                    ? 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]'
+                    ? 'bg-[var(--color-accent-soft)] text-[var(--color-text)]'
                     : 'text-[var(--color-muted)] hover:bg-[var(--color-surface)] hover:text-[var(--color-text)]',
                 )}
                 aria-current={active ? 'page' : undefined}

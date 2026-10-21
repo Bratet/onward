@@ -69,7 +69,7 @@ export function FeatureEnginePicker({
 
   return (
     <div className="flex flex-wrap items-center gap-1.5" title={status?.ok ? status.version : status?.reason ?? 'Loading AI preference…'}>
-      <span className="text-[10px] uppercase tracking-wide text-[var(--color-faint)]">LLM</span>
+      <span className="text-xs text-[var(--color-muted)]">Model</span>
       <select
         value={state?.engine ?? ''}
         onChange={(event) => void save({ engine: event.target.value })}

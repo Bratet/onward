@@ -34,6 +34,7 @@ export function Overview({ analysis, workspace, onRetry, onOpenChat, eligibility
   const partial = rows.filter((row) => row.weight === 'must' && row.classification === 'supporting')
   const optionalGaps = rows.filter((row) => row.weight === 'nice' && row.classification !== 'direct')
   const direct = rows.filter((row) => row.weight === 'must' && row.classification === 'direct').length
+  const coverage = report?.coverage.must.total ? `${direct} of ${report.coverage.must.total} required skills have direct evidence; ${partial.length} have related experience.` : 'The posting has no requirements classified as must-have.'
 
   return <div className="space-y-5">
     {eligibility.length ? <Card>
@@ -73,13 +74,13 @@ export function Overview({ analysis, workspace, onRetry, onOpenChat, eligibility
 
     {report ? <>
       <Card>
-        <CardHeader title="What needs your attention" hint="Gaps after considering your resume and confirmed clarifications" action={<button onClick={onOpenChat} className="rounded-md bg-[var(--color-accent)] px-3 py-2 text-xs font-medium text-[var(--color-bg)] hover:opacity-90">Discuss with AI</button>} />
+        <CardHeader title={requiredGaps.length || partial.length ? 'What needs your attention' : 'No required gaps'} hint={coverage} action={<button onClick={onOpenChat} className="rounded-md border border-[var(--color-border)] px-3 py-2 text-xs font-medium text-[var(--color-accent)] hover:bg-[var(--color-surface-2)]">Discuss in Clarify</button>} />
         <div className="space-y-5 p-5">
-          <section aria-labelledby="required-gaps-title">
+          {requiredGaps.length ? <section aria-labelledby="required-gaps-title">
             <h3 id="required-gaps-title" className="text-sm font-semibold">Required skills with no recorded evidence <span className="ml-1 text-[var(--color-muted)]">({requiredGaps.length})</span></h3>
             <p className="mt-1 max-w-prose text-xs leading-relaxed text-[var(--color-muted)]">If you have this experience, tell the AI so it can help update your profile. Otherwise, keep it as a gap to prepare for.</p>
-            {requiredGaps.length ? <RequirementList rows={requiredGaps} /> : <p className="mt-3 text-sm text-[var(--color-ok)]">No required skills were marked as missing from your profile.</p>}
-          </section>
+            <RequirementList rows={requiredGaps} />
+          </section> : <p className="max-w-prose text-sm text-[var(--color-ok)]">Every required skill has evidence in your resume{partial.length ? ', though some only through related experience' : ''}.</p>}
           {partial.length ? <section className="border-t border-[var(--color-border)] pt-4" aria-labelledby="partial-title">
             <h3 id="partial-title" className="text-sm font-semibold">Requirements to clarify <span className="ml-1 text-[var(--color-muted)]">({partial.length})</span></h3>
             <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted)]">You have related experience, but it does not fully demonstrate these requirements.</p>
@@ -89,11 +90,12 @@ export function Overview({ analysis, workspace, onRetry, onOpenChat, eligibility
           {optionalGaps.length ? <details className="border-t border-[var(--color-border)] pt-3"><summary className="cursor-pointer text-xs font-medium">Optional requirements to review ({optionalGaps.length})</summary><p className="mt-2 text-xs text-[var(--color-muted)]">These are listed as nice-to-have in the posting.</p><RequirementList rows={optionalGaps} /></details> : null}
         </div>
       </Card>
-      <section className="px-1" aria-labelledby="strengths-title">
-        <h2 id="strengths-title" className="text-sm font-semibold">What strengthens your application</h2>
-        <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted)]">{report.coverage.must.total ? `${direct} of ${report.coverage.must.total} required skills have direct evidence; ${partial.length} have related experience.` : 'The posting has no requirements classified as must-have.'}</p>
-        {report.recommendedEmphasis.length ? <TextList rows={report.recommendedEmphasis} /> : <p className="mt-3 text-xs text-[var(--color-muted)]">No specific strengths were highlighted. Check the evidence below.</p>}
-      </section>
+      <Card>
+        <CardHeader title="What strengthens your application" />
+        <div className="px-5 pb-5">
+          {report.recommendedEmphasis.length ? <TextList rows={report.recommendedEmphasis} /> : <p className="text-xs text-[var(--color-muted)]">No specific strengths were highlighted. Check the evidence below.</p>}
+        </div>
+      </Card>
     </> : null}
 
     <Card>
@@ -101,7 +103,7 @@ export function Overview({ analysis, workspace, onRetry, onOpenChat, eligibility
       <dl className="grid gap-4 p-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
         <Info label="Location" value={analysis.location} /><Info label="Work arrangement" value={analysis.workMode} /><Info label="Seniority" value={analysis.seniority} /><Info label="Visa sponsorship" value={analysis.sponsorship} />
       </dl>
-      {analysis.summary ? <p className="border-t border-[var(--color-border)] px-5 py-4 text-sm leading-relaxed text-[var(--color-muted)]">{analysis.summary}</p> : null}
+      {analysis.summary ? <p className="max-w-prose border-t border-[var(--color-border)] px-5 py-4 text-sm leading-relaxed text-[var(--color-muted)]">{analysis.summary}</p> : null}
       {analysis.keywords.length ? <details className="border-t border-[var(--color-border)] px-5 py-3"><summary className="cursor-pointer text-xs font-medium">Skills and keywords in the posting</summary><div className="mt-3 flex flex-wrap gap-2">{analysis.keywords.map((word) => <Badge key={word}>{word}</Badge>)}</div></details> : null}
     </Card>
 
@@ -130,7 +132,7 @@ export function Overview({ analysis, workspace, onRetry, onOpenChat, eligibility
 
 function RequirementList({ rows }: { rows: ProfileFitRow[] }) {
   return <ul className="mt-2 divide-y divide-[var(--color-border)]">{rows.map((row) => <li key={`${row.weight}-${row.rank}`} className="py-3">
-    <div className="flex flex-wrap items-start justify-between gap-2"><p className="min-w-0 flex-1 text-sm leading-relaxed">{row.requirement}</p><EvidenceBadge row={row} /></div>
+    <div className="flex flex-wrap items-start justify-between gap-2"><p className="min-w-0 max-w-prose flex-1 text-sm leading-relaxed">{row.requirement}</p><EvidenceBadge row={row} /></div>
     {row.evidence.length ? <TextList rows={row.evidence} /> : null}
   </li>)}</ul>
 }
@@ -138,7 +140,7 @@ function EvidenceBadge({ row }: { row?: ProfileFitRow }) {
   return row ? <Badge tone={row.classification === 'direct' ? 'ok' : row.classification === 'supporting' ? 'warn' : 'bad'}>{labels[row.classification]}</Badge> : <Badge>Not assessed yet</Badge>
 }
 function TextList({ rows }: { rows: string[] }) {
-  return <ul className="mt-3 list-disc space-y-2 pl-5 text-sm leading-relaxed text-[var(--color-muted)]">{rows.map((row, index) => <li key={index}>{row}</li>)}</ul>
+  return <ul className="mt-3 max-w-prose list-disc space-y-2 pl-5 text-sm leading-relaxed text-[var(--color-muted)]">{rows.map((row, index) => <li key={index}>{row}</li>)}</ul>
 }
 function Info({ label, value }: { label: string; value?: string | null }) {
   return <div><dt className="text-xs text-[var(--color-muted)]">{label}</dt><dd className="mt-1 leading-relaxed">{value || 'Not specified in the posting'}</dd></div>

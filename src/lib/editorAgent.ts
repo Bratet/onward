@@ -142,6 +142,8 @@ async function runCodex(
   signal?: AbortSignal,
   onEvent?: (event: EditorAgentEvent) => void,
 ): Promise<{ answer: string }> {
+  // Codex streams each agent message of a turn back to back; separate them so sentences don't run together.
+  let streamed = ''
   const result = await runCodexAppServer({
     prompt,
     model,
@@ -150,12 +152,20 @@ async function runCodex(
     signal,
     threadId: session.cliSessionId,
     persist: true,
-    onDelta: (text) => onEvent?.({ type: 'delta', text }),
+    onDelta: (text) => {
+      streamed += text
+      onEvent?.({ type: 'delta', text })
+    },
+    onMessageStart: () => {
+      if (!streamed || /\s$/.test(streamed)) return
+      streamed += '\n\n'
+      onEvent?.({ type: 'delta', text: '\n\n' })
+    },
     onReasoning: (text) => onEvent?.({ type: 'reasoning', text }),
     onActivity: (text) => onEvent?.({ type: 'activity', text }),
   })
   session.cliSessionId = result.threadId
-  return { answer: result.text.trim() }
+  return { answer: (streamed || result.text).trim() }
 }
 
 async function runClaude(
@@ -170,6 +180,11 @@ async function runClaude(
   const parser = createJsonlParser((event) => {
     const sessionId = typeof event.session_id === 'string' ? event.session_id : null
     if (sessionId) session.cliSessionId = sessionId
+    // Text before and after a tool call arrives as separate blocks; keep them as separate paragraphs.
+    if (claudeTextBlockStart(event) && answer && !/\s$/.test(answer)) {
+      answer += '\n\n'
+      onEvent?.({ type: 'delta', text: '\n\n' })
+    }
     const delta = claudeDelta(event)
     if (delta) {
       sawDelta = true
@@ -263,6 +278,12 @@ function claudeDelta(event: Record<string, unknown>): string | null {
   return streamEvent?.type === 'content_block_delta' && delta?.type === 'text_delta' && typeof delta.text === 'string'
     ? delta.text
     : null
+}
+
+function claudeTextBlockStart(event: Record<string, unknown>): boolean {
+  if (event.type !== 'stream_event') return false
+  const streamEvent = asRecord(event.event)
+  return streamEvent?.type === 'content_block_start' && asRecord(streamEvent.content_block)?.type === 'text'
 }
 
 function claudeActivity(event: Record<string, unknown>): string | null {

@@ -1,5 +1,5 @@
 /** Pipeline order for the funnel. Statuses outside it keep their own row at the end. */
-export const STAGE_ORDER = ['Evaluated', 'Tailored', 'Applied', 'Responded', 'Interview', 'Offer']
+export const STAGE_ORDER = ['Preparing', 'Tailored', 'Applied', 'Responded', 'Interview', 'Offer']
 
 export function funnelData(byStatus: { status: string; count: number }[]) {
   const known = STAGE_ORDER.map((status) => ({

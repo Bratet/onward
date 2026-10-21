@@ -150,7 +150,7 @@ export function NewApplicationFlow() {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({}),
       }).catch(() => {})
-      router.push(`/applications/${d.key}?tab=overview`)
+      router.push(`/applications/${d.key}?tab=workspace&pane=fit`)
     } catch (e) {
       setError((e as Error).message)
       setStep('review')
@@ -176,7 +176,7 @@ export function NewApplicationFlow() {
       </ol> : null}
 
       {step === 'creating' ? <p role="status" className="flex items-center gap-2 text-sm text-[var(--color-muted)]"><Spinner />{createdKey ? 'Comparing the job requirements with your master resume… This can take a minute.' : 'Creating the application…'}</p> : null}
-      {createdKey && error ? <Link href={`/applications/${createdKey}?tab=overview`} className="text-sm text-[var(--color-accent)] underline">Open the analysis workspace</Link> : null}
+      {createdKey && error ? <Link href={`/applications/${createdKey}?tab=workspace&pane=fit`} className="text-sm text-[var(--color-accent)] underline">Open the analysis workspace</Link> : null}
       {error ? (
         <Card className="border-[var(--color-bad-soft)]">
           <p className="px-4 py-2.5 text-xs text-[var(--color-bad)]">{error}</p>

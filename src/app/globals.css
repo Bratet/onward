@@ -77,7 +77,7 @@
   --color-accent: oklch(0.52 0.18 250);
   --color-accent-soft: oklch(0.92 0.055 250);
   --color-ok: oklch(0.48 0.14 155);
-  --color-warn: oklch(0.58 0.15 78);
+  --color-warn: oklch(0.5 0.13 70);
   --color-bad: oklch(0.54 0.18 22);
   --color-ok-soft: oklch(0.93 0.045 155);
   --color-warn-soft: oklch(0.95 0.05 78);
@@ -108,7 +108,7 @@
     --color-accent: oklch(0.52 0.18 250);
     --color-accent-soft: oklch(0.92 0.055 250);
     --color-ok: oklch(0.48 0.14 155);
-    --color-warn: oklch(0.58 0.15 78);
+    --color-warn: oklch(0.5 0.13 70);
     --color-bad: oklch(0.54 0.18 22);
     --color-ok-soft: oklch(0.93 0.045 155);
     --color-warn-soft: oklch(0.95 0.05 78);
@@ -154,57 +154,53 @@ input, textarea { caret-color: var(--color-accent); }
 /* Numbers in tables and stats should align across rows. */
 .tnum { font-variant-numeric: tabular-nums; }
 
-/* Arrow steps make the analysis-to-resume sequence explicit. */
-.application-flow {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.application-flow-step {
+/* The phase strip: Applying and Interviewing on one line, the steps of the
+   current phase inside it. It is the page's only progress indicator. */
+.phase-strip {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-  width: 100%;
-  height: 100%;
-  padding: 18px 30px;
-  text-align: left;
-  background: var(--color-surface-2);
-  color: var(--color-text);
-  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%, 18px 50%);
+  gap: 10px 16px;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
 }
+.phase-link { flex: 0 1 48px; min-width: 16px; height: 1px; background: var(--color-border-strong); }
+.phase-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-muted);
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.phase-step:hover { background: var(--color-surface-2); color: var(--color-text); }
+.phase-step:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.phase-step-active, .phase-step-active:hover { background: var(--color-accent-soft); color: var(--color-text); }
 
-.application-flow li:first-child .application-flow-step {
-  padding-left: 18px;
-  clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%);
+/* Tabs that switch what one pane shows: the same underline style for every pane. */
+.pane-tabs { display: flex; align-items: flex-end; gap: 4px; border-bottom: 1px solid transparent; }
+.pane-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 10px;
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-muted);
+  transition: color 0.15s ease, border-color 0.15s ease;
 }
-
-.application-flow-step:hover { background: var(--color-border); }
-.application-flow-step[aria-current='step'] { background: var(--color-accent-soft); }
-.application-flow li:focus-within { outline: 2px solid var(--color-accent); outline-offset: 3px; }
-.application-flow-step:focus-visible { outline: none; }
-.application-flow-number { font-size: 18px; font-weight: 600; color: var(--color-muted); }
-.application-flow-step[aria-current='step'] .application-flow-number { color: var(--color-accent); }
-
-/* The step to go to next glows. drop-shadow sits on the li because the
-   button's clip-path would cut off a box-shadow. */
-.application-flow li[data-next] { animation: application-flow-glow 2.4s ease-in-out infinite; }
-.application-flow li[data-next] .application-flow-number { color: var(--color-accent); }
-@keyframes application-flow-glow {
-  0%, 100% { filter: drop-shadow(0 0 0 transparent); }
-  50% { filter: drop-shadow(0 0 7px var(--color-accent)); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .application-flow li[data-next] { animation: none; filter: drop-shadow(0 0 4px var(--color-accent)); }
-}
-
-@media (max-width: 639px) {
-  .application-flow { grid-template-columns: minmax(0, 1fr); }
-  .application-flow-step { padding: 14px 30px 14px 18px; }
-  .application-flow li:last-child .application-flow-step {
-    clip-path: polygon(0 0, calc(100% - 18px) 0, 100% 50%, calc(100% - 18px) 100%, 0 100%);
-  }
-}
+.pane-tab:hover { color: var(--color-text); }
+.pane-tab[aria-selected='true'] { color: var(--color-text); font-weight: 600; border-bottom-color: var(--color-accent); }
+.pane-tab:focus-visible { outline: 2px solid var(--color-accent); outline-offset: -2px; border-radius: 6px; }
 
 /*
  * Chart tokens. Validated with the dataviz palette validator against this app's
@@ -269,8 +265,11 @@ input, textarea { caret-color: var(--color-accent); }
   100% { transform: translate3d(var(--dx), var(--dy), 0) rotate(var(--rot)); opacity: 0; }
 }
 
-.anim-rise { animation: rise-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: var(--delay, 0ms); }
-.anim-fade { animation: fade-in 0.3s ease-out both; }
+/* backwards, not both: the first frame holds through the delay, and once the
+   animation ends nothing stays applied. A fill that outlives the animation keeps
+   each card in its own layer, which paints it over dropdown menus above it. */
+.anim-rise { animation: rise-in 0.42s cubic-bezier(0.2, 0.8, 0.2, 1) backwards; animation-delay: var(--delay, 0ms); }
+.anim-fade { animation: fade-in 0.3s ease-out backwards; }
 .anim-pop { animation: pop-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: var(--delay, 0ms); }
 .anim-next { animation: slide-from-right 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
 .anim-prev { animation: slide-from-left 0.38s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
@@ -327,3 +326,8 @@ kbd { font-family: var(--font-mono); font-size: 10px; padding: 1px 5px; border-r
   .seg-indicator, .journey-fill, .flashcard-inner, .ring-value { transition: none; }
   .confetti-piece { display: none; }
 }
+
+/* The workspace's two panes fill the screen under the header, so the analysis,
+   the preview and the chat scroll inside themselves instead of the page. */
+.workspace-pane { height: max(420px, 70vh); }
+@media (min-width: 1024px) { .workspace-pane { height: max(560px, calc(100vh - 17rem)); } }

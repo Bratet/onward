@@ -26,6 +26,8 @@ export function runCodexAppServer(opts: {
   webSearch?: boolean
   signal?: AbortSignal
   onDelta?: (text: string) => void
+  /** A new agent message begins; earlier messages in the turn already streamed through onDelta. */
+  onMessageStart?: () => void
   onReasoning?: (text: string) => void
   onActivity?: (text: string) => void
 }): Promise<CodexAppServerResult> {
@@ -144,6 +146,7 @@ export function runCodexAppServer(opts: {
       }
       if (event.method === 'item/started') {
         const item = asRecord(params?.item)
+        if (item?.type === 'agentMessage') opts.onMessageStart?.()
         if (item?.type === 'fileChange') opts.onActivity?.('Editing the CV…')
         if (item?.type === 'commandExecution') opts.onActivity?.('Using a tool…')
         return

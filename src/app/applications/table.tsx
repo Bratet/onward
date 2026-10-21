@@ -2,37 +2,41 @@
 
 import { useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
-import { CalendarDays } from 'lucide-react'
 import type { Application } from '@/lib/applications'
 import { Card, Badge, statusTone, Empty, Spinner } from '@/components/ui/primitives'
 import { DocDots } from '@/components/DocDots'
 import { CompanyAvatar, SegmentedNav } from '@/components/ui/flair'
-import { applicationPhase, type Phase } from '@/lib/applicationPhase'
-import { daysSince, FOLLOW_UP_AFTER_DAYS, FOLLOW_UP_UNTIL_DAYS } from '@/lib/postingSource'
+import { applicationPhase, applicationStanding, type Phase } from '@/lib/applicationPhase'
+import { daysSince } from '@/lib/postingSource'
 import { followUpDue, goneQuiet } from '@/lib/followUp'
 import { fmtDate, cn } from '@/lib/utils'
+import { missingFolder, statusLabel } from '@/lib/statuses'
+import { STAGE_ORDER, stageForStatus, stageLabelForStatus, STEP_STATE_LABEL } from '@/lib/journey'
 
-type PhaseFilter = 'all' | 'follow-up' | Phase
+type PhaseFilter = 'all' | 'follow-up' | 'closed' | Phase
 
+// Interviewing first: that is where time matters most. Closed applications leave both phases.
 const PHASE_FILTERS: { value: PhaseFilter; label: string }[] = [
   { value: 'all', label: 'All' },
-  { value: 'prepare', label: 'To apply' },
-  { value: 'waiting', label: 'Waiting' },
-  { value: 'talking', label: 'Replied' },
-  { value: 'interview', label: 'Interviewing' },
-  { value: 'offer', label: 'Offers' },
+  { value: 'interviewing', label: 'Interviewing' },
+  { value: 'applying', label: 'Applying' },
   { value: 'closed', label: 'Closed' },
 ]
 
-type SortKey = 'date' | 'company' | 'score' | 'status'
+/** The list's phase bucket for an application: its phase while open, else Closed. */
+function phaseBucket(status: string | null | undefined): PhaseFilter {
+  return applicationStanding(status) === 'closed' ? 'closed' : applicationPhase(status)
+}
+
+type SortKey = 'stage' | 'date' | 'company' | 'score'
 
 export function ApplicationsTable({ applications, folders }: { applications: Application[]; folders: string[] }) {
   const router = useRouter()
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<string>('all')
   const [phase, setPhase] = useState<PhaseFilter>('all')
-  const [sort, setSort] = useState<SortKey>('date')
-  const [asc, setAsc] = useState(false)
+  const [sort, setSort] = useState<SortKey>('stage')
+  const [asc, setAsc] = useState(true)
   const [linking, setLinking] = useState(false)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState<string[] | null>(null)
@@ -48,7 +52,7 @@ export function ApplicationsTable({ applications, folders }: { applications: App
     const needle = q.trim().toLowerCase()
     const filtered = applications.filter((a) => {
       if (status !== 'all' && a.row?.status !== status) return false
-      if (phase === 'follow-up' ? !followUpDue(a) : phase !== 'all' && applicationPhase(a.row?.status) !== phase) return false
+      if (phase === 'follow-up' ? !followUpDue(a) : phase !== 'all' && phaseBucket(a.row?.status) !== phase) return false
       if (!needle) return true
       return [a.row?.company, a.row?.role, a.folder?.folder, a.row?.notes]
         .filter(Boolean)
@@ -65,8 +69,10 @@ export function ApplicationsTable({ applications, folders }: { applications: App
           const pb = Number.parseFloat(b.row?.score ?? '') || -1
           return dir * (pa - pb)
         }
-        case 'status':
-          return dir * (a.row?.status ?? '').localeCompare(b.row?.status ?? '')
+        case 'stage':
+          return dir * (STAGE_ORDER[stageForStatus(a.row?.status).stage] - STAGE_ORDER[stageForStatus(b.row?.status).stage])
+            || (a.workspace?.next?.due ?? '9999').localeCompare(b.workspace?.next?.due ?? '9999')
+            || (b.row?.date ?? b.folder?.date ?? '').localeCompare(a.row?.date ?? a.folder?.date ?? '')
         default:
           return dir * (a.row?.date ?? a.folder?.date ?? '').localeCompare(b.row?.date ?? b.folder?.date ?? '')
       }
@@ -76,19 +82,18 @@ export function ApplicationsTable({ applications, folders }: { applications: App
   const phaseCounts = useMemo(() => {
     const counts = new Map<PhaseFilter, number>([['all', applications.length]])
     for (const a of applications) {
-      const key = applicationPhase(a.row?.status)
+      const key = phaseBucket(a.row?.status)
       counts.set(key, (counts.get(key) ?? 0) + 1)
     }
     return counts
   }, [applications])
   const dueCount = useMemo(() => applications.filter((a) => followUpDue(a)).length, [applications])
-  const interviewing = useMemo(() => applications.filter((a) => a.workspace?.nextRound).sort((a, b) => (a.workspace!.nextRound!).localeCompare(b.workspace!.nextRound!)), [applications])
 
   const byKey = useMemo(() => new Map(applications.map((a) => [a.key, a])), [applications])
   const selectedShown = rows.filter((r) => selected.has(r.key)).map((r) => r.key)
   const allShownSelected = rows.length > 0 && selectedShown.length === rows.length
 
-  const unlinked = applications.filter((a) => a.row && !a.folder).length
+  const unlinked = applications.filter(missingFolder).length
   const orphanFolders = applications.filter((a) => !a.row && a.folder).length
 
   async function autoLink() {
@@ -134,7 +139,7 @@ export function ApplicationsTable({ applications, folders }: { applications: App
 
   function toggle(key: SortKey) {
     if (sort === key) setAsc((v) => !v)
-    else { setSort(key); setAsc(key === 'company') }
+    else { setSort(key); setAsc(key === 'company' || key === 'stage') }
   }
 
   return (
@@ -170,19 +175,8 @@ export function ApplicationsTable({ applications, folders }: { applications: App
         </div>
       </div>
 
-      {dueCount || interviewing.length ? <div className="anim-rise grid gap-3 md:grid-cols-2">
-        {interviewing.length ? <button type="button" onClick={() => router.push(`/applications/${encodeURIComponent(interviewing[0].key)}?tab=prep`)} className="lift flex items-center gap-3 rounded-xl border border-[var(--color-warn)] bg-[var(--color-surface)] px-4 py-3 text-left">
-          <span className="anim-pulse grid size-9 shrink-0 place-items-center rounded-full bg-[var(--color-warn-soft)] text-[var(--color-warn)]"><CalendarDays size={16} aria-hidden="true" /></span>
-          <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">Next interview: {label(interviewing[0])}</span><span className="block truncate text-xs text-[var(--color-muted)]" suppressHydrationWarning>{fmtDate(interviewing[0].workspace!.nextRound!.slice(0, 10))} · {interviewing[0].workspace?.prep ?? 0}% prepared. Open interview prep →</span></span>
-        </button> : null}
-        {dueCount ? <button type="button" onClick={() => { setPhase('follow-up'); setStatus('all') }} className="lift flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 text-left hover:border-[var(--color-accent)]">
-          <span className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--color-accent-soft)] text-sm font-semibold text-[var(--color-accent)] tnum">{dueCount}</span>
-          <span className="min-w-0 flex-1"><span className="block text-sm font-semibold">{dueCount === 1 ? 'One application is' : `${dueCount} applications are`} ready for a follow-up</span><span className="block text-xs text-[var(--color-muted)]">Applied {FOLLOW_UP_AFTER_DAYS} to {FOLLOW_UP_UNTIL_DAYS} days ago with no reply. Show them →</span></span>
-        </button> : null}
-      </div> : null}
-
-      <SegmentedNav label="Filter by stage" value={phase} onChange={setPhase} items={[
-        ...PHASE_FILTERS.filter((entry) => entry.value === 'all' || phaseCounts.get(entry.value)).map((entry) => ({
+      <SegmentedNav label="Filter by phase" value={phase} onChange={setPhase} items={[
+        ...PHASE_FILTERS.filter((entry) => entry.value !== 'closed' || phaseCounts.get(entry.value)).map((entry) => ({
           value: entry.value,
           label: entry.label,
           badge: <span className="text-[10px] text-[var(--color-faint)] tnum">{phaseCounts.get(entry.value) ?? 0}</span>,
@@ -203,7 +197,7 @@ export function ApplicationsTable({ applications, folders }: { applications: App
           className="h-8 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-[13px] outline-none focus:border-[var(--color-accent)]"
         >
           <option value="all">All statuses</option>
-          {statuses.map((s) => <option key={s} value={s}>{s}</option>)}
+          {statuses.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
         </select>
       </div>
 
@@ -267,9 +261,9 @@ export function ApplicationsTable({ applications, folders }: { applications: App
                   <Th onClick={() => toggle('company')} active={sort === 'company'} asc={asc}>Company</Th>
                   <Th>Role</Th>
                   <Th w="w-16" onClick={() => toggle('score')} active={sort === 'score'} asc={asc}>Score</Th>
-                  <Th w="w-28" onClick={() => toggle('status')} active={sort === 'status'} asc={asc}>Status</Th>
+                  <Th w="w-36" onClick={() => toggle('stage')} active={sort === 'stage'} asc={asc}>Stage</Th>
                   <Th w="w-20">Docs</Th>
-                  <Th w="w-40">Where it stands</Th>
+                  <Th w="w-56">Next</Th>
                   <Th w="w-16"><span className="sr-only">Actions</span></Th>
                 </tr>
               </thead>
@@ -311,11 +305,11 @@ export function ApplicationsTable({ applications, folders }: { applications: App
                     </td>
                     <td className="px-3 py-2 text-[var(--color-muted)] tnum">{a.row?.score ?? '—'}</td>
                     <td className="px-3 py-2">
-                      {a.row ? <Badge tone={statusTone(a.row.status)}>{a.row.status}</Badge> : <Badge>orphan</Badge>}
+                      {a.row ? <Badge tone={statusTone(a.row.status)}>{stageLabelForStatus(a.row.status)}</Badge> : <Badge>No tracker row</Badge>}
                     </td>
                     <td className="px-3 py-2"><DocDots has={a.folder?.has ?? null} /></td>
                     <td className="px-3 py-2">
-                      {applicationPhase(a.row?.status) !== 'prepare' ? <Standing app={a} /> : <div className="flex flex-wrap gap-1">
+                      {a.workspace?.next || a.workspace?.step ? <JourneyNext app={a} /> : applicationStanding(a.row?.status) !== 'prepare' ? <Standing app={a} /> : <div className="flex flex-wrap gap-1">
                         {a.workspace?.fit ? <Badge tone={a.workspace.fit === 'Strong' ? 'ok' : a.workspace.fit === 'Partial' ? 'warn' : 'bad'}>{a.workspace.fit} fit</Badge> : null}
                         <Badge tone={a.workspace?.resume === 'finalized' ? 'ok' : a.workspace?.resume === 'draft' ? 'warn' : 'neutral'}>{a.workspace?.resume ?? 'missing'}</Badge>
                         {a.workspace?.pending ? <Badge tone="warn">review</Badge> : null}
@@ -345,7 +339,7 @@ export function ApplicationsTable({ applications, folders }: { applications: App
 
 /** After applying: how long it has been, whether to follow up, and interview readiness. */
 function Standing({ app }: { app: Application }) {
-  const phase = applicationPhase(app.row?.status)
+  const phase = applicationStanding(app.row?.status)
   const days = daysSince(app.workspace?.appliedAt ?? app.row?.date)
   return <div className="flex flex-wrap items-center gap-1" suppressHydrationWarning>
     {phase !== 'closed' && days !== null ? <span className="text-[11px] text-[var(--color-faint)] tnum">day {days}</span> : null}
@@ -353,6 +347,15 @@ function Standing({ app }: { app: Application }) {
     {app.workspace?.nextRound ? <Badge tone="warn">interview {fmtDate(app.workspace.nextRound.slice(0, 10)).replace(/ \d{4}$/, '')}</Badge> : null}
     {app.workspace?.prep !== null && app.workspace?.prep !== undefined && phase !== 'closed' ? <Badge tone={app.workspace.prep >= 80 ? 'ok' : 'neutral'}>prep {app.workspace.prep}%</Badge> : null}
   </div>
+}
+
+/** The journey's next action, else its current step. */
+function JourneyNext({ app }: { app: Application }) {
+  const next = app.workspace?.next
+  const step = app.workspace?.step
+  if (next) return <span className="block max-w-56 truncate text-xs" suppressHydrationWarning>{next.text}{next.due ? <span className="text-[var(--color-muted)]"> · {fmtDate(next.due.slice(0, 10))}</span> : null}</span>
+  if (!step) return null
+  return <span className="block max-w-56 truncate text-xs text-[var(--color-muted)]" suppressHydrationWarning>{step.label} · {STEP_STATE_LABEL[step.state].toLowerCase()}{step.date ? `, ${fmtDate(step.date.slice(0, 10))}` : ''}</span>
 }
 
 function label(a?: Application): string {

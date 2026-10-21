@@ -7,6 +7,7 @@ import { letterFromInputs } from '@/lib/coverLetter'
 import { APP_FILES, PATHS } from '@/lib/paths'
 import { jdAnalysisParser } from '@/lib/tailoring/jd'
 import { postingContact } from '@/lib/postingContact'
+import { parsePostingSource } from '@/lib/postingSource'
 import { applicationLanguage, readWorkspace } from '@/lib/workspaces'
 import { applicationRecord } from '@/lib/applicationRecord'
 import { ApplicationWorkspaceView } from './workspace'
@@ -61,5 +62,5 @@ export default async function ApplicationPage({ params, searchParams }: { params
     const record = await applicationRecord(app, workspace)
     return <PostApplicationView app={app} record={record} analysis={analysis} initialWorkspace={workspace} contact={contact} language={language} finalized={finalized} />
   }
-  return <ApplicationWorkspaceView key={sent ? 'reviewing' : 'preparing'} reviewing={sent} eligibility={analysis ? eligibilityIssues(analysis, eligibility) : []} app={app} initialWorkspace={workspace} analysis={analysis} language={language} contact={contact} finalized={finalized} />
+  return <ApplicationWorkspaceView key={sent ? 'reviewing' : 'preparing'} reviewing={sent} eligibility={analysis ? eligibilityIssues(analysis, eligibility) : []} app={app} initialWorkspace={workspace} analysis={analysis} language={language} contact={contact} finalized={finalized} postingUrl={parsePostingSource(jd).url} />
 }

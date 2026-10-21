@@ -1,9 +1,9 @@
 import { cn } from '@/lib/utils'
-import type { ReactNode } from 'react'
+import type { HTMLAttributes, ReactNode } from 'react'
 
-export function Card({ className, children }: { className?: string; children: ReactNode }) {
+export function Card({ className, children, ...rest }: { className?: string; children: ReactNode } & Omit<HTMLAttributes<HTMLDivElement>, 'className' | 'children'>) {
   return (
-    <div className={cn('rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]', className)}>
+    <div {...rest} className={cn('rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]', className)}>
       {children}
     </div>
   )
@@ -35,7 +35,7 @@ export function Badge({ tone = 'neutral', className, children }: { tone?: Tone; 
   return (
     <span
       className={cn(
-        'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[11px] font-medium whitespace-nowrap',
+        'inline-flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-xs font-medium whitespace-nowrap',
         TONES[tone],
         className,
       )}

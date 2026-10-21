@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 import type { Application } from '@/lib/applications'
-import { STATUSES } from '@/lib/statuses'
+import { STATUSES, statusLabel } from '@/lib/statuses'
 import { Card, CardHeader, Badge, statusTone, Empty, Spinner } from '@/components/ui/primitives'
 import { DocDots } from '@/components/DocDots'
 import { fmtDate, cn } from '@/lib/utils'
@@ -96,7 +96,7 @@ export function ApplicationDetail({
                 onChange={(e) => { setStatus(e.target.value); void patch({ status: e.target.value }) }}
                 className="h-7 rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs outline-none focus:border-[var(--color-accent)] disabled:opacity-50"
               >
-                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+                {STATUSES.map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
                 {!STATUSES.includes(status as never) && status ? <option value={status}>{status} (legacy)</option> : null}
               </select>
             </>

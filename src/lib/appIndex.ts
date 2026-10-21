@@ -47,14 +47,14 @@ export async function unlinkFolder(id: number): Promise<AppIndex> {
 export interface Match {
   id: number
   folder: string
-  confidence: 'exact' | 'date+prefix' | 'date-only'
+  confidence: 'exact' | 'date+prefix'
 }
 
 /**
  * Best-effort seeding. Only returns matches it can justify:
  *   exact       slug(company) === folder slug AND dates agree
  *   date+prefix one folder that day whose slug shares a prefix with the company
- *   date-only   exactly one unclaimed folder on that date, and one row on it
+ * A shared date alone is never enough: an unrelated row and folder often share one.
  * Anything ambiguous is left out, to be linked by hand in the UI.
  */
 export function reconcile(rows: TrackerRow[], folders: string[]): Match[] {
@@ -85,13 +85,6 @@ export function reconcile(rows: TrackerRow[], folders: string[]): Match[] {
     const sameDay = free().filter((p) => p.date === row.date)
     const prefix = sameDay.filter((p) => p.slug.startsWith(want) || want.startsWith(p.slug))
     if (prefix.length === 1) take(row.id, prefix[0].folder, 'date+prefix')
-  }
-
-  for (const row of rows) {
-    if (matches.some((m) => m.id === row.id)) continue
-    const sameDay = free().filter((p) => p.date === row.date)
-    const rowsThatDay = rows.filter((r) => r.date === row.date && !matches.some((m) => m.id === r.id))
-    if (sameDay.length === 1 && rowsThatDay.length === 1) take(row.id, sameDay[0].folder, 'date-only')
   }
 
   return matches

@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Lock } from 'lucide-react'
+import { ArrowLeft, ArrowRight, Code2, Eye, FileSearch, FileText } from 'lucide-react'
 import type { ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import type { Application } from '@/lib/applications'
 import { coverLetterFromWorkspace, letterSalutation, senderFromResume } from '@/lib/coverLetter'
@@ -14,7 +14,7 @@ import type { Op } from '@/lib/tailoring/ops'
 import type { RequirementAction } from '@/lib/tailoring/rules'
 import { EditorChat } from '@/components/EditorChat'
 import type { EditorApi } from '@/components/EditorPane'
-import { Badge, Card, CardHeader, Empty, Spinner } from '@/components/ui/primitives'
+import { Badge, Card, Spinner } from '@/components/ui/primitives'
 import { YamlEditor } from '@/components/YamlEditor'
 import { PdfPreview } from '@/components/PdfPreview'
 import { ErrorNotice } from '@/components/ErrorNotice'
@@ -27,12 +27,23 @@ import { applicationChatScope, editorChatStorageKey, parseEditorChatSnapshot, ty
 import type { EligibilityIssue } from '@/lib/eligibility'
 import { Overview } from './overview'
 import { NextStepsPanel, type NextStep } from './next-steps-panel'
-import { ApplicationHeader } from './header'
-import { applicationPhase, wasSent } from '@/lib/applicationPhase'
-import { SegmentedNav, celebrate } from '@/components/ui/flair'
+import { ApplicationHeader, type ApplyingStep } from './header'
+import { wasSent } from '@/lib/applicationPhase'
+import { statusLabel } from '@/lib/statuses'
+import { celebrate } from '@/components/ui/flair'
+import { PaneTabs, paneTabPanelProps } from '@/components/ui/PaneTabs'
 
-type Tab = 'overview' | 'resume' | 'next'
-const TABS: readonly Tab[] = ['overview', 'resume', 'next']
+/** The two steps of preparing: the workspace (analysis, resume, AI), then sending. */
+type Tab = 'workspace' | 'send'
+/** The workspace's left pane: the fit analysis, the resume preview, or the resume's YAML source. */
+type Pane = 'fit' | 'preview' | 'source'
+/** The workspace's right pane, the AI: clarify the analysis, or tailor the resume. */
+type ChatMode = 'clarify' | 'tailor'
+
+/** Reads `?tab=`, including the three-step values older links still use. */
+function tabFromUrl(value: string | null): Tab {
+  return value === 'send' || value === 'next' ? 'send' : 'workspace'
+}
 
 const NEXT_STEPS: readonly NextStep[] = ['status', 'cover-letter', 'email', 'linkedin']
 type SaveState = 'saved' | 'saving' | 'error'
@@ -65,8 +76,9 @@ function withFinalizedPdf(app: Application, pdfName: string | null): Application
  * Once it is sent the page renders PostApplicationView instead; `reviewing`
  * is this page opened from there to look back at the preparation tools.
  */
-export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, analysis, language, eligibility, contact, finalized: finalizedAtLoad, reviewing = false }: {
+export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, analysis, language, eligibility, contact, finalized: finalizedAtLoad, postingUrl = null, reviewing = false }: {
   app: Application
+  postingUrl?: string | null
   reviewing?: boolean
   language: Lang
   contact: PostingContact
@@ -82,7 +94,11 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   const params = useSearchParams()
   const requested = params.get('tab')
   const requestedStep = params.get('step')
-  const [tab, setTab] = useState<Tab>(TABS.includes(requested as Tab) ? requested as Tab : 'overview')
+  const [tab, setTab] = useState<Tab>(reviewing ? 'workspace' : tabFromUrl(requested))
+  const requestedPane = params.get('pane')
+  const [pane, setPane] = useState<Pane>(requestedPane === 'fit' || requestedPane === 'preview' || requestedPane === 'source' ? requestedPane
+    : requested === 'resume' || initialWorkspace.general || !analysis || finalizedAtLoad.resume ? 'preview' : 'fit')
+  const [chatMode, setChatMode] = useState<ChatMode>(requested === 'resume' || finalizedAtLoad.resume || initialWorkspace.pendingProposal ? 'tailor' : 'clarify')
   const [nextStep, setNextStep] = useState<NextStep | null>(NEXT_STEPS.includes(requestedStep as NextStep) ? requestedStep as NextStep : null)
   const [workspace, setWorkspace] = useState(initialWorkspace)
   const [draft, setDraft] = useState(initialWorkspace.draftYaml)
@@ -94,13 +110,23 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   const [error, setError] = useState<string | null>(null)
   const [draftConflict, setDraftConflict] = useState(false)
   const [editorReviewPending, setEditorReviewPending] = useState(false)
-  const [editorPaneTab, setEditorPaneTab] = useState<'ai' | 'yaml'>('ai')
   const [status, setStatus] = useState(app.row?.status ?? '')
   const [located, setLocated] = useState<string | null>(null)
+  // Set aside and Skip apply at once; this keeps a way back for a few seconds.
+  const [undoStatus, setUndoStatus] = useState<{ previous: string; label: string } | null>(null)
+  useEffect(() => {
+    if (!undoStatus) return
+    const timer = window.setTimeout(() => setUndoStatus(null), 10000)
+    return () => window.clearTimeout(timer)
+  }, [undoStatus])
+  const [proposalOutcome, setProposalOutcome] = useState<{ text: string; at: number } | undefined>(undefined)
+  // The chat a tailoring run was started from; only that chat's reply gets the proposal's outcome.
+  const tailoredFrom = useRef<'overview' | 'resume'>('resume')
   const savedDraft = useRef(initialWorkspace.draftYaml)
   const revision = useRef(initialWorkspace.revision)
   const editorRef = useRef<ReactCodeMirrorRef>(null)
   const editorCardRef = useRef<HTMLDivElement>(null)
+  const resumePaneRef = useRef<HTMLElement>(null)
 
   useEffect(() => { revision.current = workspace.revision }, [workspace.revision])
 
@@ -133,13 +159,14 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   useEffect(() => {
     const url = new URL(window.location.href)
     url.searchParams.set('tab', tab)
-    if (tab === 'next' && nextStep) url.searchParams.set('step', nextStep); else url.searchParams.delete('step')
+    if (tab === 'workspace') url.searchParams.set('pane', pane); else url.searchParams.delete('pane')
+    if (tab === 'send' && nextStep) url.searchParams.set('step', nextStep); else url.searchParams.delete('step')
     if (url.href !== window.location.href) window.history.replaceState(window.history.state, '', url)
-  }, [tab, nextStep])
+  }, [tab, pane, nextStep])
 
   function goTo(next: Tab) {
     setTab(next)
-    if (next !== 'next') setNextStep(null)
+    if (next !== 'send') setNextStep(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -200,7 +227,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   }, [app.key, draft, draftConflict, editorReviewPending, tailoring, workspace.pendingProposal])
 
   useEffect(() => {
-    if (tab !== 'resume' || !draft.trim()) return
+    if (tab !== 'workspace' || !draft.trim()) return
     const controller = new AbortController()
     const timer = window.setTimeout(async () => {
       setRendering(true)
@@ -268,10 +295,6 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   async function patchStatus(next: string, origin?: { x: number; y: number }) {
     setBusy(true); setError(null)
     try {
-      if (next === 'Applied') {
-        const warnings = [!app.folder?.has.pdf && 'no finalized PDF', preview.failures.length > 0 && 'the current draft is invalid', (editorReviewPending || !!workspace.pendingProposal) && 'an AI resume edit is still pending'].filter(Boolean)
-        if (warnings.length && !window.confirm(`Mark as Applied anyway?\n\nWarnings: ${warnings.join(', ')}.`)) return
-      }
       const response = await fetch(`/api/applications/${encodeURIComponent(app.key)}`, {
         method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ status: next }),
       })
@@ -279,6 +302,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
       if (!response.ok) throw new Error(data.error ?? 'status update failed')
       const previous = status
       setStatus(next)
+      setUndoStatus(next === 'Discarded' || next === 'SKIP' ? { previous, label: statusLabel(next) } : null)
       onStatusChanged(previous, next, origin)
       if (next === 'Applied') {
         const refreshed = await fetch(`/api/applications/${encodeURIComponent(app.key)}/workspace`, { cache: 'no-store' }).then((row) => row.json())
@@ -292,11 +316,12 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
     onEvent: (event: ChatSkillEvent) => void
     conversation?: { role: 'user' | 'assistant'; content: string }[]
     signal?: AbortSignal
-  }, surface: Tab = 'resume'): Promise<{ answer: string; engine?: string; skillId: string; runId?: string }> {
+  }, surface: 'overview' | 'resume' = 'resume'): Promise<{ answer: string; engine?: string; skillId: string; runId?: string }> {
     if (tailoring || editorReviewPending) throw new Error('Finish the current resume changes before tailoring again.')
     if (workspace.pendingProposal) throw new Error('Accept or reject the current proposal before tailoring again.')
     if (saveState !== 'saved') throw new Error('Wait for the current resume draft to finish saving first.')
-    setTab('resume'); setEditorPaneTab('ai')
+    setTab('workspace'); setPane('preview'); setChatMode('tailor')
+    tailoredFrom.current = surface
     setTailoring(true); setError(null); handlers.onEvent({ kind: 'start', text: 'Invoking the Tailor CV skill.' })
     const beforeYaml = draft
     let conversation = handlers.conversation
@@ -400,6 +425,9 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   }
 
   async function resolveProposal(action: 'accept' | 'reject') {
+    const proposal = workspace.pendingProposal
+    const total = proposal?.ops.length ?? 0
+    const kept = proposal?.choices.filter((choice) => choice !== false).length ?? 0
     setBusy(true); setError(null)
     try {
       const saved = await withRevisionRetry(async () => {
@@ -412,6 +440,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
       })
       savedDraft.current = saved.draftYaml
       setDraft(saved.draftYaml); setWorkspace(saved); revision.current = saved.revision
+      setProposalOutcome({ text: action === 'accept' ? `Accepted ${kept} of ${total} change${total === 1 ? '' : 's'}.` : `Rejected ${total === 1 ? 'the change' : `all ${total} changes`}.`, at: Date.now() })
       router.refresh()
     } catch (reason) { setError((reason as Error).message) } finally { setBusy(false) }
   }
@@ -432,7 +461,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
       setFinalizedPdf(result.finalized.pdfName)
       // The server finalized its saved draft, which is this tab's saved draft.
       setResumeFinalized({ at: new Date().toISOString(), yaml: savedDraft.current })
-      goTo('next')
+      goTo('send')
       router.refresh()
     } catch (reason) { setError((reason as Error).message) } finally { setBusy(false) }
   }
@@ -495,59 +524,62 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
     setReviewPending: setEditorReviewPending,
     reviewPending,
     showEditor: () => {
-      setEditorPaneTab('yaml')
-      editorCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      setPane('source')
+      resumePaneRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
       window.requestAnimationFrame(() => editorRef.current?.view?.focus())
     },
     pages: preview.pages,
     fill: preview.fill,
   }
 
-  const phase = applicationPhase(status)
   const finalized = !!app.folder?.has.pdf
-  const steps: { value: Tab; label: string; short: string; description: string; locked?: boolean }[] = [
-    { value: 'overview', label: workspace.general ? 'Review context' : 'Analyze & discuss', short: workspace.general ? 'context' : 'analysis', description: workspace.general ? 'Review the application details with AI' : 'Compare the job with your profile and clarify issues' },
-    { value: 'resume', label: 'Resume & AI', short: 'Resume & AI', description: workspace.general ? 'Edit, review, and finalize your resume' : 'Use your analysis to tailor and finalize your resume' },
-    { value: 'next', label: 'Apply & follow up', short: 'next steps', description: finalized ? 'Track your application and prepare messages' : 'Unlocks once your resume is finalized', locked: !finalized },
+  const resumeCurrent = !!resumeFinalized && resumeFinalized.yaml === draft
+  const steps: ApplyingStep<Tab>[] = [
+    { value: 'workspace', label: 'Prepare', done: finalized, locked: false, next: false },
+    { value: 'send', label: 'Send', done: false, locked: !finalized, next: finalized && tab !== 'send' },
   ]
-  const current = steps.findIndex((step) => step.value === tab)
-  const following = steps[current + 1]
-  const hint = tab === 'overview'
-    ? 'Work through the details with AI below. When you’re ready, continue to Resume & AI above. You can return here anytime.'
-    : tab === 'resume'
-      ? finalized ? 'Your resume is finalized. Keep refining it and finalize again, or continue to Apply & follow up above.' : workspace.general ? 'Review changes with AI, then finalize your resume to unlock next steps.' : 'Build on your fit analysis and clarifications, then finalize your resume to unlock next steps.'
-      : 'Pick one task at a time. Your drafts and notes are saved with this application.'
+  const pdfName = app.folder?.docs.find((doc) => doc.key === 'pdf')?.name ?? ''
+  const chatTabs: { value: ChatMode; label: string; hint: string }[] = [
+    { value: 'clarify', label: 'Clarify', hint: workspace.general ? 'Discuss the application. Doesn’t edit your resume.' : 'Discuss the analysis. Doesn’t edit your resume.' },
+    { value: 'tailor', label: 'Tailor', hint: 'Ask for changes. Each one is previewed before it’s saved.' },
+  ]
+  const toolButton = 'inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 text-xs text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)]'
+  const mainButton = 'inline-flex h-8 items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 text-xs font-semibold text-[var(--color-bg)] hover:opacity-90 disabled:opacity-40'
+
+  function openClarify() {
+    setChatMode('clarify')
+    editorCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+  }
 
   return (
     <div className="space-y-4">
-      <ApplicationHeader app={app} status={status} phase={phase} busy={busy} postingUrl={null} appliedAt={workspace.appliedAt} onStatus={(next, origin) => void patchStatus(next, origin)} />
+      <ApplicationHeader
+        app={app}
+        status={status}
+        interviewed={(workspace.interview?.rounds.length ?? 0) > 0}
+        busy={busy}
+        postingUrl={postingUrl}
+        appliedAt={workspace.appliedAt}
+        onStatus={(next, origin) => void patchStatus(next, origin)}
+        steps={reviewing ? undefined : steps}
+        step={tab}
+        onStep={(next) => { if (next === 'send' && !finalized) return; goTo(next) }}
+      />
       {error ? <Card className="overflow-hidden border-[var(--color-bad-soft)]"><ErrorNotice error={error} onDismiss={() => setError(null)} /></Card> : null}
+      {undoStatus ? <div role="status" className="anim-rise flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
+        <p className="flex-1 text-sm"><span className="font-semibold">{undoStatus.label}.</span> <span className="text-[var(--color-muted)]">This application is closed. Everything you prepared is kept.</span></p>
+        <button type="button" disabled={busy} onClick={() => { const back = undoStatus.previous; setUndoStatus(null); void patchStatus(back) }} className={toolButton}>Undo</button>
+      </div> : null}
       {reviewing ? <div className="anim-rise flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
-        <button type="button" onClick={() => router.push(`/applications/${encodeURIComponent(app.key)}`)} className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-bg)] hover:opacity-90"><ArrowLeft size={13} aria-hidden="true" /> Back to overview</button>
-        <p className="min-w-48 flex-1 text-xs text-[var(--color-muted)]">You’ve already applied. These are the tools you used to prepare, kept for reference. Changes here won’t change what you sent.</p>
-        <SegmentedNav label="Preparation tools" value={tab} onChange={goTo} items={[{ value: 'overview', label: workspace.general ? 'Context' : 'Fit analysis' }, { value: 'resume', label: 'Resume' }]} />
-      </div> : <>
-      <nav aria-label="Application workflow" className="anim-rise">
-        <ol className="application-flow">
-          {steps.map(({ value, label, description, locked }, index) => (
-            <li key={value} data-next={value === following?.value && !locked ? '' : undefined}>
-              <button type="button" onClick={() => goTo(value)} aria-current={tab === value ? 'step' : undefined} className="application-flow-step">
-                <span className="application-flow-number" aria-hidden="true">{locked ? <Lock size={16} /> : index + 1}</span>
-                <span className="min-w-0"><span className="block text-sm font-semibold">{label}</span><span className="mt-1 block text-xs leading-relaxed text-[var(--color-muted)]">{description}</span></span>
-                {value === following?.value && !locked ? <span className="sr-only">(next step)</span> : null}
-              </button>
-            </li>
-          ))}
-        </ol>
-      </nav>
-      <p className="max-w-2xl text-xs leading-relaxed text-[var(--color-muted)]">{hint}</p>
-      </>}
+        <p className="min-w-48 flex-1 text-xs text-[var(--color-muted)]">You’ve already sent this application. These are the tools you prepared it with. Changes here don’t change what they received.</p>
+        <button type="button" onClick={() => router.push(`/applications/${encodeURIComponent(app.key)}`)} className={toolButton}><ArrowLeft size={13} aria-hidden="true" /> Back to the application</button>
+      </div> : null}
 
-      {tab === 'next' ? <div key="next" className="anim-rise"><NextStepsPanel
+      {tab === 'send' ? <div key="send" className="anim-rise"><NextStepsPanel
         sent={reviewing}
         app={app}
         status={status}
-        onStatusSaved={(next) => { const previous = status; setStatus(next); onStatusChanged(previous, next); router.refresh() }}
+        onStatusSaved={(next, origin) => { const previous = status; setStatus(next); onStatusChanged(previous, next, origin); router.refresh() }}
         initialDrafts={workspace.outreach ?? {}}
         savedCoverLetter={workspace.coverLetter ?? null}
         initialCoverLetter={coverLetterFromWorkspace(workspace.coverLetter, workspace.outreach?.['cover-letter'], {
@@ -561,61 +593,87 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
         letterFinalized={finalizedAtLoad.letter}
         step={nextStep}
         onStep={(step) => { setNextStep(step); window.scrollTo({ top: 0, behavior: 'smooth' }) }}
-        onGoToResume={() => goTo('resume')}
+        onGoToResume={() => { setPane('preview'); setChatMode('tailor'); goTo('workspace') }}
         onLocatePdf={(reveal) => void locatePdf(reveal)}
+        checks={{ resumeCurrent, pendingEdit: reviewPending, invalidDraft: preview.failures.length > 0 }}
+        postingUrl={postingUrl}
       /></div> : null}
-      {tab === 'next' && located ? <p role="status" className="text-xs text-[var(--color-accent)]">{located}</p> : null}
+      {tab === 'send' && located ? <p role="status" className="text-xs text-[var(--color-accent)]">{located}</p> : null}
 
-      <div className={cn('space-y-3', tab !== 'overview' && tab !== 'resume' && 'hidden')}>
-        {tab === 'resume' ? <>
-        <div className="flex flex-wrap items-center gap-2"><FinalizeStatus saveState={saveState} pendingReview={reviewPending} finalized={resumeFinalized} upToDate={!!resumeFinalized && resumeFinalized.yaml === draft} />{rendering ? <span className="flex items-center gap-1 text-xs text-[var(--color-faint)]"><Spinner /> Rendering…</span> : preview.pages ? <Badge tone={preview.pages === 1 && !preview.failures.length ? 'ok' : 'warn'}>{preview.pages} page · {preview.fill ?? '—'}% fill</Badge> : null}{located ? <span className="text-xs text-[var(--color-accent)]">{located}</span> : null}<div className="ml-auto flex items-center gap-2">{app.folder?.has.pdf ? <><a href={`/api/applications/${encodeURIComponent(app.key)}/file/${encodeURIComponent(app.folder.docs.find((doc) => doc.key === 'pdf')?.name ?? '')}`} target="_blank" rel="noreferrer" className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-text)]">Open PDF</a><button onClick={() => void locatePdf(true)} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-text)]">Reveal in Finder</button><button onClick={() => void locatePdf(false)} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-text)]">Copy path</button></> : null}<button disabled={busy || draftConflict || reviewPending || saveState !== 'saved'} onClick={() => void finalize()} className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-bg)] disabled:opacity-40">Finalize resume</button></div></div>
-        {draftConflict ? <Card className="flex flex-wrap items-center gap-3 border-[var(--color-bad-soft)] px-4 py-3"><p role="alert" className="flex-1 text-xs text-[var(--color-bad)]">{DRAFT_CONFLICT}</p><button type="button" onClick={() => window.location.reload()} className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-bg)]">Reload</button></Card> : null}
+      <div className={cn('space-y-3', tab !== 'workspace' && 'hidden')}>
+        {draftConflict ? <Card className="flex flex-wrap items-center gap-3 border-[var(--color-bad-soft)] px-4 py-3"><p role="alert" className="flex-1 text-xs text-[var(--color-bad)]">{DRAFT_CONFLICT}</p><button type="button" onClick={() => window.location.reload()} className={mainButton}>Reload</button></Card> : null}
         {preview.failures.length ? <Card className="border-[var(--color-bad-soft)]"><ul className="list-disc px-8 py-2 text-xs text-[var(--color-bad)]">{preview.failures.map((failure, index) => <li key={index}>{failure.why}</li>)}</ul></Card> : null}
-        </> : null}
-        <div className="grid min-h-[70vh] items-start gap-5 lg:grid-cols-2">
-          <div ref={editorCardRef} className={tab === 'overview' ? 'order-last lg:sticky lg:top-4' : ''}>
-            <Card className="flex h-[680px] min-h-0 flex-col overflow-hidden">
-              {tab === 'resume' ? <div className="flex shrink-0 items-center gap-1 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5" role="tablist" aria-label="Resume workspace mode">
-                {([['ai', 'A.I Companion'], ['yaml', 'YAML Editor']] as const).map(([value, label]) => <button key={value} role="tab" aria-selected={editorPaneTab === value} onClick={() => setEditorPaneTab(value)} className={cn('rounded-md px-3 py-1.5 text-xs transition-colors', editorPaneTab === value ? 'bg-[var(--color-surface-2)] font-medium text-[var(--color-text)]' : 'text-[var(--color-muted)] hover:text-[var(--color-text)]')}>{label}</button>)}
-                <span className="ml-auto pr-1 text-[10px] text-[var(--color-faint)]">{editorPaneTab === 'ai' ? 'Ask, tailor, and review changes' : 'Edit the current draft directly'}</span>
+
+        <div className="grid items-start gap-4 lg:grid-cols-2">
+          {/* The resume and the action on it sit together: the main button heads this pane. */}
+          <section ref={resumePaneRef} aria-label="Fit analysis and resume" className="min-w-0 space-y-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <PaneTabs label="Analysis or resume" idBase="left-pane" value={pane === 'source' ? 'preview' : pane} onChange={setPane} items={[
+                { value: 'fit', label: workspace.general ? 'Details' : 'Fit analysis', icon: <FileSearch size={14} /> },
+                { value: 'preview', label: 'Resume', icon: <FileText size={14} /> },
+              ]} />
+              <div className="ml-auto flex flex-wrap items-center gap-2">
+                {located ? <span role="status" className="text-xs text-[var(--color-accent)]">{located}</span> : null}
+                {finalized && resumeCurrent && !reviewing
+                  ? <button type="button" onClick={() => goTo('send')} className={mainButton}>Continue to Send <ArrowRight size={13} aria-hidden="true" /></button>
+                  : <button type="button" disabled={busy || draftConflict || reviewPending || saveState !== 'saved'} onClick={() => void finalize()} title={reviewPending ? 'Accept or reject the pending change first' : 'Saves the current draft as the PDF you send'} className={mainButton}>{finalized ? 'Finalize again' : 'Finalize resume'}</button>}
               </div>
-              : <div className="border-b border-[var(--color-border)] p-4"><h2 className="text-sm font-semibold">{workspace.general ? 'Discuss your application' : 'Clarify before tailoring'}</h2><p className="mt-1 text-xs leading-relaxed text-[var(--color-muted)]">Discuss eligibility, correct assumptions, or add context. Then continue to Resume & AI to work on your resume.</p></div>}
-              <div className={cn('min-h-0 flex-1 flex-col', tab === 'overview' || editorPaneTab === 'ai' ? 'flex' : 'hidden')}>
-                {(['overview', 'resume'] as const).map((surface) => <div key={surface} className={cn('min-h-0 flex-1 flex-col', tab === surface ? 'flex' : 'hidden')}>
-                <EditorChat
-                  onProfileUpdated={async () => {
-                    const response = await fetch(`/api/applications/${encodeURIComponent(app.key)}/workspace`, { cache: 'no-store' })
-                    const data = await response.json()
-                    if (response.ok && data.workspace) { setWorkspace(data.workspace); revision.current = data.workspace.revision }
-                    router.refresh()
-                  }}
-                  reviewOnly={surface === 'overview'}
-                  api={surface === 'overview' ? { ...editorApi, reviewPending: false } : editorApi}
-                  mode={workspace.general ? 'master' : 'tailored'}
-                  applicationKey={app.key}
-                  chatScope={applicationChatScope(app.key, surface)}
-                  autoStart={surface === 'resume' && tab === 'resume'}
-                  tailoringSkill={workspace.general ? undefined : {
-                    run: (handlers) => tailor(handlers, surface),
-                    review: surface === 'resume' && workspace.pendingProposal ? (
-                      <TailoringProposal
-                        proposal={workspace.pendingProposal}
-                        busy={busy}
-                        currentPages={preview.pages}
-                        currentFill={preview.fill}
-                        onToggle={(index) => void toggleTailoringChange(index)}
-                        onReject={() => void resolveProposal('reject')}
-                        onAccept={() => void resolveProposal('accept')}
-                      />
-                    ) : undefined,
-                  }}
-                />
-                </div>)}
+            </div>
+            <div {...paneTabPanelProps('left-pane', 'fit')} className={cn('workspace-pane anim-fade overflow-y-auto pr-1', pane !== 'fit' && 'hidden')}><Overview eligibility={eligibility} onOpenChat={openClarify} analysis={analysis} workspace={workspace} onRetry={() => setWorkspace((current) => ({ ...current, fit: { ...current.fit, status: 'queued' } }))} /></div>
+            <Card {...paneTabPanelProps('left-pane', 'preview')} className={cn('workspace-pane flex min-h-0 flex-col overflow-hidden', pane === 'fit' && 'hidden')}>
+              <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-3 py-2">
+                <FinalizeStatus saveState={saveState} pendingReview={reviewPending} finalized={resumeFinalized} upToDate={resumeCurrent} />
+                {rendering ? <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]"><Spinner /> Rendering…</span> : preview.pages ? <Badge tone={preview.pages === 1 && !preview.failures.length ? 'ok' : 'warn'}>{preview.pages} page · {preview.fill ?? '—'}% of the page used</Badge> : null}
+                <div className="ml-auto flex items-center gap-2">
+                  {finalized ? <a href={`/api/applications/${encodeURIComponent(app.key)}/file/${encodeURIComponent(pdfName)}`} target="_blank" rel="noreferrer" className={toolButton}><FileText size={13} aria-hidden="true" /> Open PDF</a> : null}
+                  <button type="button" aria-pressed={pane === 'source'} onClick={() => setPane(pane === 'source' ? 'preview' : 'source')} className={toolButton}>{pane === 'source' ? <><Eye size={13} aria-hidden="true" /> Back to preview</> : <><Code2 size={13} aria-hidden="true" /> Edit source</>}</button>
+                </div>
               </div>
-              <div className={cn('min-h-0 flex-1 overflow-hidden', tab === 'resume' && editorPaneTab === 'yaml' ? 'block' : 'hidden')}><YamlEditor ref={editorRef} value={draft} onChange={setDraft} /></div>
+              <div className={cn('min-h-0 flex-1 overflow-hidden', pane !== 'preview' && 'hidden')}><PdfPreview token={preview.token} /></div>
+              <div className={cn('min-h-0 flex-1 overflow-hidden', pane !== 'source' && 'hidden')}><YamlEditor ref={editorRef} value={draft} onChange={setDraft} /></div>
+            </Card>
+          </section>
+          <div ref={editorCardRef} className="min-w-0 lg:sticky lg:top-24">
+            <Card className="workspace-pane flex min-h-0 flex-col overflow-hidden">
+              <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--color-border)] px-3 pt-2">
+                <PaneTabs label="AI" idBase="chat-pane" value={chatMode} onChange={setChatMode} items={chatTabs.map(({ value, label }) => ({ value, label }))} />
+                <span className="ml-auto pb-2 text-xs text-[var(--color-muted)]">{chatTabs.find((each) => each.value === chatMode)?.hint}</span>
+              </div>
+              {(['clarify', 'tailor'] as const).map((mode) => {
+                const surface = mode === 'clarify' ? 'overview' : 'resume'
+                return <div key={mode} {...paneTabPanelProps('chat-pane', mode)} className={cn('min-h-0 flex-1 flex-col', chatMode === mode ? 'flex' : 'hidden')}>
+                  <EditorChat
+                    onProfileUpdated={async () => {
+                      const response = await fetch(`/api/applications/${encodeURIComponent(app.key)}/workspace`, { cache: 'no-store' })
+                      const data = await response.json()
+                      if (response.ok && data.workspace) { setWorkspace(data.workspace); revision.current = data.workspace.revision }
+                      router.refresh()
+                    }}
+                    reviewOnly={surface === 'overview'}
+                    api={surface === 'overview' ? { ...editorApi, reviewPending: false } : editorApi}
+                    mode={workspace.general ? 'master' : 'tailored'}
+                    applicationKey={app.key}
+                    chatScope={applicationChatScope(app.key, surface)}
+                    tailoringSkill={workspace.general ? undefined : {
+                      run: (handlers) => tailor(handlers, surface),
+                      outcome: tailoredFrom.current === surface ? proposalOutcome : undefined,
+                      review: surface === 'resume' && workspace.pendingProposal ? (
+                        <TailoringProposal
+                          proposal={workspace.pendingProposal}
+                          busy={busy}
+                          currentPages={preview.pages}
+                          currentFill={preview.fill}
+                          onToggle={(index) => void toggleTailoringChange(index)}
+                          onReject={() => void resolveProposal('reject')}
+                          onAccept={() => void resolveProposal('accept')}
+                        />
+                      ) : undefined,
+                    }}
+                  />
+                </div>
+              })}
             </Card>
           </div>
-          {tab === 'overview' ? <div className="anim-rise order-first"><Overview eligibility={eligibility} onOpenChat={() => editorCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })} analysis={analysis} workspace={workspace} onRetry={() => setWorkspace((current) => ({ ...current, fit: { ...current.fit, status: 'queued' } }))} /></div> : <Card className="anim-rise h-[680px] overflow-hidden"><PdfPreview token={preview.token} /></Card>}
         </div>
       </div>
     </div>
@@ -648,14 +706,14 @@ function TailoringProposal({ proposal, busy, currentPages, currentFill, onToggle
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-accent-soft)] px-3 py-2.5">
         <div className="min-w-48 flex-1">
           <p className="text-xs font-medium">Tailoring proposal · {kept}/{proposal.ops.length} changes selected</p>
-          <p className="mt-0.5 text-[10px] text-[var(--color-muted)]">
+          <p className="mt-0.5 text-xs text-[var(--color-muted)]">
             {currentPages ?? proposal.render.pages ?? '—'} page · {currentFill ?? proposal.render.fill ?? '—'}% fill · Accepting keeps these changes in your draft; finalize the resume when you’re ready
           </p>
         </div>
-        <button onClick={onReject} disabled={busy} className="rounded-md border border-[var(--color-bad)] px-2.5 py-1 text-[11px] text-[var(--color-bad)] disabled:opacity-40">Reject all</button>
-        <button onClick={onAccept} disabled={busy || kept === 0} className="rounded-md bg-[var(--color-ok)] px-2.5 py-1 text-[11px] font-medium text-white disabled:opacity-40">Accept changes</button>
+        <button onClick={onReject} disabled={busy} className="rounded-md border border-[var(--color-bad)] px-2.5 py-1 text-xs text-[var(--color-bad)] disabled:opacity-40">Reject all</button>
+        <button onClick={onAccept} disabled={busy || kept === 0} className="rounded-md bg-[var(--color-ok)] px-2.5 py-1 text-xs font-medium text-white disabled:opacity-40">Accept changes</button>
       </div>
-      {!individuallyReviewable ? <p className="border-b border-[var(--color-border)] px-3 py-2 text-[10px] text-[var(--color-faint)]">This older proposal can be accepted or rejected as a whole.</p> : null}
+      {!individuallyReviewable ? <p className="border-b border-[var(--color-border)] px-3 py-2 text-xs text-[var(--color-faint)]">This older proposal can be accepted or rejected as a whole.</p> : null}
       <ul className="max-h-64 divide-y divide-[var(--color-border)] overflow-y-auto">
         {proposal.ops.map((op, index) => {
           const selected = proposal.choices[index] !== false
@@ -670,10 +728,10 @@ function TailoringProposal({ proposal, busy, currentPages, currentFill, onToggle
                 className="mt-0.5 shrink-0 accent-[var(--color-accent)]"
               />
               <div className={cn('min-w-0 flex-1', !selected && 'opacity-50')}>
-                <p className={cn('text-[11px] leading-snug', !selected && 'line-through')}><span className="mr-1.5 font-mono text-[10px] uppercase text-[var(--color-accent)]">{op.op}</span>{op.why}</p>
-                <p className="mt-0.5 truncate font-mono text-[10px] text-[var(--color-faint)]">{op.path}</p>
-                {op.op === 'reword' ? <p className="mt-1 text-[10px] text-[var(--color-muted)]"><span className="text-[var(--color-bad)]">− {op.from}</span><br /><span className="text-[var(--color-ok)]">+ {op.to}</span></p> : null}
-                {op.op === 'set' ? <p className="mt-1 text-[10px] text-[var(--color-ok)]">+ {op.value}</p> : null}
+                <p className={cn('text-xs leading-snug', !selected && 'line-through')}><span className="mr-1.5 font-mono text-xs uppercase text-[var(--color-accent)]">{op.op}</span>{op.why}</p>
+                <p className="mt-0.5 truncate font-mono text-xs text-[var(--color-faint)]">{op.path}</p>
+                {op.op === 'reword' ? <p className="mt-1 text-xs text-[var(--color-muted)]"><span className="text-[var(--color-bad)]">− {op.from}</span><br /><span className="text-[var(--color-ok)]">+ {op.to}</span></p> : null}
+                {op.op === 'set' ? <p className="mt-1 text-xs text-[var(--color-ok)]">+ {op.value}</p> : null}
               </div>
             </li>
           )

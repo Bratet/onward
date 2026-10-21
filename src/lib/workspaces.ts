@@ -7,6 +7,7 @@ import { jdAnalysisParser, type JdAnalysis } from './tailoring/jd'
 import type { Op } from './tailoring/ops'
 import type { RequirementAction } from './tailoring/rules'
 import type { ProfileFitReport } from './profileFit'
+import type { Journey } from './journey'
 import { withTailoredDesign } from './tailoring/seed'
 import { generalApplicationSchema, type GeneralApplication } from './generalApplication'
 import type { OutreachDrafts } from './outreach'
@@ -40,6 +41,8 @@ export interface ApplicationWorkspace {
   coverLetter?: CoverLetter
   /** Interview preparation, once the application has been sent; see lib/interviewPrep.ts. */
   interview?: InterviewState
+  /** The recruiting process after sending: stage, steps, next action, timeline; see lib/journey.ts. */
+  journey?: Journey
   version: 1
   general?: boolean
   generalDetails?: GeneralApplication | null
