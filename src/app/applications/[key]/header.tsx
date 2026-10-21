@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ArrowLeft, Check, ExternalLink, Lock, MessageSquareReply, Sparkles } from 'lucide-react'
+import { ArrowLeft, CalendarCheck, Check, ExternalLink, Lock, Sparkles } from 'lucide-react'
 import type { Application } from '@/lib/applications'
 import { applicationPhase, applicationStanding, PHASE_LABEL, PHASE_STEPS, phaseStep } from '@/lib/applicationPhase'
 import { stageLabelForStatus } from '@/lib/journey'
@@ -56,7 +56,7 @@ export function ApplicationHeader<T extends string>({ app, status, interviewed, 
     ]
     : standing === 'waiting'
       ? [
-        { status: 'Responded', label: 'They replied', hint: 'Move to Interviewing' },
+        { status: 'Responded', label: 'Invited to interview', hint: 'A call, a screening or an interview' },
         { status: 'Rejected', label: 'Rejected', hint: 'They said no' },
         { status: 'Rejected', label: 'Withdraw', hint: 'You pulled out', note: `Withdrew on ${new Date().toISOString().slice(0, 10)}.` },
         { status: 'Preparing', label: 'Undo sent', hint: 'Marked as sent by mistake' },
@@ -80,7 +80,7 @@ export function ApplicationHeader<T extends string>({ app, status, interviewed, 
         {app.folder ? <Link href={`/runs?applicationKey=${encodeURIComponent(app.key)}`} className={link}><Sparkles size={13} aria-hidden="true" /> AI runs</Link> : null}
         {app.row && menu ? <ActionMenu busy={busy} items={menu} onSelect={(item) => onStatus(item.status, undefined, item.note)} /> : null}
         {app.row && !menu ? <select aria-label="Change status" title="Change status" value={status} disabled={busy} onChange={(event) => onStatus(event.target.value)} className="h-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs text-[var(--color-muted)]">{STATUSES.map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}{!STATUSES.includes(status as never) && status ? <option value={status}>{statusLabel(status)}</option> : null}</select> : null}
-        {app.row && standing === 'waiting' ? <button disabled={busy} onClick={(event) => onStatus('Responded', { x: event.clientX, y: event.clientY })} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-accent)] px-3 text-xs font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-40">{busy ? <Spinner /> : <MessageSquareReply size={13} aria-hidden="true" />} They replied</button> : null}
+        {app.row && standing === 'waiting' ? <button disabled={busy} onClick={(event) => onStatus('Responded', { x: event.clientX, y: event.clientY })} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-accent)] px-3 text-xs font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-40">{busy ? <Spinner /> : <CalendarCheck size={13} aria-hidden="true" />} Invited to interview</button> : null}
       </div>
     </div>
 
@@ -116,7 +116,7 @@ export function ApplicationHeader<T extends string>({ app, status, interviewed, 
               return <li key={each} className={cn(position === at && !closed ? 'font-semibold text-[var(--color-text)]' : 'text-[var(--color-muted)]')}>{position ? <span aria-hidden="true" className="mr-2 text-[var(--color-faint)]">›</span> : null}{each}</li>
             })}
           </ol>
-          : <span className="text-xs text-[var(--color-muted)]">Once they reply</span>}
+          : <span className="text-xs text-[var(--color-muted)]">Once they invite you</span>}
       </Segment>
       {closed ? <Badge tone={statusTone(status)}>{stageLabelForStatus(status)}</Badge> : null}
     </nav> : null}

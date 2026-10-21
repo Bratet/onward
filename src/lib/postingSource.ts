@@ -80,7 +80,5 @@ export function daysSince(iso: string | null | undefined, now = new Date()): num
   return Math.max(0, Math.floor((now.getTime() - t) / 86_400_000))
 }
 
-/** Days without a reply after which a follow-up is worth suggesting. */
-export const FOLLOW_UP_AFTER_DAYS = 7
-/** After this long with no reply a nudge rarely helps; the application has most likely gone quiet. */
-export const FOLLOW_UP_UNTIL_DAYS = 30
+/** After this long with no reply the application has most likely gone quiet. */
+export const QUIET_AFTER_DAYS = 30

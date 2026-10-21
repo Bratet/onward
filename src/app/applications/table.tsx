@@ -7,13 +7,12 @@ import { Card, Badge, statusTone, Empty, Spinner } from '@/components/ui/primiti
 import { DocDots } from '@/components/DocDots'
 import { CompanyAvatar, SegmentedNav } from '@/components/ui/flair'
 import { applicationPhase, applicationStanding, type Phase } from '@/lib/applicationPhase'
-import { daysSince } from '@/lib/postingSource'
-import { followUpDue, goneQuiet } from '@/lib/followUp'
+import { daysSince, QUIET_AFTER_DAYS } from '@/lib/postingSource'
 import { fmtDate, cn } from '@/lib/utils'
 import { missingFolder, statusLabel } from '@/lib/statuses'
 import { STAGE_ORDER, stageForStatus, stageLabelForStatus, STEP_STATE_LABEL } from '@/lib/journey'
 
-type PhaseFilter = 'all' | 'follow-up' | 'closed' | Phase
+type PhaseFilter = 'all' | 'closed' | Phase
 
 // Interviewing first: that is where time matters most. Closed applications leave both phases.
 const PHASE_FILTERS: { value: PhaseFilter; label: string }[] = [
@@ -52,7 +51,7 @@ export function ApplicationsTable({ applications, folders }: { applications: App
     const needle = q.trim().toLowerCase()
     const filtered = applications.filter((a) => {
       if (status !== 'all' && a.row?.status !== status) return false
-      if (phase === 'follow-up' ? !followUpDue(a) : phase !== 'all' && phaseBucket(a.row?.status) !== phase) return false
+      if (phase !== 'all' && phaseBucket(a.row?.status) !== phase) return false
       if (!needle) return true
       return [a.row?.company, a.row?.role, a.folder?.folder, a.row?.notes]
         .filter(Boolean)
@@ -87,7 +86,6 @@ export function ApplicationsTable({ applications, folders }: { applications: App
     }
     return counts
   }, [applications])
-  const dueCount = useMemo(() => applications.filter((a) => followUpDue(a)).length, [applications])
 
   const byKey = useMemo(() => new Map(applications.map((a) => [a.key, a])), [applications])
   const selectedShown = rows.filter((r) => selected.has(r.key)).map((r) => r.key)
@@ -181,7 +179,6 @@ export function ApplicationsTable({ applications, folders }: { applications: App
           label: entry.label,
           badge: <span className="text-[10px] text-[var(--color-faint)] tnum">{phaseCounts.get(entry.value) ?? 0}</span>,
         })),
-        ...(dueCount ? [{ value: 'follow-up' as PhaseFilter, label: 'Follow up', badge: <span className="rounded-full bg-[var(--color-accent-soft)] px-1.5 text-[10px] font-semibold text-[var(--color-accent)] tnum">{dueCount}</span> }] : []),
       ]} />
 
       <div className="flex flex-wrap items-center gap-2">
@@ -337,15 +334,13 @@ export function ApplicationsTable({ applications, folders }: { applications: App
   )
 }
 
-/** After applying: how long it has been, whether to follow up, and interview readiness. */
+/** After applying: how long it has been and whether it has gone quiet. */
 function Standing({ app }: { app: Application }) {
   const phase = applicationStanding(app.row?.status)
   const days = daysSince(app.workspace?.appliedAt ?? app.row?.date)
   return <div className="flex flex-wrap items-center gap-1" suppressHydrationWarning>
     {phase !== 'closed' && days !== null ? <span className="text-[11px] text-[var(--color-faint)] tnum">day {days}</span> : null}
-    {followUpDue(app) ? <Badge tone="accent">follow up</Badge> : goneQuiet(app) ? <Badge>no reply</Badge> : null}
-    {app.workspace?.nextRound ? <Badge tone="warn">interview {fmtDate(app.workspace.nextRound.slice(0, 10)).replace(/ \d{4}$/, '')}</Badge> : null}
-    {app.workspace?.prep !== null && app.workspace?.prep !== undefined && phase !== 'closed' ? <Badge tone={app.workspace.prep >= 80 ? 'ok' : 'neutral'}>prep {app.workspace.prep}%</Badge> : null}
+    {app.row?.status === 'Applied' && days !== null && days > QUIET_AFTER_DAYS ? <Badge>no reply</Badge> : null}
   </div>
 }
 

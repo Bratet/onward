@@ -15,13 +15,10 @@ const json = (value: unknown) => JSON.stringify(value)
 
 console.log('journey')
 
-const applied = initialJourney({ status: 'Applied', appliedAt: '2026-10-06T09:00:00Z', rounds: [] })
+const applied = initialJourney({ status: 'Applied', appliedAt: '2026-10-06T09:00:00Z' })
 check('an applied row starts in Applied with the sent step', applied.stage === 'applied' && applied.steps.length === 1 && applied.steps[0].state === 'done', json(applied))
 check('a rejected row starts closed as rejected', json(stageForStatus('Rejected')) === json({ stage: 'closed', outcome: 'rejected' }))
 check('Responded folds into Interviewing', stageForStatus('Responded').stage === 'interviewing')
-
-const fromRounds = initialJourney({ status: 'Interview', appliedAt: null, rounds: [{ id: 'r1', date: '2999-01-02', kind: 'Technical', with: 'Lead engineer', notes: '' }] })
-check('existing interview rounds become booked steps', fromRounds.steps[0]?.state === 'booked' && fromRounds.steps[0].with === 'Lead engineer', json(fromRounds.steps))
 
 const { journey: moved, notes } = applyOperations(applied, [
   { op: 'set_stage', stage: 'interviewing', outcome: null },

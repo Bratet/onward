@@ -24,7 +24,7 @@ const primary = 'inline-flex items-center gap-1.5 rounded-md bg-[var(--color-acc
 
 const messages: Record<OutreachKind, { title: string; description: string; icon: ReactNode; placeholder: string }> = {
   'cover-letter': { title: 'Write a cover letter', description: 'Only if the application asks for one. Draft it with AI, edit it beside a live preview, and render it with your letter template.', icon: <FileText size={18} />, placeholder: 'Language, points to stress, anything the posting asks you to address…' },
-  email: { title: 'Draft an application email', description: 'For applying or following up by email. Includes a subject line.', icon: <Mail size={18} />, placeholder: 'Where you found the role (e.g. a LinkedIn post), recipient, language, first contact or follow-up…' },
+  email: { title: 'Draft an application email', description: 'For applying by email. Includes a subject line.', icon: <Mail size={18} />, placeholder: 'Where you found the role (e.g. a LinkedIn post), recipient, language, first contact or reply…' },
   linkedin: { title: 'Write a LinkedIn message', description: 'A short note to a recruiter or hiring manager.', icon: <Linkedin size={18} />, placeholder: 'Who you are writing to, where you found the role, connection request or InMail…' },
 }
 
@@ -90,14 +90,14 @@ export function NextStepsPanel({ sent = false, app, status, onStatusSaved, initi
     ...(sent ? [{
       id: 'status' as const,
       title: 'Update status & notes',
-      description: 'Record replies, interviews, and when to follow up.',
+      description: 'Record replies and interviews.',
       icon: <CircleCheck size={18} />,
       meta: app.row ? <Badge tone={statusTone(status)}>{statusLabel(status)}</Badge> : <Badge>No tracker row</Badge>,
     }] : []),
     ...(sent ? ['cover-letter', 'email', 'linkedin'] as const : ['email', 'linkedin'] as const).map((kind) => ({
       id: kind,
-      title: sent && kind === 'email' ? 'Follow-up email' : sent && kind === 'linkedin' ? 'Message the recruiter' : kind === 'cover-letter' ? 'Cover letter' : kind === 'email' ? 'Application email' : 'LinkedIn message',
-      description: sent && kind === 'email' ? `A short follow-up${contact.email ? ` to ${contact.name ?? contact.email}` : ''}, or a reply when they write back.`
+      title: sent && kind === 'email' ? 'Email' : sent && kind === 'linkedin' ? 'Message the recruiter' : kind === 'cover-letter' ? 'Cover letter' : kind === 'email' ? 'Application email' : 'LinkedIn message',
+      description: sent && kind === 'email' ? `A message${contact.email ? ` to ${contact.name ?? contact.email}` : ''}, or a reply when they write back.`
         : sent && kind === 'linkedin' ? 'A friendly note to the recruiter or hiring manager.'
         : sent && kind === 'cover-letter' ? 'The letter you sent, or one for a later stage.'
         : kind === 'cover-letter' ? contact.coverLetter ? `The posting asks for ${contact.coverLetter === 'short' ? 'a short one' : 'one'}. Drafted with AI beside a live preview.` : 'Only if the application asks for one.'
@@ -295,7 +295,7 @@ function StatusTask({ app, base, status, onStatusSaved }: { app: Application; ba
           {!STATUSES.includes(value as never) ? <span className="rounded-md border border-[var(--color-accent)] px-3 py-1.5 text-xs">{value}</span> : null}
         </div>
       </fieldset>
-      <label className="block space-y-2 text-sm"><span>Notes and follow-up reminders</span><textarea disabled={busy} className={input} rows={4} value={notes} onChange={(event) => { setNotes(event.target.value); setNotice('') }} placeholder="Where you applied, contact person, when to follow up…" /></label>
+      <label className="block space-y-2 text-sm"><span>Notes</span><textarea disabled={busy} className={input} rows={4} value={notes} onChange={(event) => { setNotes(event.target.value); setNotice('') }} placeholder="Where you applied, contact person…" /></label>
       <div className="flex flex-wrap items-center gap-3">
         <button disabled={busy} className={primary}>{busy ? <><Spinner /> Saving…</> : value === 'Applied' && status !== 'Applied' ? 'Mark as sent' : 'Save status and notes'}</button>
         <Feedback error={error} notice={notice} />

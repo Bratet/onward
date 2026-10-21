@@ -149,14 +149,10 @@ export function stageForStatus(status: string | null | undefined): { stage: Stag
 }
 
 /** A first journey for an application that has none yet, from what the app already knows. */
-export function initialJourney(opts: { status: string | null; appliedAt: string | null; rounds: { id: string; date: string; kind: string; with: string; notes: string }[] }): Journey {
+export function initialJourney(opts: { status: string | null; appliedAt: string | null }): Journey {
   const { stage, outcome } = stageForStatus(opts.status)
-  const today = new Date().toISOString().slice(0, 10)
   const steps: Step[] = []
   if (opts.appliedAt && stage !== 'preparing') steps.push({ id: 'applied', label: 'Application sent', date: opts.appliedAt.slice(0, 10), with: '', state: 'done', notes: '' })
-  for (const round of opts.rounds) {
-    steps.push({ id: `round-${round.id}`.slice(0, 40), label: round.kind, date: round.date, with: round.with, state: round.date.slice(0, 10) >= today ? 'booked' : 'done', notes: round.notes })
-  }
   return { stage, outcome, steps, next: null, contacts: [], timeline: [] }
 }
 
@@ -230,6 +226,11 @@ export function applyOperations(journey: Journey, operations: Operation[]): { jo
 }
 
 /** The step to look at now: the first one not finished, else the last one. */
+/** Whether the process went past sending the application: any step besides that one. */
+export function hadInterviews(value: unknown): boolean {
+  return parseJourney(value)?.steps.some((step) => step.id !== 'applied') ?? false
+}
+
 export function currentStep(journey: Journey): Step | null {
   return journey.steps.find((step) => step.state === 'booked' || step.state === 'expected') ?? journey.steps.at(-1) ?? null
 }

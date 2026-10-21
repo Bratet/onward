@@ -2,17 +2,15 @@
 
 import { statusLabel } from '@/lib/statuses'
 import Link from 'next/link'
-import { Fragment, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { CalendarDays, Clock, Copy, ExternalLink, FileText, FolderOpen, Highlighter, Linkedin, Mail, Search, Send, Sparkles, Trophy, X } from 'lucide-react'
+import { Fragment, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from 'react'
+import { CalendarCheck, CalendarDays, Clock, Copy, ExternalLink, FileText, FolderOpen, Highlighter, Linkedin, Mail, Search, Send, Trophy, X } from 'lucide-react'
 import type { Standing } from '@/lib/applicationPhase'
-import type { InterviewRound, PrepProgress } from '@/lib/interviewPrep'
 import { currentStep, journeyFocus, STEP_STATE_LABEL, stepProgress, type Journey, type JourneyFocus } from '@/lib/journey'
-import { ProgressRing } from '@/components/ui/flair'
 import type { Application } from '@/lib/applications'
 import type { ApplicationRecord, RecordFile } from '@/lib/applicationRecord'
 import type { CoverLetter } from '@/lib/coverLetter'
 import type { PostingContact } from '@/lib/postingContact'
-import { daysSince, FOLLOW_UP_AFTER_DAYS, FOLLOW_UP_UNTIL_DAYS } from '@/lib/postingSource'
+import { daysSince, QUIET_AFTER_DAYS } from '@/lib/postingSource'
 import type { JdAnalysis } from '@/lib/tailoring/jd'
 import type { ApplicationWorkspace } from '@/lib/workspaces'
 import { Badge, Card, CardHeader, Empty, Spinner, statusTone } from '@/components/ui/primitives'
@@ -81,13 +79,13 @@ export function ApplicationRecordView({ app, record, analysis, workspace, contac
   </div>
 }
 
-export interface HomeAction { label: string; icon: ReactNode; onClick: () => void; primary?: boolean }
+export interface HomeAction { label: string; icon: ReactNode; onClick: (event: MouseEvent<HTMLButtonElement>) => void; primary?: boolean }
 
 /**
  * The landing view once an application is out: where it stands, the one or
  * two things worth doing now, notes to log replies, and the timeline.
  */
-export function PostHome({ app, record, workspace, journey, companion, status, phase, contact, analysis, prep, rounds, onGo, onFollowUp, onNotesSaved }: {
+export function PostHome({ app, record, workspace, journey, companion, status, phase, contact, analysis, onGo, onStatus, onNotesSaved }: {
   app: Application
   record: ApplicationRecord
   workspace: ApplicationWorkspace
@@ -98,19 +96,16 @@ export function PostHome({ app, record, workspace, journey, companion, status, p
   phase: Standing
   contact: PostingContact
   analysis: JdAnalysis | null
-  prep: PrepProgress
-  rounds: InterviewRound[]
-  onGo: (view: 'prep' | 'next' | 'record') => void
-  onFollowUp: () => void
+  onGo: (view: 'next' | 'record') => void
+  /** A status move from the hero, with where the click was for the celebration. */
+  onStatus: (status: string, origin?: { x: number; y: number }) => void
   onNotesSaved: () => void
 }) {
   const { base, copy, flash, feedback } = useRecordActions(app.key)
   const days = daysSince(workspace.appliedAt ?? app.row?.date)
-  const due = phase === 'waiting' && days !== null && days >= FOLLOW_UP_AFTER_DAYS && days <= FOLLOW_UP_UNTIL_DAYS
   const today = new Date().toISOString().slice(0, 10)
-  const upcoming = rounds.find((round) => round.date.slice(0, 10) >= today) ?? null
   const focus = journeyFocus(journey, today)
-  const hero = homeHero({ phase, status, days, due, upcoming, focus, prep, onGo, onFollowUp, hasPack: prep.total > 0 })
+  const hero = homeHero({ phase, status, days, focus, onGo, onStatus })
   const steps = journey && journey.steps.length > 1 ? stepProgress(journey) : null
   const step = journey ? currentStep(journey) : null
 
@@ -129,11 +124,8 @@ export function PostHome({ app, record, workspace, journey, companion, status, p
 
     {companion}
 
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-      <Stat delay={90} label="Interview prep" value={prep.total ? `${prep.percent}%` : 'Not started'} hint={prep.total ? `${prep.solid}/${prep.total} questions nailed` : 'Build a prep pack'} onClick={() => onGo('prep')} ring={prep.total ? prep.percent : undefined} />
-      {steps && step
-        ? <Stat delay={140} label="Steps done" value={`${steps.finished}/${steps.total}`} hint={`${step.label}: ${STEP_STATE_LABEL[step.state].toLowerCase()}`} />
-        : <Stat delay={140} label="Interview rounds" value={rounds.length ? String(rounds.length) : '0'} hint={upcoming ? `Next: ${upcoming.kind}, ${fmtDay(upcoming.date.slice(0, 10))}` : rounds.length ? 'All done' : 'None scheduled'} onClick={() => onGo('prep')} />}
+    <div className="grid grid-cols-2 gap-3">
+      {steps && step ? <Stat delay={90} label="Steps done" value={`${steps.finished}/${steps.total}`} hint={`${step.label}: ${STEP_STATE_LABEL[step.state].toLowerCase()}`} /> : null}
       <Stat delay={190} label="Fit" value={workspace.fit.report?.verdict ?? '—'} hint={workspace.fit.report ? `${workspace.fit.report.coverage.must.evidenced} of ${workspace.fit.report.coverage.must.total} must-haves backed` : 'Not analyzed'} />
     </div>
 
@@ -143,11 +135,10 @@ export function PostHome({ app, record, workspace, journey, companion, status, p
         <div className="anim-rise" style={{ ['--delay' as string]: '180ms' }}>
           <Card className="overflow-hidden">
             <CardHeader title="Jump back in" />
-            <div className="grid gap-px bg-[var(--color-border)] sm:grid-cols-3">
+            <div className="grid gap-px bg-[var(--color-border)] sm:grid-cols-2">
               {([
                 ['record', 'The job posting', record.posting.url ? `Saved copy plus the live link on ${record.posting.host ?? 'the site'}` : 'The saved copy, searchable', <FileText key="i" size={16} />],
-                ['next', 'Messages & status', 'Follow-up email, LinkedIn note, cover letter', <Mail key="i" size={16} />],
-                ['prep', 'Interview prep', prep.total ? 'Continue practicing' : 'Questions, stories, pitch', <Sparkles key="i" size={16} />],
+                ['next', 'Messages & status', 'Email, LinkedIn note, cover letter', <Mail key="i" size={16} />],
               ] as const).map(([view, title, hint, icon]) => <button key={view} type="button" onClick={() => onGo(view)} className="group flex items-start gap-3 bg-[var(--color-surface)] p-4 text-left transition-colors hover:bg-[var(--color-surface-2)]">
                 <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-[var(--color-accent-soft)] text-[var(--color-accent)] transition-transform group-hover:scale-110">{icon}</span>
                 <span className="min-w-0"><span className="block text-sm font-medium">{title}</span><span className="mt-0.5 block text-xs leading-relaxed text-[var(--color-muted)]">{hint}</span></span>
@@ -157,49 +148,42 @@ export function PostHome({ app, record, workspace, journey, companion, status, p
         </div>
       </div>
       <aside className="anim-rise space-y-4" style={{ ['--delay' as string]: '160ms' }}>
-        <TimelineCard app={app} record={record} status={status} rounds={rounds} />
+        <TimelineCard app={app} record={record} status={status} />
         <DetailsCard app={app} analysis={analysis} contact={contact} record={record} onCopy={copy} onGoToAnalysis={() => onGo('record')} compact />
       </aside>
     </div>
   </div>
 }
 
-function Stat({ label, value, hint, onClick, ring, delay }: { label: string; value: string; hint?: string; onClick?: () => void; ring?: number; delay: number }) {
+function Stat({ label, value, hint, delay }: { label: string; value: string; hint?: string; delay: number }) {
   const body = <>
-    <span className="flex items-center justify-between gap-2"><span className="text-xs text-[var(--color-muted)]">{label}</span>{ring !== undefined ? <ProgressRing value={ring} size={26} stroke={3} /> : null}</span>
+    <span className="text-xs text-[var(--color-muted)]">{label}</span>
     <span className="mt-1 block text-xl font-semibold tracking-tight tnum" suppressHydrationWarning>{value}</span>
     {hint ? <span className="mt-0.5 block truncate text-xs text-[var(--color-muted)]" suppressHydrationWarning>{hint}</span> : null}
   </>
-  const className = 'anim-rise block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left'
-  return onClick
-    ? <button type="button" onClick={onClick} className={cn(className, 'lift hover:border-[var(--color-accent)]')} style={{ ['--delay' as string]: `${delay}ms` }}>{body}</button>
-    : <div className={className} style={{ ['--delay' as string]: `${delay}ms` }}>{body}</div>
+  return <div className="anim-rise block rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4 text-left" style={{ ['--delay' as string]: `${delay}ms` }}>{body}</div>
 }
 
-function homeHero({ phase, status, days, due, upcoming, focus, prep, hasPack, onGo, onFollowUp }: {
-  phase: Standing; status: string; days: number | null; due: boolean; upcoming: InterviewRound | null; focus: JourneyFocus | null; prep: PrepProgress; hasPack: boolean
-  onGo: (view: 'prep' | 'next' | 'record') => void; onFollowUp: () => void
+function homeHero({ phase, status, days, focus, onGo, onStatus }: {
+  phase: Standing; status: string; days: number | null; focus: JourneyFocus | null
+  onGo: (view: 'next' | 'record') => void; onStatus: (status: string, origin?: { x: number; y: number }) => void
 }): { title: string; body: string; icon: ReactNode; tone: 'accent' | 'warn' | 'ok' | 'muted'; pulse?: boolean; actions: HomeAction[] } {
   const when = days === null ? 'recently' : days === 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`
-  const prepAction: HomeAction = { label: hasPack ? 'Continue prep' : 'Start interview prep', icon: <Sparkles size={14} aria-hidden="true" />, onClick: () => onGo('prep') }
-  const ready = `You’re ${prep.percent}% ready. ${prep.total ? `${prep.total - prep.solid} question${prep.total - prep.solid === 1 ? '' : 's'} still to polish.` : 'Build your prep pack to start practicing.'}`
   // The journey knows more than the status: a booked step or a next action leads when there is one.
-  if (focus?.kind === 'step') return { title: `${focus.step.label} ${countdown(focus.step.date)}`, body: `${focus.step.with ? `With ${focus.step.with}. ` : ''}${ready}`, icon: <CalendarDays size={24} />, tone: 'warn', pulse: true, actions: [{ label: 'Practice now', icon: <Sparkles size={14} aria-hidden="true" />, onClick: () => onGo('prep'), primary: true }] }
+  if (focus?.kind === 'step') return { title: `${focus.step.label} ${countdown(focus.step.date)}`, body: `${focus.step.with ? `With ${focus.step.with}. ` : ''}Once it’s done, tell the companion below how it went.`, icon: <CalendarDays size={24} />, tone: 'warn', pulse: true, actions: [] }
   if (focus?.kind === 'next') {
     const { next, overdue } = focus
     const when = next.due ? overdue ? `This was due ${fmtDay(next.due)}.` : `Due ${countdown(next.due)}.` : 'No date set.'
     const email: HomeAction = { label: 'Write an email', icon: <Mail size={14} aria-hidden="true" />, onClick: () => onGo('next') }
-    const interviewing = phase === 'interview' || phase === 'talking'
-    return { title: next.text, body: `${when} Once it’s done, tell the companion below and it will move things along.`, icon: phase === 'offer' ? <Trophy size={24} /> : <Clock size={24} />, tone: overdue ? 'warn' : phase === 'offer' ? 'ok' : 'accent', pulse: overdue, actions: interviewing ? [{ ...prepAction, primary: true }, email] : [{ ...email, primary: true }] }
+    return { title: next.text, body: `${when} Once it’s done, tell the companion below and it will move things along.`, icon: phase === 'offer' ? <Trophy size={24} /> : <Clock size={24} />, tone: overdue ? 'warn' : phase === 'offer' ? 'ok' : 'accent', pulse: overdue, actions: [{ ...email, primary: true }] }
   }
-  if (phase === 'waiting' && days !== null && days > FOLLOW_UP_UNTIL_DAYS) return { title: `${days} days and no reply`, body: 'Most companies that answer do so within a month, so this one has probably gone quiet. You can send one last short note, or close it and put your energy into newer applications.', icon: <Clock size={24} />, tone: 'muted', actions: [{ label: 'Send one last note', icon: <Mail size={14} aria-hidden="true" />, onClick: onFollowUp }, { label: 'Update status', icon: <FileText size={14} aria-hidden="true" />, onClick: () => onGo('next') }] }
-  if (phase === 'waiting') return due
-    ? { title: 'Time for a friendly follow-up', body: `You applied ${when} and haven’t heard back. A short, polite note to the recruiter keeps you on their radar.`, icon: <Clock size={24} />, tone: 'warn', pulse: true, actions: [{ label: 'Draft a follow-up', icon: <Mail size={14} aria-hidden="true" />, onClick: onFollowUp, primary: true }, prepAction] }
-    : { title: days !== null && days < FOLLOW_UP_AFTER_DAYS ? `Follow up in ${FOLLOW_UP_AFTER_DAYS - days} day${FOLLOW_UP_AFTER_DAYS - days === 1 ? '' : 's'}` : 'Follow up when you’re ready', body: `Nice work, you applied ${when}. Give it about a week before a short follow-up. Meanwhile, a head start on interview prep makes a call easy to say yes to.`, icon: <Send size={24} />, tone: 'accent', actions: [{ ...prepAction, primary: true }] }
-  if (phase === 'talking') return { title: 'They got back to you', body: 'Log what they said in your notes, then get ready for the first conversation.', icon: <Mail size={24} />, tone: 'ok', pulse: true, actions: [{ ...prepAction, primary: true }, { label: 'Reply', icon: <Mail size={14} aria-hidden="true" />, onClick: () => onGo('next') }] }
-  if (phase === 'interview') return upcoming
-    ? { title: `${upcoming.kind} ${countdown(upcoming.date)}`, body: ready, icon: <CalendarDays size={24} />, tone: 'warn', pulse: true, actions: [{ label: 'Practice now', icon: <Sparkles size={14} aria-hidden="true" />, onClick: () => onGo('prep'), primary: true }] }
-    : { title: 'You’re interviewing', body: 'Add each round with its date to get a countdown, and practice the questions they are most likely to ask.', icon: <CalendarDays size={24} />, tone: 'accent', actions: [{ ...prepAction, primary: true }] }
+  if (phase === 'waiting' && days !== null && days > QUIET_AFTER_DAYS) return { title: `${days} days and no reply`, body: 'Most companies that answer do so within a month, so this one has probably gone quiet. You can close it and put your energy into newer applications.', icon: <Clock size={24} />, tone: 'muted', actions: [{ label: 'Update status', icon: <FileText size={14} aria-hidden="true" />, onClick: () => onGo('next') }] }
+  if (phase === 'waiting') return { title: 'Waiting for their answer', body: `Nice work, you applied ${when}. When they get back to you, record their answer here.`, icon: <Send size={24} />, tone: 'accent', actions: [
+    { label: 'Invited to interview', icon: <CalendarCheck size={14} aria-hidden="true" />, onClick: (event) => onStatus('Responded', { x: event.clientX, y: event.clientY }), primary: true },
+    { label: 'Rejected', icon: <X size={14} aria-hidden="true" />, onClick: () => onStatus('Rejected') },
+  ] }
+  if (phase === 'talking') return { title: 'You’re invited to interview', body: 'Tell the companion below what the first step is, like an introduction call and its date, and it will add it to your timeline.', icon: <Mail size={24} />, tone: 'ok', pulse: true, actions: [{ label: 'Reply', icon: <Mail size={14} aria-hidden="true" />, onClick: () => onGo('next'), primary: true }] }
+  if (phase === 'interview') return { title: 'You’re interviewing', body: 'Tell the companion below about each round and its date to get a countdown.', icon: <CalendarDays size={24} />, tone: 'accent', actions: [] }
   if (phase === 'offer') return { title: 'You got an offer', body: 'Congratulations. Before you answer, reread the posting and your notes so you negotiate from what they asked for.', icon: <Trophy size={24} />, tone: 'ok', actions: [{ label: 'Reread the posting', icon: <FileText size={14} aria-hidden="true" />, onClick: () => onGo('record'), primary: true }] }
   return { title: status === 'Rejected' ? 'This one didn’t work out' : 'This application is closed', body: status === 'Rejected' ? 'It happens to everyone, and it says little about you. Your posting, documents and notes stay here if the company opens a similar role later.' : 'Everything you prepared is kept here for reference.', icon: <FileText size={24} />, tone: 'muted', actions: [{ label: 'See what you sent', icon: <FileText size={14} aria-hidden="true" />, onClick: () => onGo('record') }] }
 }
@@ -439,7 +423,7 @@ function NotesCard({ app, base, onSaved }: { app: Application; base: string; onS
         setSaved(notes); onSaved()
       } catch (reason) { setError((reason as Error).message) } finally { setBusy(false) }
     }}>
-      <textarea value={notes} onChange={(event) => setNotes(event.target.value)} disabled={busy} rows={7} className={cn(input, 'text-xs leading-relaxed')} placeholder="Who replied, what they said, when to follow up…" />
+      <textarea value={notes} onChange={(event) => setNotes(event.target.value)} disabled={busy} rows={7} className={cn(input, 'text-xs leading-relaxed')} placeholder="Who replied, what they said…" />
       {error ? <p className="text-xs text-[var(--color-bad)]">{error}</p> : null}
       <div className="flex items-center gap-2">
         <button disabled={busy || !dirty} className={primary}>{busy ? <Spinner /> : null} Save notes</button>
@@ -472,9 +456,8 @@ function DetailsCard({ app, analysis, contact, record, onCopy, onGoToAnalysis, c
   </Card>
 }
 
-function TimelineCard({ app, record, status, rounds = [] }: { app: Application; record: ApplicationRecord; status: string; rounds?: InterviewRound[] }) {
-  const events = [...record.timeline, ...rounds.map((round) => ({ at: round.date, label: `${round.kind} interview`, detail: round.with || undefined }))]
-    .sort((a, b) => a.at.localeCompare(b.at))
+function TimelineCard({ app, record, status }: { app: Application; record: ApplicationRecord; status: string }) {
+  const events = [...record.timeline].sort((a, b) => a.at.localeCompare(b.at))
   return <Card>
     <CardHeader title="Timeline" action={record.runs.total ? <Link href={`/runs?applicationKey=${encodeURIComponent(app.key)}`} className="text-xs text-[var(--color-accent)] hover:underline">{record.runs.total} AI run{record.runs.total === 1 ? '' : 's'} →</Link> : null} />
     <ol className="relative space-y-3 px-4 py-4">

@@ -38,7 +38,7 @@ assert.equal(withPostingUrl('Source URL: not provided.\n\nRole', 'https://x.io/j
 assert.equal(withPostingUrl('Role text\n', 'https://x.io/j'), 'https://x.io/j\n\nRole text\n')
 assert.throws(() => withPostingUrl(placeholder, 'ftp://x.io/j'), /http\(s\) URL/)
 
-// Days since applying, for the follow-up nudge.
+// Days since applying.
 const now = new Date('2026-10-15T12:00:00')
 assert.equal(daysSince('2026-10-08', now), 7)
 assert.equal(daysSince('2026-10-15T09:00:00', now), 0)
@@ -63,4 +63,4 @@ try {
   if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
 }
 
-console.log(`Posting source: link line, placeholders, link edits, follow-up days, ${checked} saved postings pass`)
+console.log(`Posting source: link line, placeholders, link edits, days since, ${checked} saved postings pass`)

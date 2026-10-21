@@ -5,7 +5,6 @@ import {
   applyOperations, companionJsonSchema, companionPrompt, describeOperation, initialJourney, parseCompanionOutput, parseJourney,
   statusForStage, type Journey, type JourneyProposal, type Operation, type TimelineEntry,
 } from './journey'
-import { interviewState } from './interviewStore'
 import { getSkillForRunner } from './skills/registry'
 import { startSkillRun, type RunRecorder } from './skills/runs'
 import { readRows, updateRow } from './tracker'
@@ -15,7 +14,7 @@ const SKILL_ID = 'track-application'
 const MAX_MESSAGE = 20000
 
 function journeyOf(workspace: ApplicationWorkspace, status: string | null): Journey {
-  return parseJourney(workspace.journey) ?? initialJourney({ status, appliedAt: workspace.appliedAt, rounds: interviewState(workspace).rounds })
+  return parseJourney(workspace.journey) ?? initialJourney({ status, appliedAt: workspace.appliedAt })
 }
 
 async function load(key: string) {

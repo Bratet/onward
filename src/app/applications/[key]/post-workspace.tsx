@@ -2,12 +2,11 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { FileText, Home, Mail, Sparkles, Wrench } from 'lucide-react'
+import { FileText, Home, Mail, Wrench } from 'lucide-react'
 import type { Application } from '@/lib/applications'
 import type { ApplicationRecord } from '@/lib/applicationRecord'
 import { applicationStanding, wasSent } from '@/lib/applicationPhase'
 import { coverLetterFromWorkspace, letterSalutation, senderFromResume } from '@/lib/coverLetter'
-import { emptyInterviewState, prepProgress, type InterviewState } from '@/lib/interviewPrep'
 import type { Lang } from '@/lib/paths'
 import type { PostingContact } from '@/lib/postingContact'
 import type { JdAnalysis } from '@/lib/tailoring/jd'
@@ -16,22 +15,21 @@ import type { FinalizedState } from '@/components/FinalizeStatus'
 import { Card } from '@/components/ui/primitives'
 import { ErrorNotice } from '@/components/ErrorNotice'
 import { JourneyCompanion } from '@/components/JourneyCompanion'
-import { parseJourney } from '@/lib/journey'
+import { hadInterviews, parseJourney } from '@/lib/journey'
 import { celebrate } from '@/components/ui/flair'
 import { PaneTabs, paneTabPanelProps } from '@/components/ui/PaneTabs'
 import { ApplicationHeader } from './header'
-import { InterviewPrep } from './interview-prep'
 import { NextStepsPanel, type NextStep } from './next-steps-panel'
 import { ApplicationRecordView, PostHome } from './record'
 
-type Tab = 'home' | 'prep' | 'next' | 'record'
-const TABS: readonly Tab[] = ['home', 'prep', 'next', 'record']
+type Tab = 'home' | 'next' | 'record'
+const TABS: readonly Tab[] = ['home', 'next', 'record']
 const NEXT_STEPS: readonly NextStep[] = ['status', 'cover-letter', 'email', 'linkedin']
 
 /**
  * The application once it has been sent. Nothing here edits the resume: it is
- * about the people on the other side, so it offers following up, interview
- * preparation, and the job and documents as they were sent. The tools used to
+ * about the people on the other side, so it offers messages, the status, and
+ * the job and documents as they were sent. The tools used to
  * prepare stay one link away, on the pre-application page.
  */
 export function PostApplicationView({ app, record, analysis, initialWorkspace, contact, language, finalized }: {
@@ -56,8 +54,6 @@ export function PostApplicationView({ app, record, analysis, initialWorkspace, c
   const [located, setLocated] = useState<string | null>(null)
   const base = `/api/applications/${encodeURIComponent(app.key)}`
   const standing = applicationStanding(status)
-  const interview: InterviewState = { ...emptyInterviewState(), ...workspace.interview }
-  const prep = prepProgress(interview)
 
   // Mirror the current view in the URL so reloads and shared links land in the same place.
   useEffect(() => {
@@ -112,13 +108,12 @@ export function PostApplicationView({ app, record, analysis, initialWorkspace, c
   }
 
   return <div className="space-y-4">
-    <ApplicationHeader app={app} status={status} interviewed={interview.rounds.length > 0} busy={busy} postingUrl={record.posting.url} appliedAt={workspace.appliedAt} onStatus={(next, origin, note) => void patchStatus(next, origin, note)} />
+    <ApplicationHeader app={app} status={status} interviewed={hadInterviews(workspace.journey)} busy={busy} postingUrl={record.posting.url} appliedAt={workspace.appliedAt} onStatus={(next, origin, note) => void patchStatus(next, origin, note)} />
     {error ? <Card className="overflow-hidden border-[var(--color-bad-soft)]"><ErrorNotice error={error} onDismiss={() => setError(null)} /></Card> : null}
 
     <div className="anim-rise flex flex-wrap items-center gap-3">
       <PaneTabs label="Application" idBase="sent" value={tab} onChange={goTo} className="min-w-0 flex-1 overflow-x-auto overflow-y-hidden border-b border-[var(--color-border)] [scrollbar-width:none] sm:flex-none" items={[
         { value: 'home', label: 'Overview', icon: <Home size={15} /> },
-        { value: 'prep', label: 'Interview prep', icon: <Sparkles size={15} />, badge: prep.total ? <span className="rounded-full bg-[var(--color-surface-2)] px-1.5 text-xs font-semibold text-[var(--color-text)] tnum">{prep.percent}%</span> : undefined },
         { value: 'next', label: 'Messages & status', icon: <Mail size={15} /> },
         { value: 'record', label: 'Job & documents', icon: <FileText size={15} /> },
       ]} />
@@ -140,19 +135,10 @@ export function PostApplicationView({ app, record, analysis, initialWorkspace, c
       phase={standing}
       contact={contact}
       analysis={analysis}
-      prep={prep}
-      rounds={interview.rounds}
       onGo={goTo}
-      onFollowUp={() => { setNextStep('email'); goTo('next') }}
+      onStatus={(next, origin) => void patchStatus(next, origin)}
       onNotesSaved={() => router.refresh()}
     /> : null}
-    {tab === 'prep' ? <div className="anim-fade"><InterviewPrep
-      appKey={app.key}
-      initial={interview}
-      report={workspace.fit.report}
-      status={status}
-      onChange={(next) => setWorkspace((current) => ({ ...current, interview: next }))}
-    /></div> : null}
     {tab === 'next' ? <div className="anim-rise"><NextStepsPanel
       sent
       app={app}

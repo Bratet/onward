@@ -1,7 +1,7 @@
 /**
  * Where an application stands, from its tracker status. A search has two
  * phases: Applying is the candidate's move, from the posting until the
- * company answers (prepare, send, wait, follow up); Interviewing is the
+ * company answers (prepare, send, wait); Interviewing is the
  * company's process once it has picked the application (calls, interviews,
  * the offer). Closed is how either one ends, not a third phase. Client-safe.
  */
@@ -71,9 +71,9 @@ export function phaseStep(standing: Standing): number {
 
 export const STANDING_COPY: Record<Standing, { title: string; hint: string }> = {
   prepare: { title: 'Getting your application ready', hint: 'Analyze the role, tailor your resume, then send it.' },
-  waiting: { title: 'Sent, waiting for their answer', hint: 'Follow up after a week. Once they reply, you move to Interviewing.' },
-  talking: { title: 'They selected your application', hint: 'Log what they said and get ready for the first conversation.' },
-  interview: { title: 'In their interview process', hint: 'Practice the likely questions and keep track of each round.' },
+  waiting: { title: 'Sent, waiting for their answer', hint: 'Once they invite you to interview, you move to Interviewing.' },
+  talking: { title: 'Invited to interview', hint: 'Log the first step, like an introduction call, and its date.' },
+  interview: { title: 'In their interview process', hint: 'Keep track of each round.' },
   offer: { title: 'Offer on the table', hint: 'Review the posting and your notes before you negotiate.' },
   closed: { title: 'Closed', hint: 'Everything stays here for reference.' },
 }

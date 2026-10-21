@@ -17,11 +17,12 @@ export const STATUSES = [
 
 export type Status = (typeof STATUSES)[number]
 
-const STATUS_LABEL: Record<string, string> = { Applied: 'Sent', Discarded: 'Set aside', SKIP: 'Skipped' }
+const STATUS_LABEL: Record<string, string> = { Applied: 'Sent', Responded: 'Invited to interview', Discarded: 'Set aside', SKIP: 'Skipped' }
 
 /**
  * How a status reads in the app. The tracker keeps its own words ("Applied",
- * "SKIP"); the app uses the candidate's: "Sent", "Set aside", "Skipped".
+ * "Responded", "SKIP"); the app uses the candidate's: "Sent", "Invited to
+ * interview", "Set aside", "Skipped".
  */
 export function statusLabel(status: string): string {
   return STATUS_LABEL[status] ?? status

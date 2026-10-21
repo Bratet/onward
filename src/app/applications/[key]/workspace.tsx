@@ -29,6 +29,7 @@ import { Overview } from './overview'
 import { NextStepsPanel, type NextStep } from './next-steps-panel'
 import { ApplicationHeader, type ApplyingStep } from './header'
 import { wasSent } from '@/lib/applicationPhase'
+import { hadInterviews } from '@/lib/journey'
 import { statusLabel } from '@/lib/statuses'
 import { celebrate } from '@/components/ui/flair'
 import { PaneTabs, paneTabPanelProps } from '@/components/ui/PaneTabs'
@@ -556,7 +557,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
       <ApplicationHeader
         app={app}
         status={status}
-        interviewed={(workspace.interview?.rounds.length ?? 0) > 0}
+        interviewed={hadInterviews(workspace.journey)}
         busy={busy}
         postingUrl={postingUrl}
         appliedAt={workspace.appliedAt}

@@ -37,7 +37,7 @@
     "test:visa-badge": "tsx scripts/test-visa-badge.ts",
     "test:search-builder": "tsx scripts/test-search-builder.ts",
     "test:posting-source": "tsx scripts/test-posting-source.ts",
-    "test:interview-prep": "tsx scripts/test-interview-prep.ts",
+    "test:application-phase": "tsx scripts/test-application-phase.ts",
     "test:render-markup": "tsx scripts/test-render-markup.ts",
     "test:job-fetch": "tsx scripts/test-job-fetch.ts",
     "onward": "tsx scripts/cli.ts",

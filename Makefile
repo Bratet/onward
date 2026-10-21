@@ -76,7 +76,7 @@ test: node_modules ## Tracker and tailoring tests
 	@npm run test:search-builder
 	@npm run test:cli
 	@npm run test:posting-source
-	@npm run test:interview-prep
+	@npm run test:application-phase
 	@npm run test:render-markup
 	@npm run test:job-fetch
 	@npm run test:visa-badge
