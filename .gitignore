@@ -14,6 +14,10 @@ rendercv_output/
 # Claude Code local
 .claude/settings.local.json
 
+# Impeccable design tool: local config, caches, and critique snapshots that
+# describe the user's own applications
+.impeccable/
+
 # Python
 __pycache__/
 
