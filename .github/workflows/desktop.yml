@@ -64,7 +64,19 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           # No signing certificates yet: macOS builds are unsigned (ad-hoc).
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npm run ${{ env.PUBLISH == 'true' && 'release' || 'dist' }}
+        run: npm run dist
+      # electron-builder's own upload races between the three runners and can open a
+      # second draft with the same tag, so the files go into the one draft by hand.
+      - name: Upload to the release
+        if: env.PUBLISH == 'true'
+        working-directory: desktop/dist
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          shopt -s nullglob
+          gh release upload "v$VERSION" --repo "$GITHUB_REPOSITORY" --clobber \
+            latest*.yml *.blockmap *.dmg *.zip *.exe *.AppImage *.deb
       - name: Keep the installers
         if: env.PUBLISH != 'true'
         uses: actions/upload-artifact@v4
