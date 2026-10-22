@@ -23,6 +23,7 @@ export function runOnboarding({ here, serverDir, path }) {
       resizable: false,
       maximizable: false,
       title: 'Welcome to Onward',
+      icon: join(here, 'resources', 'icon.png'),
       show: false,
       webPreferences: { contextIsolation: true, sandbox: true, preload: join(here, 'onboarding', 'preload.cjs') },
     })

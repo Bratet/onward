@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { LogoMark } from './Logo'
 import { NewApplicationDialog } from './NewApplicationDialog'
 import { useEffect, useRef } from 'react'
 import { Settings2 } from 'lucide-react'
@@ -31,7 +32,7 @@ export function Nav() {
     <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-bg)]">
       <div className="mx-auto flex min-h-14 max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-1 px-4 py-1.5 sm:px-6">
         <Link href="/" className="flex shrink-0 items-center gap-2.5 text-sm font-semibold tracking-tight" aria-label="Onward home">
-          <span className="grid size-8 place-items-center rounded-md bg-[var(--color-accent)] text-[12px] font-bold text-[var(--color-on-solid)]">on</span>
+          <LogoMark className="size-8" />
           <span>onward</span>
         </Link>
         <nav ref={navRef} aria-label="Primary navigation" className="no-scrollbar order-last flex w-full items-stretch gap-5 overflow-x-auto sm:order-none sm:w-auto">

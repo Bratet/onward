@@ -1,3 +1,5 @@
+<img src="src/app/icon.svg" alt="" width="64" height="64">
+
 # Onward
 
 Your job application companion. A local web app for running the job-application pipeline: paste a posting, let an

@@ -19,6 +19,8 @@ import { runOnboarding } from './lib/onboarding.mjs'
 import { pickWorkspace, savedWorkspace } from './lib/workspace.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
+// Linux takes the window icon from here; macOS and Windows read the one built into the app.
+const icon = join(here, 'resources', 'icon.png')
 // Packaged: resources/server. From source: desktop/build/server (npm run server).
 const serverDir = app.isPackaged ? join(process.resourcesPath, 'server') : join(here, 'build', 'server')
 const logFile = () => join(app.getPath('logs'), 'server.log')
@@ -91,6 +93,7 @@ function createWindow(page = '') {
     minWidth: 900,
     minHeight: 600,
     title: 'Onward',
+    icon,
     show: false,
     webPreferences: { contextIsolation: true, sandbox: true, preload: join(here, 'preload.cjs') },
   })
@@ -208,6 +211,8 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   app.whenReady().then(async () => {
+    // An unpackaged run (make desktop) would otherwise show Electron's icon in the Dock.
+    if (!app.isPackaged && process.platform === 'darwin') app.dock.setIcon(icon)
     // ONWARD_DESKTOP_URL lets the shell wrap a running `make dev` while working on the UI.
     const devUrl = process.env.ONWARD_DESKTOP_URL
     workspace = savedWorkspace()
