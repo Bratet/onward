@@ -112,7 +112,10 @@ Node, so there is nothing else to install apart from the CLIs below.
 The builds are not signed with an Apple or Microsoft certificate yet, so both
 systems ask once. On macOS, open Onward, close the "could not verify" message,
 then go to System Settings → Privacy & Security and choose Open Anyway. On
-Windows, choose More info → Run anyway on the SmartScreen message. Without a
+Windows, choose More info → Run anyway on the SmartScreen message. The Windows
+program is `onward-app.exe`, not `Onward.exe`: Discord recognises games by their
+exe name, and `Onward.exe` is a VR game's, so Discord drew its game overlay on the
+app. Without a
 certificate a Mac app can't replace itself, so on macOS the update prompt links
 to the new download instead.
 
