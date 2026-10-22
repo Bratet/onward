@@ -1,13 +1,16 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { Square } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
+import { ArrowUp, Check, ChevronDown, Eye, FileText, Pencil, SlidersHorizontal, Square, Undo2 } from 'lucide-react'
 import { Menu, MenuItem } from '@/components/ui/Menu'
 import type { Application } from '@/lib/applications'
-import { LETTER_WORD_TARGET, letterMatchesFinalized, wordCount, type CoverLetter, type LetterTurn } from '@/lib/coverLetter'
+import { CoverLetterConflict, LETTER_WORD_TARGET, coverLetterSchema, letterKey, letterMatchesFinalized, wordCount, type CoverLetter, type LetterTurn } from '@/lib/coverLetter'
+import { createLetterSaveQueue, parseLetterChat, type LetterReview } from '@/lib/coverLetterEditor'
 import type { Failure } from '@/lib/validate'
+import { ChatMarkdown } from '@/components/ChatMarkdown'
 import { ErrorNotice } from '@/components/ErrorNotice'
-import { FinalizeStatus, type FinalizedState } from '@/components/FinalizeStatus'
+import type { FinalizedState } from '@/components/FinalizeStatus'
+import { FeatureEnginePicker } from '@/components/FeatureEnginePicker'
 import { LearnFromChat } from '@/components/LearnFromChat'
 import { PdfPreview } from '@/components/PdfPreview'
 import { Badge, Card, Spinner } from '@/components/ui/primitives'
@@ -16,41 +19,27 @@ import { useFillHeight } from '@/components/useFillHeight'
 
 type SaveState = 'saved' | 'saving' | 'error'
 type View = 'preview' | 'edit'
+type Preview = { token: string | null; pages: number | null; failures: Failure[]; source: string | null }
 
-const field = 'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1.5 text-sm outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:opacity-60'
-const outline = 'rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-text)]'
-const QUICK_PROMPTS = ['Draft my cover letter for this role.', 'Make it shorter and more direct.', 'Write it in French.']
+const STARTER = 'Draft my cover letter for this role.'
+const EMPTY_PREVIEW: Preview = { token: null, pages: null, failures: [], source: null }
+const focus = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]'
+const field = 'w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-60'
+const secondary = `inline-flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2.5 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] ${focus} disabled:cursor-not-allowed disabled:opacity-40`
+const primary = `inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 text-sm font-semibold text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] transition-[filter] hover:brightness-110 ${focus} disabled:cursor-not-allowed disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-faint)] disabled:shadow-none`
 
-function chatKey(appKey: string) {
-  return `career-ops-cover-letter-chat:${appKey}`
+function chatKey(key: string) {
+  return `career-ops-cover-letter-chat:${key}`
 }
 
-function readTurns(appKey: string): LetterTurn[] {
-  try {
-    const parsed = JSON.parse(window.localStorage.getItem(chatKey(appKey)) ?? '[]')
-    return Array.isArray(parsed) ? parsed.filter((turn) => (turn?.role === 'user' || turn?.role === 'assistant') && typeof turn.content === 'string') : []
-  } catch {
-    return []
-  }
-}
-
-function storeTurns(appKey: string, turns: LetterTurn[]) {
-  try { window.localStorage.setItem(chatKey(appKey), JSON.stringify(turns.slice(-100))) } catch { /* the chat stays in memory */ }
-}
-
-/**
- * The cover letter workspace, laid out like Resume & AI: an AI companion and a
- * direct editor on the left, the letter rendered with templates/cover-letter.typ
- * on the right, and a finalize step that writes the PDF next to the resume.
- */
-export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLoad, onLetterSaved, onLetterFinalized, resumeReady, onGoToResume }: {
+/** The same document-and-companion workspace as Resume, with an explicit AI review before saving. */
+export function CoverLetterTask({ app, active = true, initialLetter, savedLetter, finalizedAtLoad, onLetterSaved, onLetterFinalized, resumeReady, onGoToResume }: {
   app: Application
-  /** The AI writes from the finalized resume, so it waits for one. */
+  active?: boolean
   resumeReady: boolean
   onGoToResume: () => void
   onLetterFinalized?: (pdfName: string) => void
   initialLetter: CoverLetter
-  /** The letter actually stored, or null when there is none yet. Every save is checked against it. */
   savedLetter: CoverLetter | null
   finalizedAtLoad: FinalizedState['letter']
   onLetterSaved: (letter: CoverLetter) => void
@@ -58,129 +47,223 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
   const base = `/api/applications/${encodeURIComponent(app.key)}/cover-letter`
   const [letter, setLetter] = useState(initialLetter)
   const [saveState, setSaveState] = useState<SaveState>('saved')
-  const savedJson = useRef(JSON.stringify(initialLetter))
-  const baseLetter = useRef(savedLetter)
+  const [saveAttempt, setSaveAttempt] = useState(0)
+  const savedJson = useRef(letterKey(initialLetter))
+  const latestLetter = useRef(letter)
+  latestLetter.current = letter
+  const onSaved = useRef(onLetterSaved)
+  onSaved.current = onLetterSaved
+  const saveQueue = useRef<ReturnType<typeof createLetterSaveQueue> | null>(null)
+  if (!saveQueue.current) saveQueue.current = createLetterSaveQueue(savedLetter, async (snapshot, from) => {
+    const response = await fetch(base, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ letter: snapshot, base: from }) })
+    const data = await response.json()
+    if (response.status === 409) throw new CoverLetterConflict()
+    if (!response.ok) throw new Error(data.error ?? 'Could not save your letter')
+  })
   const [conflict, setConflict] = useState(false)
-  // Saves run one at a time, so each one carries the base the previous save left.
-  const saveChain = useRef<Promise<void>>(Promise.resolve())
   const [view, setView] = useState<View>('preview')
-  const [preview, setPreview] = useState<{ token: string | null; pages: number | null; failures: Failure[] }>({ token: null, pages: null, failures: [] })
+  const [preview, setPreview] = useState<Preview>(EMPTY_PREVIEW)
   const [rendering, setRendering] = useState(false)
+  const [previewAttempt, setPreviewAttempt] = useState(0)
   const [turns, setTurns] = useState<LetterTurn[]>([])
   const [message, setMessage] = useState('')
+  const latestMessage = useRef(message)
+  latestMessage.current = message
+  const [hydrated, setHydrated] = useState(false)
   const [thinking, setThinking] = useState(false)
-  const [undo, setUndo] = useState<CoverLetter | null>(null)
+  const [review, setReview] = useState<LetterReview | null>(null)
   const [finalizing, setFinalizing] = useState(false)
   const [letterFinalized, setLetterFinalized] = useState(finalizedAtLoad)
   const [finalizedPdf, setFinalizedPdf] = useState<string | null>(app.folder?.docs.find((doc) => doc.key === 'letterPdf' && doc.name.endsWith('.pdf'))?.name ?? null)
   const [notice, setNotice] = useState('')
   const [error, setError] = useState<string | null>(null)
-  const abortRef = useRef<AbortController | null>(null)
   const [retry, setRetry] = useState<string | null>(null)
-  const endRef = useRef<HTMLDivElement>(null)
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [confirmNewChat, setConfirmNewChat] = useState(false)
+  const settingsId = useId()
+  const finalizeHintId = useId()
+  const abortRef = useRef<AbortController | null>(null)
+  const messageRef = useRef<HTMLTextAreaElement>(null)
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const listRef = useRef<HTMLDivElement>(null)
+  const followReply = useRef(true)
+  const documentPanel = useRef<HTMLDivElement>(null)
   const aiPanel = useRef<HTMLDivElement>(null)
-  useFillHeight(aiPanel)
+  useFillHeight(documentPanel, active, 80)
+  useFillHeight(aiPanel, active, 80)
   const words = wordCount(letter.content)
+  const empty = !letter.content.trim()
   const busy = thinking || finalizing
+  const source = letterKey(letter)
+  const dirty = source !== savedJson.current
+  const currentPreview = preview.source === source
+  const upToDate = letterMatchesFinalized(letter, letterFinalized?.letter ?? null)
+  const starterReady = hydrated && resumeReady && empty && !review && message === STARTER
 
-  useEffect(() => { setTurns(readTurns(app.key)) }, [app.key])
-  useEffect(() => () => abortRef.current?.abort(), [])
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [turns, thinking])
-
-  // Autosave, as the resume draft does, once typing pauses.
   useEffect(() => {
-    const json = JSON.stringify(letter)
-    if (json === savedJson.current || conflict) return
-    setSaveState('saving')
-    const timer = window.setTimeout(() => { saveChain.current = saveChain.current.then(async () => {
-      try {
-        const response = await fetch(base, { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ letter, base: baseLetter.current }) })
-        const data = await response.json()
-        if (response.status === 409) setConflict(true)
-        if (!response.ok) throw new Error(data.error ?? 'autosave failed')
-        savedJson.current = json
-        baseLetter.current = letter
-        onLetterSaved(letter)
-        setSaveState('saved')
-      } catch (reason) {
-        setSaveState('error')
-        setError((reason as Error).message)
-      }
-    }) }, 650)
-    return () => window.clearTimeout(timer)
+    let saved = null
+    try { saved = parseLetterChat(window.localStorage.getItem(chatKey(app.key))) } catch { /* in-memory chat still works */ }
+    setTurns(saved?.turns ?? [])
+    setMessage(saved?.message || (!initialLetter.content.trim() && !saved?.turns.length ? STARTER : ''))
+    if (saved?.review) {
+      const matches = savedLetter
+        ? letterKey(saved.review.before) === letterKey(savedLetter)
+        : !saved.review.before.content.trim()
+      if (matches) { setReview(saved.review); setLetter(saved.review.after) }
+    }
+    setHydrated(true)
+    // This component is keyed by application; its initial props are the hydration base.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [base, letter, conflict])
+  }, [app.key])
 
-  // Live preview through the real template. A newer edit aborts the older render.
   useEffect(() => {
+    if (!hydrated) return
+    try { window.localStorage.setItem(chatKey(app.key), JSON.stringify({ turns: turns.slice(-100), message, review })) } catch { /* keep the current session usable */ }
+  }, [app.key, hydrated, turns, message, review])
+  useEffect(() => () => abortRef.current?.abort(), [])
+  useEffect(() => {
+    const list = listRef.current
+    if (active && list && followReply.current) list.scrollTo({ top: list.scrollHeight, behavior: 'auto' })
+  }, [active, turns, thinking, review])
+
+  async function saveSnapshot(snapshot: CoverLetter) {
+    const json = letterKey(snapshot)
+    try {
+      await saveQueue.current!.save(snapshot)
+      savedJson.current = json
+      onSaved.current(snapshot)
+      setSaveState(letterKey(latestLetter.current) === json ? 'saved' : 'saving')
+    } catch (reason) {
+      if (reason instanceof CoverLetterConflict) setConflict(true)
+      setSaveState('error')
+      throw reason
+    }
+  }
+
+  // A response for an older buffer can advance the save base, but cannot mark newer typing as saved.
+  useEffect(() => {
+    if (!hydrated || conflict || review || finalizing) return
+    if (source === savedJson.current) { setSaveState('saved'); return }
+    setSaveState('saving')
+    const timer = window.setTimeout(() => {
+      void saveSnapshot(letter).catch((reason) => setError((reason as Error).message))
+    }, 650)
+    return () => window.clearTimeout(timer)
+    // saveSnapshot reads the current queue and callbacks through refs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, letter, source, conflict, review, finalizing, saveAttempt])
+
+  // Retain the last PDF while its replacement renders; never show an obsolete request's error.
+  useEffect(() => {
+    if (!resumeReady || empty) { setPreview(EMPTY_PREVIEW); setRendering(false); return }
     const controller = new AbortController()
+    setRendering(true)
+    setPreview((current) => ({ ...current, failures: [] }))
     const timer = window.setTimeout(async () => {
-      setRendering(true)
       try {
         const response = await fetch(`${base}/preview`, {
           method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ letter }), signal: controller.signal,
         })
         const data = await response.json()
-        if (!response.ok) throw new Error(data.error ?? 'preview failed')
-        setPreview({ token: data.token, pages: data.pages, failures: data.failures ?? [] })
+        if (controller.signal.aborted) return
+        if (!response.ok) throw new Error(data.error ?? 'Could not preview your letter')
+        setPreview({ token: data.token, pages: data.pages, failures: data.failures ?? [], source })
       } catch (reason) {
-        if ((reason as Error).name !== 'AbortError') setPreview((current) => ({ ...current, failures: [{ kind: 'render', where: 'preview', why: (reason as Error).message }] }))
+        if (!controller.signal.aborted) setPreview((current) => ({ ...current, source, failures: [{ kind: 'render', where: 'preview', why: (reason as Error).message }] }))
       } finally {
         if (!controller.signal.aborted) setRendering(false)
       }
     }, 500)
     return () => { window.clearTimeout(timer); controller.abort() }
-  }, [base, letter])
+  }, [base, letter, source, empty, resumeReady, previewAttempt])
 
   function edit(patch: Partial<CoverLetter>) {
     setLetter((current) => ({ ...current, ...patch }))
     setNotice('')
   }
 
+  function writeMyself() {
+    setView('edit')
+    window.requestAnimationFrame(() => bodyRef.current?.focus({ preventScroll: true }))
+  }
+
   async function send(text = message) {
     const request = text.trim()
-    if (!request || busy) return
+    if (!request || !hydrated || busy || review || conflict || !resumeReady) return
     const history = [...turns, { role: 'user' as const, content: request }]
-    setTurns(history); storeTurns(app.key, history)
-    setMessage(''); setThinking(true); setError(null); setRetry(null); setNotice(''); setUndo(null)
+    followReply.current = true
+    setTurns(history); setMessage(''); setThinking(true); setError(null); setRetry(null); setNotice('')
     const controller = new AbortController()
     abortRef.current = controller
     try {
+      // A pending proposal's Before must survive reload even when the user sent
+      // their request during the typing debounce.
+      if (source !== savedJson.current) await saveSnapshot(letter)
+      if (controller.signal.aborted) throw new DOMException('Stopped', 'AbortError')
       const response = await fetch(base, {
         method: 'POST', headers: { 'content-type': 'application/json' }, signal: controller.signal,
         body: JSON.stringify({ letter, message: request, conversation: turns.slice(-40) }),
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error ?? 'the AI companion failed')
-      const next = [...history, { role: 'assistant' as const, content: data.reply || 'Updated the letter.' }]
-      setTurns(next); storeTurns(app.key, next)
-      setUndo(letter)
-      setLetter(data.letter)
+      if (controller.signal.aborted) throw new DOMException('Stopped', 'AbortError')
+      if (!response.ok) throw new Error(data.error ?? 'The AI could not update the letter')
+      const nextLetter = coverLetterSchema.parse(data.letter)
+      setTurns([...history, { role: 'assistant', content: data.reply || 'Your draft is ready to review.' }])
+      if (letterKey(nextLetter) !== source) {
+        setReview({ before: letter, after: nextLetter })
+        setLetter(nextLetter)
+        setView('preview')
+      }
     } catch (reason) {
-      if ((reason as Error).name !== 'AbortError') { setError((reason as Error).message); setRetry(request) }
-      setTurns(turns); storeTurns(app.key, turns)
-      setMessage(request)
+      if (controller.signal.aborted) setNotice('Stopped. Your letter is unchanged.')
+      else { setError((reason as Error).message); setRetry(request) }
+      setTurns(turns)
+      if (!latestMessage.current.trim()) setMessage(request)
     } finally {
       setThinking(false)
       abortRef.current = null
     }
   }
 
+  function resolveReview(keep: boolean) {
+    if (!review) return
+    if (!keep) setLetter(review.before)
+    setReview(null)
+    setNotice(keep ? 'AI draft kept.' : 'AI draft undone. Your previous letter is restored.')
+    window.requestAnimationFrame(() => messageRef.current?.focus({ preventScroll: true }))
+  }
+
+  const finalizeBlocked = !resumeReady ? 'Finalize your resume first'
+    : empty ? 'Write a first draft to enable finalizing'
+    : conflict ? 'Reload to continue from the latest version'
+    : review ? 'Keep or undo the AI draft first'
+    : busy ? (thinking ? 'Wait for the AI to finish' : 'Finalizing your letter…')
+    : saveState === 'error' ? 'Retry saving your letter first'
+    : dirty || saveState === 'saving' ? 'Saving your latest edits…'
+    : rendering || !currentPreview ? 'Checking the latest preview…'
+    : preview.failures.length ? 'Fix the preview issues first'
+    : preview.pages !== 1 ? 'The letter must fit on one page'
+    : upToDate ? 'The saved PDF already matches this letter'
+    : null
+
   async function finalize() {
+    if (finalizeBlocked) return
     setFinalizing(true); setError(null); setNotice('')
     try {
-      await saveChain.current
-      const response = await fetch(`${base}/finalize`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ letter, base: baseLetter.current }) })
+      await saveQueue.current!.idle()
+      const response = await fetch(`${base}/finalize`, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ letter, base: saveQueue.current!.base() }),
+      })
       const data = await response.json()
       if (response.status === 409) setConflict(true)
-      if (!response.ok) throw new Error(data.error ?? 'finalize failed')
-      savedJson.current = JSON.stringify(letter)
-      baseLetter.current = letter
-      onLetterSaved(letter)
+      if (!response.ok) throw new Error(data.error ?? 'Could not finalize your letter')
+      savedJson.current = source
+      saveQueue.current!.saved(letter)
+      onSaved.current(letter)
       setSaveState('saved')
       setFinalizedPdf(data.finalized.pdfName)
       setLetterFinalized({ at: new Date().toISOString(), letter })
-      setNotice(`Saved ${data.finalized.pdfName} next to your resume.`)
+      setNotice('Cover letter finalized. Your PDF is ready.')
       onLetterFinalized?.(data.finalized.pdfName)
     } catch (reason) { setError((reason as Error).message) } finally { setFinalizing(false) }
   }
@@ -192,152 +275,159 @@ export function CoverLetterTask({ app, initialLetter, savedLetter, finalizedAtLo
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ doc: 'letterPdf', reveal }),
       })
       const data = await response.json()
-      if (!response.ok) throw new Error(data.error ?? 'could not locate the cover letter')
+      if (!response.ok) throw new Error(data.error ?? 'Could not locate your cover letter')
       if (!reveal && data.path) await navigator.clipboard.writeText(data.path)
       setNotice(reveal ? 'Opened the folder.' : 'Copied the path.')
     } catch (reason) { setError((reason as Error).message) }
   }
 
-  const blocking = preview.failures.length > 0 || (preview.pages !== null && preview.pages !== 1)
-  const wordTone = words === 0 ? 'neutral' : words > LETTER_WORD_TARGET.max + 50 ? 'warn' : 'ok'
+  function newChat() {
+    if (busy || review) return
+    setTurns([]); setMessage(empty ? STARTER : ''); setConfirmNewChat(false); setError(null); setRetry(null)
+    window.requestAnimationFrame(() => messageRef.current?.focus({ preventScroll: true }))
+  }
 
-  const empty = !letter.content.trim()
-  // Why Finalize can't run yet, so the disabled button explains itself.
-  const finalizeBlocked = empty ? 'Write the letter first'
-    : conflict ? 'Reload to continue from the latest version'
-    : preview.failures.length ? 'Fix the errors in the letter first'
-    : preview.pages !== null && preview.pages !== 1 ? 'The letter has to fit on one page'
-    : saveState === 'saving' ? 'Saving your latest edits'
-    : busy ? 'Wait for the AI to finish'
-    : null
+  const status = review ? 'Review the AI draft'
+    : saveState === 'error' ? 'Draft could not be saved'
+    : dirty || saveState === 'saving' ? 'Saving your draft…'
+    : empty ? 'Ready to draft'
+    : upToDate ? 'Finalized · PDF matches your letter'
+    : letterFinalized ? 'Draft saved · PDF needs updating'
+    : 'Draft saved · not finalized yet'
+  const statusTone = review ? 'text-[var(--color-accent)]' : saveState === 'error' ? 'text-[var(--color-bad)]' : upToDate ? 'text-[var(--color-ok)]' : 'text-[var(--color-muted)]'
+  const inputBlocked = !hydrated || conflict || !resumeReady || finalizing
+  const sendBlocked = inputBlocked || !!review || !message.trim()
 
   return <div className="space-y-3">
-    {conflict ? <Card className="flex flex-wrap items-center gap-3 border-[var(--color-bad-soft)] px-4 py-3">
-      <p role="alert" className="flex-1 text-xs text-[var(--color-bad)]">This cover letter was changed somewhere else, in another tab or by Claude. Your edits here are not saved. Reload to continue from the latest version.</p>
-      <button type="button" onClick={() => window.location.reload()} className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-bg)]">Reload</button>
-    </Card> : error ? <ErrorNotice error={error} className="rounded-md" onRetry={retry && !busy ? () => void send(retry) : undefined} onDismiss={() => { setError(null); setRetry(null) }} /> : null}
-    {preview.failures.length ? <Card className="border-[var(--color-bad-soft)]"><ul className="list-disc px-8 py-2 text-xs text-[var(--color-bad)]">{preview.failures.map((failure, index) => <li key={index}>{failure.why}</li>)}</ul></Card> : null}
-
-    {/* Same layout as the Resume step: the document and its main action on the left, the AI on the right. */}
+    {conflict ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--color-bad-soft)] bg-[var(--color-bad-soft)] px-4 py-3 text-sm">
+      <p className="min-w-0 flex-1">This letter changed in another tab. Copy any edits you want to keep, then reload the latest version.</p>
+      <button type="button" onClick={() => window.location.reload()} className={secondary}>Reload latest</button>
+    </div> : null}
     <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-      <section aria-label="Cover letter preview" className="min-w-0 space-y-3">
-        <div className="flex flex-wrap items-center gap-2">
-          {empty && !letterFinalized ? <Badge>No draft yet</Badge> : <FinalizeStatus saveState={saveState} pendingReview={!!undo} finalized={letterFinalized} upToDate={letterMatchesFinalized(letter, letterFinalized?.letter ?? null)} />}
-          {rendering ? <span className="flex items-center gap-1 text-xs text-[var(--color-muted)]"><Spinner /> Rendering…</span> : preview.pages ? <Badge tone={blocking ? 'warn' : 'ok'}>{preview.pages} page</Badge> : null}
-          <Badge tone={wordTone}>{words} words · aim {LETTER_WORD_TARGET.min}–{LETTER_WORD_TARGET.max}</Badge>
-          {notice ? <span role="status" className="text-xs text-[var(--color-accent)]">{notice}</span> : null}
-          <div className="ml-auto flex items-center gap-2">
-            <button type="button" aria-pressed={view === 'edit'} onClick={() => setView(view === 'edit' ? 'preview' : 'edit')} className={outline}>{view === 'edit' ? 'Back to preview' : 'Edit text'}</button>
-            {finalizedPdf ? <>
-              <a href={`/api/applications/${encodeURIComponent(app.key)}/file/${encodeURIComponent(finalizedPdf)}`} target="_blank" rel="noreferrer" className={outline}>Open PDF</a>
-              <Menu label="More file actions" width="w-48">
-                {(close) => <>
-                  <MenuItem label="Show the file in Finder" onSelect={() => { close(); void locate(true) }} />
-                  <MenuItem label="Copy the file’s path" onSelect={() => { close(); void locate(false) }} />
-                </>}
-              </Menu>
-            </> : null}
-            <button type="button" disabled={!!finalizeBlocked} title={finalizeBlocked ?? 'Saves this letter as the PDF you send'} onClick={() => void finalize()} className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-bg)] disabled:opacity-40">
-              {finalizing ? 'Finalizing…' : finalizedPdf ? 'Finalize again' : 'Finalize cover letter'}
-            </button>
-          </div>
-        </div>
-        {finalizeBlocked && !finalizing ? <p className="text-xs text-[var(--color-muted)]">{finalizeBlocked === 'Write the letter first' ? 'Finalize unlocks once the letter has text. Ask the AI for a first draft, or write it with Edit text.' : `Finalize is waiting: ${finalizeBlocked.charAt(0).toLowerCase()}${finalizeBlocked.slice(1)}.`}</p> : null}
-        {view === 'preview'
-          ? <Card className="workspace-pane overflow-hidden"><PdfPreview token={preview.token} document="cover letter" engine="Typst" source="letter" /></Card>
-          : <Card className="workspace-pane flex min-h-0 flex-col gap-3 overflow-y-auto p-4">
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <LetterField label="Recipient name" value={letter.recipientName} disabled={busy} placeholder="Leave empty if unknown" onChange={(recipientName) => edit({ recipientName })} />
-            <LetterField label="Recipient title" value={letter.recipientTitle} disabled={busy} placeholder="e.g. Talent Acquisition" onChange={(recipientTitle) => edit({ recipientTitle })} />
-            <LetterField label="Company" value={letter.companyName} disabled={busy} onChange={(companyName) => edit({ companyName })} />
-            <LetterField label="Company address" value={letter.companyAddress} disabled={busy} placeholder="Optional" onChange={(companyAddress) => edit({ companyAddress })} />
-            <LetterField label="Greeting" value={letter.salutation} disabled={busy} placeholder={letter.recipientName ? `Dear ${letter.recipientName},` : 'Dear Hiring Manager,'} onChange={(salutation) => edit({ salutation })} />
-            <LetterField label="Closing" value={letter.closing} disabled={busy} placeholder="Sincerely," onChange={(closing) => edit({ closing })} />
-            <LetterField label="Date" value={letter.date} disabled={busy} onChange={(date) => edit({ date })} />
-            <label className="block space-y-1 text-xs text-[var(--color-muted)]"><span>Paper</span>
-              <select value={letter.paper} disabled={busy} onChange={(event) => edit({ paper: event.target.value as CoverLetter['paper'] })} className={field}>
-                <option value="a4">A4</option>
-                <option value="us-letter">US Letter (US and Canada)</option>
-              </select>
-            </label>
-          </div>
-          <label className="flex min-h-[260px] flex-1 flex-col gap-1 text-xs text-[var(--color-muted)]">
-            <span className="flex items-center justify-between"><span>Letter body</span><span className="text-xs text-[var(--color-muted)]">Separate paragraphs with a blank line</span></span>
-            <textarea value={letter.content} disabled={busy} onChange={(event) => edit({ content: event.target.value })} placeholder="Write the letter here, or ask the AI for a first draft." className={cn(field, 'min-h-0 flex-1 resize-none leading-relaxed')} />
-          </label>
-          </Card>}
-      </section>
-      <Card ref={aiPanel} className="workspace-pane flex min-h-0 flex-col overflow-hidden lg:sticky lg:top-20">
-        <div className="shrink-0 border-b border-[var(--color-border)] px-4 py-3">
-          <h3 className="text-sm font-semibold">Cover letter AI</h3>
-          <p className="mt-0.5 text-xs text-[var(--color-muted)]">Drafts and revises the letter. Every change shows in the preview and can be undone.</p>
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col">
-          {turns.length >= 2 ? <LearnFromChat skillId="write-cover-letter" turns={turns} disabled={busy} /> : null}
-          <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
-            {turns.length ? turns.map((turn, index) => <div key={index} className={turn.role === 'user'
-              ? 'ml-auto max-w-[88%] rounded-xl rounded-br-sm bg-[var(--color-accent-soft)] px-3 py-2 text-sm leading-relaxed'
-              : 'max-w-[94%] rounded-xl rounded-bl-sm border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2.5 text-sm leading-relaxed'}>
-              <p className="whitespace-pre-wrap">{turn.content}</p>
-            </div>) : <div className="space-y-3 py-6 text-center">
-              <p className="text-sm font-medium">Start from your finalized resume and the posting</p>
-              <p className="mx-auto max-w-sm text-xs leading-relaxed text-[var(--color-muted)]">The AI writes in your plain, direct style, keeps to facts on your resume, and never names clients. Every change shows in the preview and can be undone.</p>
-            </div>}
-            {thinking ? <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]"><Spinner /> Writing… this can take a minute</div> : null}
-            <div ref={endRef} />
-          </div>
-          {undo && !thinking ? <div className="flex items-center gap-2 border-t border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-2 text-xs">
-            <span className="text-[var(--color-muted)]">The letter was updated. Check the preview.</span>
-            <button type="button" onClick={() => setUndo(null)} className="ml-auto rounded-md bg-[var(--color-ok)] px-2.5 py-1 text-xs font-medium text-[var(--color-on-solid)]">Keep</button>
-            <button type="button" onClick={() => { setLetter(undo); setUndo(null) }} className="rounded-md border border-[var(--color-border)] px-2.5 py-1 text-xs hover:bg-[var(--color-surface-2)]">Undo</button>
-          </div> : null}
-          {!resumeReady ? <div className="shrink-0 border-t border-[var(--color-border)] bg-[var(--color-warn-soft)] px-4 py-3 text-xs">
-            <p className="font-medium">Finalize your resume first</p>
-            <p className="mt-0.5 text-[var(--color-muted)]">The AI writes the letter from the resume you send, so it needs that version.</p>
-            <button type="button" onClick={onGoToResume} className="mt-2 cursor-pointer font-medium text-[var(--color-accent)] underline-offset-4 hover:underline">Go to the Resume step</button>
-          </div> : <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3">
-            <div className="mb-2 flex flex-wrap gap-1.5">
-              {(letter.content.trim() ? QUICK_PROMPTS.slice(1) : QUICK_PROMPTS.slice(0, 1)).map((prompt) => <button key={prompt} type="button" disabled={busy} onClick={() => void send(prompt)} className="rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-2.5 py-1 text-xs font-medium text-[var(--color-text)] hover:border-[var(--color-accent)] disabled:opacity-40">{prompt}</button>)}
+      <section aria-label="Cover letter document" className="min-w-0 lg:sticky lg:top-20">
+        <Card ref={documentPanel} className={cn('flex min-h-0 flex-col', empty && view === 'preview' ? 'min-h-80 lg:h-[max(420px,70dvh)]' : 'h-[max(420px,70dvh)]')}>
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-[15px] font-semibold">Cover letter</h2>
+              <p role="status" className={cn('mt-0.5 text-xs', statusTone)}>{status}</p>
             </div>
-            <textarea
-              value={message}
-              onChange={(event) => setMessage(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' && !event.shiftKey) {
-                  event.preventDefault()
-                  void send()
-                }
-              }}
-              placeholder={letter.content.trim() ? 'Ask for a change: stress a project, cut a paragraph, address visa…' : 'Language, points to stress, the recipient if you know them…'}
-              aria-label="Message the cover letter companion"
-              disabled={busy}
-              maxLength={8000}
-              rows={3}
-              className="w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:opacity-60"
-            />
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <span className="text-xs text-[var(--color-muted)]">Uses your finalized resume and the job posting. Nothing is sent.</span>
-              <button
-                type="button"
-                onClick={() => thinking ? abortRef.current?.abort() : void send()}
-                disabled={finalizing || (!thinking && !message.trim())}
-                className={cn('flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-40', thinking ? 'border border-[var(--color-bad)] text-[var(--color-bad)]' : 'bg-[var(--color-accent)] text-[var(--color-bg)]')}
-              >
-                {thinking ? <Square size={12} aria-hidden="true" /> : null}
-                {thinking ? 'Stop' : 'Send'}
+            <div className="flex flex-wrap items-center gap-2">
+              {finalizedPdf ? <>
+                <a href={`/api/applications/${encodeURIComponent(app.key)}/file/${encodeURIComponent(finalizedPdf)}`} target="_blank" rel="noreferrer" className={secondary}><FileText size={13} aria-hidden="true" /> Open PDF</a>
+                <Menu label="Cover letter file actions" width="w-48">
+                  {(close) => <>
+                    <MenuItem label="Show file in Finder" onSelect={() => { close(); void locate(true) }} />
+                    <MenuItem label="Copy file path" onSelect={() => { close(); void locate(false) }} />
+                  </>}
+                </Menu>
+              </> : null}
+              <button type="button" aria-pressed={view === 'edit'} onClick={() => setView(view === 'edit' ? 'preview' : 'edit')} className={secondary}>
+                {view === 'edit' ? <><Eye size={13} aria-hidden="true" /> Preview</> : <><Pencil size={13} aria-hidden="true" /> Edit text</>}
               </button>
             </div>
-          </div>}
-        </div>
-      </Card>
+          </div>
+          <div className="min-h-0 flex-1 overflow-hidden">
+            <div className={cn('h-full', view !== 'preview' && 'hidden')}>
+            {empty ? <div className="flex h-full min-h-56 flex-col items-center justify-center px-6 py-8 text-center">
+              <h3 className="text-lg font-semibold">Your cover letter starts here</h3>
+              <p className="mt-2 max-w-sm text-sm leading-relaxed text-[var(--color-muted)]">Ask the AI for a first draft from your finalized resume and this role, or write it yourself.</p>
+              <button type="button" onClick={writeMyself} disabled={busy || !!review} className={cn(secondary, 'mt-5')}><Pencil size={14} aria-hidden="true" /> Write it myself</button>
+            </div> : <PdfPreview token={preview.token} document="cover letter" engine="the preview" source="letter" />}
+            </div>
+              <div className={cn('flex h-full flex-col gap-4 overflow-y-auto p-4 sm:p-5', view !== 'edit' && 'hidden')}>
+                <details className="shrink-0 border-b border-[var(--color-border)] pb-3">
+                  <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden"><ChevronDown size={14} aria-hidden="true" /> Recipient & letter details <span className="ml-auto text-xs font-normal text-[var(--color-muted)]">{letter.paper === 'a4' ? 'A4' : 'US Letter'}</span></summary>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <LetterField label="Recipient name" value={letter.recipientName} disabled={busy || !!review} readOnly={conflict} placeholder="Optional" onChange={(recipientName) => edit({ recipientName })} />
+                    <LetterField label="Recipient title" value={letter.recipientTitle} disabled={busy || !!review} readOnly={conflict} placeholder="Optional" onChange={(recipientTitle) => edit({ recipientTitle })} />
+                    <LetterField label="Company" value={letter.companyName} disabled={busy || !!review} readOnly={conflict} onChange={(companyName) => edit({ companyName })} />
+                    <LetterField label="Company address" value={letter.companyAddress} disabled={busy || !!review} readOnly={conflict} placeholder="Optional" onChange={(companyAddress) => edit({ companyAddress })} />
+                    <LetterField label="Greeting" value={letter.salutation} disabled={busy || !!review} readOnly={conflict} placeholder="Dear Hiring Manager," onChange={(salutation) => edit({ salutation })} />
+                    <LetterField label="Closing" value={letter.closing} disabled={busy || !!review} readOnly={conflict} onChange={(closing) => edit({ closing })} />
+                    <LetterField label="Date" value={letter.date} disabled={busy || !!review} readOnly={conflict} onChange={(date) => edit({ date })} />
+                    <label className="block space-y-1 text-xs text-[var(--color-muted)]"><span>Paper</span>
+                      <select value={letter.paper} disabled={busy || !!review || conflict} onChange={(event) => edit({ paper: event.target.value as CoverLetter['paper'] })} className={field}>
+                        <option value="a4">A4</option><option value="us-letter">US Letter</option>
+                      </select>
+                    </label>
+                  </div>
+                </details>
+                <label className="flex min-h-64 flex-1 flex-col gap-2 text-sm font-medium">
+                  <span>Letter body</span>
+                  <textarea ref={bodyRef} value={letter.content} disabled={busy || !!review} readOnly={conflict} onChange={(event) => edit({ content: event.target.value })} placeholder="Explain why this role interests you and what you can contribute…" className={cn(field, 'min-h-56 flex-1 resize-y leading-7')} />
+                  <span className="text-xs font-normal text-[var(--color-muted)]">Separate paragraphs with a blank line. Your edits save automatically.</span>
+                </label>
+              </div>
+          </div>
+          {preview.failures.length ? <div role="alert" className="shrink-0 space-y-2 border-t border-[var(--color-border)] bg-[var(--color-bad-soft)] px-4 py-3 text-xs text-[var(--color-bad)]">
+            <ul className="list-disc space-y-1 pl-4">{preview.failures.map((failure, index) => <li key={index}>{failure.why}</li>)}</ul>
+            <button type="button" onClick={() => setPreviewAttempt((attempt) => attempt + 1)} className={secondary}>Retry preview</button>
+          </div> : null}
+          <div className="shrink-0 space-y-2 rounded-b-xl border-t border-[var(--color-border)] px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]">
+                <span className={cn('tabular-nums', words > LETTER_WORD_TARGET.max + 50 && 'text-[var(--color-warn)]')}>{words} words <span className="text-[var(--color-muted)]">· aim {LETTER_WORD_TARGET.min}–{LETTER_WORD_TARGET.max}</span></span>
+                {rendering ? <span className="inline-flex items-center gap-1.5"><Spinner /> Updating preview…</span> : currentPreview && preview.pages ? <Badge tone={preview.pages === 1 ? 'ok' : 'warn'}>{preview.pages} page{preview.pages === 1 ? '' : 's'}</Badge> : null}
+              </div>
+              <button type="button" disabled={!!finalizeBlocked} title={finalizeBlocked ?? 'Save the PDF you send'} aria-describedby={finalizeHintId} onClick={() => void finalize()} className={primary}>
+                {finalizing ? <Spinner /> : <Check size={14} aria-hidden="true" />}{finalizing ? 'Finalizing…' : upToDate ? 'Finalized' : finalizedPdf ? 'Finalize again' : 'Finalize letter'}
+              </button>
+            </div>
+            <p id={finalizeHintId} className={cn('text-xs text-[var(--color-muted)]', (!finalizeBlocked || empty || upToDate) && 'sr-only')}>{finalizeBlocked ?? 'Save the PDF you send'}</p>
+            {notice ? <p role="status" className="text-xs text-[var(--color-muted)]">{notice}</p> : null}
+            {saveState === 'error' && !conflict ? <button type="button" onClick={() => { setError(null); setSaveAttempt((attempt) => attempt + 1) }} className={secondary}>Retry saving</button> : null}
+          </div>
+        </Card>
+      </section>
+      <section aria-label="Cover letter AI" className="min-w-0 lg:sticky lg:top-20">
+        <Card ref={aiPanel} className="flex h-[max(480px,70dvh)] min-h-0 flex-col overflow-hidden">
+          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-3 py-2 text-xs">
+            <div className="min-w-0 flex-1 pl-1"><h2 className="text-[15px] font-semibold">Cover letter AI</h2><p className="mt-0.5 text-xs text-[var(--color-muted)]">Uses your finalized resume and the posting</p></div>
+            {confirmNewChat ? <div className="flex items-center gap-1">
+              <span>Clear this chat?</span><button type="button" onClick={newChat} className={cn(secondary, 'text-[var(--color-bad)]')}>Clear</button><button type="button" onClick={() => setConfirmNewChat(false)} className={secondary}>Cancel</button>
+            </div> : <button type="button" disabled={!hydrated || busy || !!review || !turns.length} onClick={() => setConfirmNewChat(true)} className="min-h-8 cursor-pointer rounded-lg px-2 text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] disabled:cursor-not-allowed disabled:opacity-40">New chat</button>}
+            <button type="button" aria-expanded={settingsOpen} aria-controls={settingsId} onClick={() => setSettingsOpen((open) => !open)} className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg px-2 text-[var(--color-muted)] hover:bg-[var(--color-surface-2)]"><SlidersHorizontal size={14} aria-hidden="true" /> Settings</button>
+          </div>
+          <div id={settingsId} hidden={!settingsOpen} className="max-h-60 shrink-0 space-y-3 overflow-y-auto border-b border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
+            {settingsOpen ? <FeatureEnginePicker feature="editor-chat" disabled={busy || !!review} compact /> : null}
+            {turns.length >= 2 ? <LearnFromChat embedded skillId="write-cover-letter" turns={turns} disabled={busy || !!review} /> : null}
+          </div>
+          <div ref={listRef} onScroll={() => { const list = listRef.current; if (list) followReply.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80 }} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
+            {turns.length ? turns.map((turn, index) => <div key={index} className="space-y-3">
+              <div className={turn.role === 'user' ? 'ml-auto max-w-[90%] rounded-xl rounded-br-sm bg-[var(--color-accent-soft)] px-3 py-2 text-sm leading-relaxed' : 'text-sm leading-relaxed'}>
+                {turn.role === 'assistant' ? <ChatMarkdown text={turn.content} /> : <p className="whitespace-pre-wrap break-words">{turn.content}</p>}
+              </div>
+              {review && index === turns.length - 1 && turn.role === 'assistant' ? <div className="space-y-3 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-2)] p-3">
+                <div><p className="text-sm font-semibold">Review your letter</p><p className="mt-1 text-xs leading-relaxed text-[var(--color-muted)]">The preview shows the AI draft. Keep it to save it, or undo to restore your previous letter.</p></div>
+                <div className="flex flex-wrap items-center gap-2"><button type="button" onClick={() => resolveReview(true)} className={primary}><Check size={14} aria-hidden="true" /> Keep draft</button><button type="button" onClick={() => resolveReview(false)} className={secondary}><Undo2 size={14} aria-hidden="true" /> Undo</button></div>
+              </div> : null}
+            </div>) : <div className="py-5">
+              <h3 className="text-base font-semibold">What should this letter emphasize?</h3>
+              <p className="mt-2 max-w-prose text-sm leading-relaxed text-[var(--color-muted)]">Start with a draft for this role. You can then refine the tone, highlight a project, or make it more concise.</p>
+              {!empty ? <div className="mt-4 flex flex-wrap gap-2">{['Make it shorter and more direct.', 'Focus on my most relevant project.'].map((prompt) => <button type="button" key={prompt} disabled={busy || !!review} onClick={() => { setMessage(prompt); messageRef.current?.focus({ preventScroll: true }) }} className={secondary}>{prompt}</button>)}</div> : null}
+            </div>}
+            {thinking ? <div role="status" className="flex items-center gap-2 py-2 text-sm text-[var(--color-muted)]"><Spinner /> Writing your draft…</div> : null}
+          </div>
+          {error && !conflict ? <ErrorNotice error={error} className="shrink-0 border-t border-[var(--color-border)]" onRetry={retry && !busy ? () => void send(retry) : undefined} onDismiss={() => { setError(null); setRetry(null) }} /> : null}
+          {!resumeReady ? <div className="shrink-0 space-y-2 border-t border-[var(--color-border)] bg-[var(--color-warn-soft)] px-4 py-3 text-sm">
+            <p className="font-medium">Finalize your resume to start</p><p className="text-xs text-[var(--color-muted)]">The AI needs the version you’ll send with this letter.</p><button type="button" onClick={onGoToResume} className={secondary}>Go to Resume</button>
+          </div> : <form onSubmit={(event) => { event.preventDefault(); void send() }} className="shrink-0 border-t border-[var(--color-border)] p-3">
+            <textarea ref={messageRef} value={message} onChange={(event) => setMessage(event.target.value)} onKeyDown={(event) => {
+              if (event.nativeEvent.isComposing) return
+              if (event.key === 'Escape' && thinking) { event.preventDefault(); abortRef.current?.abort(); return }
+              if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); if (!sendBlocked && !thinking) void send() }
+            }} placeholder={empty ? 'Draft a letter for this role, or tell the AI what to emphasize…' : 'Ask for an edit: tone, length, a project to highlight…'} aria-label="Message the cover letter companion" disabled={inputBlocked} maxLength={8000} rows={3} className={cn(field, 'resize-none transition-colors', starterReady && 'border-[var(--color-accent)] bg-[var(--color-accent-soft)]')} />
+            <div className="mt-2 flex items-center justify-between gap-3">
+              <p className="text-xs leading-relaxed text-[var(--color-muted)]">{thinking ? 'Writing… Esc stops the reply' : review ? 'Keep or undo the AI draft to continue' : starterReady ? 'Press Enter to draft, or edit the request first' : 'Enter to send · Shift+Enter for a new line'}</p>
+              {thinking ? <button type="button" onClick={() => abortRef.current?.abort()} className={cn(secondary, 'text-[var(--color-bad)]')}><Square size={12} aria-hidden="true" /> Stop</button> : <button type="submit" disabled={sendBlocked} className={primary}><ArrowUp size={15} aria-hidden="true" /> Send</button>}
+            </div>
+          </form>}
+        </Card>
+      </section>
     </div>
   </div>
 }
 
-function LetterField({ label, value, placeholder, disabled, onChange }: { label: string; value: string; placeholder?: string; disabled?: boolean; onChange: (value: string) => void }) {
-  return <label className="block space-y-1 text-xs text-[var(--color-muted)]">
-    <span>{label}</span>
-    <input value={value} disabled={disabled} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} className={field} />
-  </label>
+function LetterField({ label, value, disabled, readOnly, placeholder, onChange }: { label: string; value: string; disabled?: boolean; readOnly?: boolean; placeholder?: string; onChange: (value: string) => void }) {
+  return <label className="block space-y-1 text-xs text-[var(--color-muted)]"><span>{label}</span><input value={value} disabled={disabled} readOnly={readOnly} placeholder={placeholder} onChange={(event) => onChange(event.target.value)} className={field} /></label>
 }

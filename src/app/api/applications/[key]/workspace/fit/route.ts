@@ -63,12 +63,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ key: st
     if (!status.ok) throw new Error(status.reason ?? `${engine.id} is unavailable`)
     const raw = await engine.runStructured<unknown>({
       prompt: previous
-        ? profileFitRefreshPrompt(skill.instructions, inputs.analysis, inputs.masterYaml, inputs.guidance, previous, changes)
-        : profileFitPrompt(skill.instructions, inputs.analysis, inputs.masterYaml, inputs.guidance),
+        ? profileFitRefreshPrompt(skill.instructions, inputs.analysis, inputs.masterYaml, inputs.guidance, previous, changes, workspace.draftYaml)
+        : profileFitPrompt(skill.instructions, inputs.analysis, inputs.masterYaml, inputs.guidance, workspace.draftYaml),
       schema: profileFitSchema,
       signal: req.signal,
     })
-    let report = parseProfileFit(raw, inputs.analysis)
+    let report = parseProfileFit(raw, inputs.analysis, `${inputs.masterYaml}\n${inputs.guidance}\n${workspace.draftYaml}`)
     if (previous) report = keepConfirmedRows(report, previous, !!changes?.guidance.removed.length)
     await run.complete({ verdict: report.verdict, coverage: report.coverage })
     workspace = await updateLatest(key, (latest) => {

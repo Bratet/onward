@@ -45,10 +45,12 @@ const GROUP: Record<Standing, { title: string; hint: string }> = {
   direct: { title: 'Backed by your resume', hint: '' },
 }
 
+const requirementGrid = 'grid gap-2.5 @min-[38rem]/requirements:grid-cols-2'
+
 /**
  * What the posting asks for, grouped by how your resume stands: gaps first,
- * then related experience, each a card one click from the AI. What your
- * resume already backs is folded into one list you can open.
+ * then related experience, each a card one click from the AI. Backed
+ * requirements open into the same cards.
  * `summary` adds the coverage line above, for pages without one of their own.
  */
 export function Requirements({ rows, fit, onAsk, summary = true, between }: { rows: Requirement[]; fit: ApplicationWorkspace['fit']['report']; onAsk?: (row: Requirement) => void; summary?: boolean; between?: ReactNode }) {
@@ -57,32 +59,32 @@ export function Requirements({ rows, fit, onAsk, summary = true, between }: { ro
   const group = (key: Standing) => sorted.filter((row) => row.classification === key)
   const backed = group('direct')
 
-  return <section aria-labelledby="asked-title" className="min-w-0 space-y-6">
+  return <section aria-labelledby="asked-title" className="@container/requirements min-w-0 space-y-6">
     {summary ? <header className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
       <h2 id="asked-title" className="mb-1 text-base font-semibold tracking-tight">What they asked for</h2>
       {fit ? <FitSummary rows={rows} fit={fit} /> : <p className="text-sm text-[var(--color-muted)]">Not checked against your resume yet.</p>}
     </header> : <h2 id="asked-title" className="sr-only">What they asked for</h2>}
 
-    {!fit ? <ol className="space-y-2">{sorted.map((row) => <RequirementCard key={`${row.weight}-${row.rank}`} row={row} />)}</ol> : <>
+    {!fit ? <ol className={requirementGrid}>{sorted.map((row) => <RequirementCard key={`${row.weight}-${row.rank}`} row={row} />)}</ol> : <>
       {(['gap', 'supporting'] as const).map((key, index) => {
         const list = group(key)
         return <Fragment key={key}>
           {list.length ? <div className="space-y-2.5">
             <GroupTitle standing={key} count={list.length} hint={GROUP[key].hint} />
-            <ol className="grid gap-2.5 sm:grid-cols-2 2xl:grid-cols-3">{list.map((row, i) => <RequirementCard key={`${row.weight}-${row.rank}`} row={row} onAsk={onAsk} delay={i} />)}</ol>
+            <ol className={requirementGrid}>{list.map((row, i) => <RequirementCard key={`${row.weight}-${row.rank}`} row={row} onAsk={onAsk} delay={i} />)}</ol>
           </div> : null}
           {index === 0 ? between : null}
         </Fragment>
       })}
-      {backed.length ? <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-        <button type="button" aria-expanded={backedOpen} onClick={() => setBackedOpen((open) => !open)} className="flex w-full cursor-pointer items-center gap-2 px-4 py-3 text-left transition-colors hover:bg-[var(--color-surface-2)] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--color-accent)]">
+      {backed.length ? <div className="space-y-2.5">
+        <button type="button" aria-expanded={backedOpen} onClick={() => setBackedOpen((open) => !open)} className="flex w-full cursor-pointer items-center gap-2 rounded-lg py-1 text-left transition-colors hover:text-[var(--color-ok)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]">
           <span className="text-[var(--color-ok)]">{STANDING.direct.icon}</span>
           <span className="flex-1 text-sm font-semibold">{GROUP.direct.title} <span className="font-normal tnum text-[var(--color-muted)]">{backed.length}</span></span>
           <span className="text-xs text-[var(--color-muted)]">{backedOpen ? 'Hide' : 'Show'}</span>
           <ChevronDown size={14} aria-hidden="true" className={cn('text-[var(--color-muted)] transition-transform', !backedOpen && '-rotate-90')} />
         </button>
-        {backedOpen ? <ol className="anim-fade divide-y divide-[var(--color-border)] border-t border-[var(--color-border)]">
-          {backed.map((row) => <BackedRow key={`${row.weight}-${row.rank}`} row={row} />)}
+        {backedOpen ? <ol className={cn('anim-fade', requirementGrid)}>
+          {backed.map((row, i) => <RequirementCard key={`${row.weight}-${row.rank}`} row={row} onAsk={onAsk} delay={i} />)}
         </ol> : null}
       </div> : null}
     </>}
@@ -101,9 +103,9 @@ function RequirementCard({ row, onAsk, delay = 0 }: { row: Requirement; onAsk?: 
   const [open, setOpen] = useState(false)
   const standing = row.classification ? STANDING[row.classification] : null
   const link = 'group inline-flex cursor-pointer items-center gap-1 rounded text-xs font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]'
-  return <li style={{ '--delay': `${Math.min(delay, 8) * 35}ms` } as CSSProperties} className={cn('anim-rise flex min-h-36 flex-col rounded-xl border px-4 pb-3 pt-3.5', standing?.card ?? 'border-[var(--color-border)] bg-[var(--color-surface)]')}>
+  return <li style={{ '--delay': `${Math.min(delay, 8) * 35}ms` } as CSSProperties} className={cn('anim-rise flex min-h-36 min-w-0 flex-col rounded-xl border px-4 pb-3 pt-3.5', standing?.card ?? 'border-[var(--color-border)] bg-[var(--color-surface)]')}>
     <p className="text-xs text-[var(--color-muted)]">{row.weight === 'must' ? 'Must-have' : 'Nice to have'}</p>
-    <p className="mt-1 flex-1 text-sm leading-relaxed">{row.requirement}</p>
+    <p className="mt-1 flex-1 break-words text-sm leading-relaxed">{row.requirement}</p>
     {open ? <Evidence items={row.evidence} /> : null}
     <div className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-1.5">
       {row.evidence.length ? <button type="button" aria-expanded={open} onClick={() => setOpen((value) => !value)} className={cn(link, 'text-[var(--color-muted)] hover:text-[var(--color-text)]')}>
@@ -113,18 +115,6 @@ function RequirementCard({ row, onAsk, delay = 0 }: { row: Requirement; onAsk?: 
         <MessageSquareText size={13} aria-hidden="true" />Have this? Tell the AI<ChevronRight size={13} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5" />
       </button> : null}
     </div>
-  </li>
-}
-
-/** A backed requirement inside the folded list: one line, opening to its evidence. */
-function BackedRow({ row }: { row: Requirement }) {
-  const [open, setOpen] = useState(false)
-  return <li>
-    <button type="button" aria-expanded={open} disabled={!row.evidence.length} onClick={() => setOpen((value) => !value)} className="flex w-full cursor-pointer items-start gap-2 px-4 py-2.5 text-left transition-colors hover:bg-[var(--color-surface-2)] disabled:cursor-default disabled:hover:bg-transparent focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--color-accent)]">
-      <span className="min-w-0 flex-1 text-[13px] leading-relaxed">{row.requirement}{row.weight !== 'must' ? <span className="text-[var(--color-faint)]"> · nice to have</span> : null}</span>
-      {row.evidence.length ? <ChevronDown size={13} aria-hidden="true" className={cn('mt-1 shrink-0 text-[var(--color-muted)] transition-transform', !open && '-rotate-90')} /> : null}
-    </button>
-    {open ? <div className="px-4 pb-3"><Evidence items={row.evidence} /></div> : null}
   </li>
 }
 
@@ -151,25 +141,25 @@ export function PostingDocument({ appKey, posting, keywords, hasJd, onCopy, extr
   }, [query])
 
   return <article aria-labelledby="posting-title" className="min-w-0 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-    <header className="sticky top-16 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-t-xl border-b border-[var(--color-border)] bg-[var(--color-surface)] px-6 py-3">
+    <header className="sticky top-16 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-t-xl border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 sm:px-6">
       <div className="min-w-0 flex-1">
         <h2 id="posting-title" className="text-base font-semibold tracking-tight">The job description</h2>
         {body && posting.savedAt ? <p className="text-xs text-[var(--color-faint)]">Saved <When iso={posting.savedAt} />, kept after the listing goes down</p> : null}
       </div>
-      {body ? <div className="flex items-center gap-2">
-        <label className="relative">
+      {body ? <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+        <label className="relative min-w-0 flex-1 sm:flex-none">
           <span className="sr-only">Find in the job description</span>
           <Search size={14} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-faint)]" aria-hidden="true" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find…" className="h-8 w-44 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] pl-8 pr-14 text-xs outline-none transition-[width] focus:w-60 focus:border-[var(--color-accent)]" />
+          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find…" className="h-8 w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] pl-8 pr-14 text-xs outline-none focus:border-[var(--color-accent)] sm:w-44 sm:transition-[width] sm:focus:w-60" />
           {query ? <span className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1 text-xs text-[var(--color-muted)] tnum">{matches}<button type="button" onClick={() => setQuery('')} aria-label="Clear search" className="hover:text-[var(--color-text)]"><X size={12} /></button></span> : null}
         </label>
-        <button type="button" onClick={() => onCopy(body, 'Job description')} aria-label="Copy the job description" title="Copy the text" className="grid size-8 place-items-center rounded-md border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><Copy size={14} aria-hidden="true" /></button>
+        <button type="button" onClick={() => onCopy(body, 'Job description')} aria-label="Copy the job description" title="Copy the text" className="grid size-8 shrink-0 place-items-center rounded-md border border-[var(--color-border)] text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><Copy size={14} aria-hidden="true" /></button>
       </div> : null}
     </header>
     {!url && hasJd ? <PostingLink appKey={appKey} onSaved={setUrl} /> : null}
     {extra}
     {body
-      ? <div ref={text} className="px-6 py-6 sm:px-8 sm:py-7"><PostingText text={body} terms={terms} query={query} /></div>
+      ? <div ref={text} className="px-4 py-5 sm:px-8 sm:py-7"><PostingText text={body} terms={terms} query={query} /></div>
       : <Empty title="No job description saved" hint={hasJd ? 'The saved posting file is empty.' : 'This application was created without a posting, so there is nothing to show here.'} />}
   </article>
 }
@@ -192,7 +182,7 @@ function PostingLink({ appKey, onSaved }: { appKey: string; onSaved: (url: strin
 
   return <form className="space-y-2 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-6 py-3" onSubmit={(event) => { event.preventDefault(); void save() }}>
     <div className="flex flex-wrap gap-2">
-      <input type="url" aria-label="Posting link" value={value} onChange={(event) => setValue(event.target.value)} placeholder="No link saved. Paste the posting link to keep it with the job" disabled={busy} className={cn(input, 'h-8 min-w-60 flex-1 py-1 text-xs')} />
+      <input type="url" aria-label="Posting link" value={value} onChange={(event) => setValue(event.target.value)} placeholder="No link saved. Paste the posting link to keep it with the job" disabled={busy} className={cn(input, 'h-8 min-w-0 flex-1 py-1 text-xs')} />
       <button disabled={busy || !value.trim()} className={primary}>{busy ? <Spinner /> : null} Save link</button>
     </div>
     {error ? <p className="text-xs text-[var(--color-bad)]">{error}</p> : null}
@@ -211,7 +201,7 @@ function PostingText({ text, terms, query }: { text: string; terms: string[]; qu
   const mark = (line: string) => highlightParts(line.replace(/\*\*(.+?)\*\*/g, '$1'), pattern, query)
   const blocks = useMemo(() => postingBlocks(text), [text])
 
-  return <div className="mx-auto max-w-[70ch] text-[15px] leading-[1.7] text-[var(--color-text)]">
+  return <div className="mx-auto max-w-[70ch] break-words text-[15px] leading-[1.7] text-[var(--color-text)]">
     {blocks.map((block, index) => block.kind === 'heading'
       ? <h3 key={index} className={cn('text-base font-semibold tracking-tight', index ? 'mb-2 mt-8' : 'mb-2')}>{mark(block.text)}</h3>
       : block.kind === 'list'

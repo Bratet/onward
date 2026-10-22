@@ -24,6 +24,7 @@ import {
 } from '../src/lib/coverLetter'
 import { renderCoverLetter } from '../src/lib/coverLetterRender'
 import { cleanupRender } from '../src/lib/render'
+import { createLetterSaveQueue, parseLetterChat } from '../src/lib/coverLetterEditor'
 import { POST, PUT } from '../src/app/api/applications/[key]/cover-letter/route'
 import { POST as PREVIEW } from '../src/app/api/applications/[key]/cover-letter/preview/route'
 import { POST as FINALIZE } from '../src/app/api/applications/[key]/cover-letter/finalize/route'
@@ -127,6 +128,52 @@ assert.throws(() => assertLetterBase({ ...letter, closing: 'Best regards,' }, le
 assert.throws(() => assertLetterBase(letter, { content: 1 }), CoverLetterConflict, 'a malformed base is never a match')
 assert.equal(letterKey({ ...letter }), letterKey(Object.fromEntries(Object.entries(letter).reverse()) as CoverLetter), 'field order does not matter')
 
+// Conversations migrate without losing a draft request or a pending AI review.
+const turns = [{ role: 'user' as const, content: 'Draft my letter' }]
+assert.deepEqual(parseLetterChat(JSON.stringify(turns)), { turns, message: '', review: null })
+const proposed = { ...letter, content: 'A revised letter for this role.' }
+const snapshot = { turns, message: 'Emphasize my project', review: { before: letter, after: proposed } }
+assert.deepEqual(parseLetterChat(JSON.stringify(snapshot)), snapshot)
+assert.equal(parseLetterChat('{invalid'), null)
+assert.equal(parseLetterChat('null'), null)
+assert.equal(parseLetterChat(JSON.stringify({ turns, review: { before: letter, after: { content: 1 } } }))?.review, null, 'invalid proposals never replace a letter')
+assert.equal(parseLetterChat(JSON.stringify({ turns, message: 'x'.repeat(9000) }))?.message.length, 8000)
+
+// Consecutive edits wait for the preceding save and use its successful base.
+let releaseFirst!: () => void
+const firstSave = new Promise<void>((resolve) => { releaseFirst = resolve })
+const written: { letter: CoverLetter; base: CoverLetter | null }[] = []
+const queue = createLetterSaveQueue(null, async (value, base) => {
+  written.push({ letter: value, base })
+  if (written.length === 1) await firstSave
+})
+const save1 = queue.save(letter)
+const save2 = queue.save(proposed)
+await Promise.resolve()
+assert.equal(written.length, 1, 'newer edits do not race the in-flight save')
+assert.equal(queue.base(), null, 'an in-flight request is not a saved base')
+releaseFirst()
+await Promise.all([save1, save2])
+assert.deepEqual(written.map((entry) => entry.base), [null, letter])
+assert.deepEqual(queue.base(), proposed)
+
+let failNetwork = true
+const retryBases: (CoverLetter | null)[] = []
+const recovering = createLetterSaveQueue(letter, async (_value, base) => {
+  retryBases.push(base)
+  if (failNetwork) throw new Error('Network unavailable')
+})
+await assert.rejects(recovering.save(proposed), /Network unavailable/)
+failNetwork = false
+await recovering.save(proposed)
+assert.deepEqual(retryBases, [letter, letter], 'a failed save neither advances the base nor poisons retry')
+
+let conflictWrites = 0
+const conflicting = createLetterSaveQueue(letter, async () => { conflictWrites++; throw new CoverLetterConflict() })
+await assert.rejects(conflicting.save(proposed), CoverLetterConflict)
+await assert.rejects(conflicting.save(letter), CoverLetterConflict)
+assert.equal(conflictWrites, 1, 'a stale tab stops writing after a conflict')
+
 // The AI must return every field, so a reply can never silently drop one.
 assert.deepEqual([...letterAgentSchema.properties.letter.required].sort(), [...COVER_LETTER_FIELDS].sort())
 
@@ -156,4 +203,4 @@ if (render.failures.some((failure) => failure.where === 'typst' && /not availabl
   if (long.pdfPath) await cleanupRender(long.pdfPath)
 }
 
-console.log('Cover letters: defaults, template inputs, sender from resume, shared rules, legacy drafts, schema, route rejection, and one-page render pass')
+console.log('Cover letters: defaults, template inputs, sender from resume, shared rules, legacy drafts, chat recovery, ordered saves, conflicts, route rejection, and one-page render pass')

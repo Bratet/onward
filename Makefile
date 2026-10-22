@@ -71,6 +71,7 @@ test: node_modules ## Tracker and tailoring tests
 	@npm run test:application-delete
 	@npm run test:workspaces
 	@npm run test:application-flow
+	@npm run test:keyword-coverage
 	@npm run test:outreach
 	@npm run test:cover-letter
 	@npm run test:posting-contact

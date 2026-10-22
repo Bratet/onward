@@ -85,7 +85,7 @@ export function SentApplication({ app, record, workspace, analysis, sentAt, onPr
         <p className="text-sm text-[var(--color-muted)]">{sentAt ? <>Sent <When iso={sentAt} /></> : 'What went with this application'}</p>
         <button type="button" onClick={onPreparation} className="ml-auto inline-flex items-center gap-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-accent)]" title="The fit analysis and resume you prepared this application with"><Wrench size={13} aria-hidden="true" />Preparation tools</button>
       </header>
-      {pdfs.length || answers?.answers.length || notes.length ? <ul className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(15rem,1fr))]">
+      {pdfs.length || answers?.answers.length || notes.length ? <ul className="grid gap-2 [grid-template-columns:repeat(auto-fill,minmax(min(100%,15rem),1fr))]">
         {pdfs.map(({ key, file, label }) => <li key={key}><a href={`${base}/file/${encodeURIComponent(file.name)}`} target="_blank" rel="noreferrer" className={tile}>
           <TileIcon><FileText size={17} /></TileIcon>
           <TileText title={label} meta={`PDF · ${Math.max(1, Math.round(file.size / 1024))} KB`} />
@@ -102,8 +102,10 @@ export function SentApplication({ app, record, workspace, analysis, sentAt, onPr
       </ul> : <p className="text-sm text-[var(--color-muted)]">Nothing was saved with this application.</p>}
     </section>
 
-    <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_25rem]">
-      <PostingDocument appKey={app.key} posting={record.posting} keywords={analysis?.keywords ?? []} hasJd={!!app.folder?.has.jd} onCopy={copy} />
+    <div className="grid min-w-0 items-start gap-5 xl:grid-cols-[minmax(0,11fr)_minmax(0,9fr)]">
+      <div className="mx-auto min-w-0 w-full max-w-[48rem] xl:mx-0 xl:max-w-none">
+        <PostingDocument appKey={app.key} posting={record.posting} keywords={analysis?.keywords ?? []} hasJd={!!app.folder?.has.jd} onCopy={copy} />
+      </div>
       {rows.length ? <Requirements rows={rows} fit={fit} /> : null}
     </div>
 

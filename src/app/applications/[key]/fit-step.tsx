@@ -8,6 +8,7 @@ import type { JdAnalysis } from '@/lib/tailoring/jd'
 import type { ApplicationWorkspace } from '@/lib/workspaces'
 import { Spinner } from '@/components/ui/primitives'
 import { cn } from '@/lib/utils'
+import { postingKeywordStatus } from '@/lib/keywordCoverage'
 import { PostingDocument } from './job'
 
 const secondaryButton = 'inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-xs font-medium transition-colors duration-200 hover:bg-[var(--color-surface-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]'
@@ -79,25 +80,29 @@ export function askAbout(item: FitItem): string {
 }
 
 /**
- * The posting's keywords split by what to do about them: missing from the
- * tailored resume first, then the ones it already uses. A missing one may
- * only be worded differently.
+ * Separate literal resume wording from experience confirmed in the fit report.
+ * A direct requirement only backs a keyword when its evidence names that term.
  */
-function PostingKeywords({ keywords: words, resumeText }: { keywords: string[]; resumeText: string }) {
-  const keywords = useMemo(() => words.map((word) => ({ word, used: mentions(resumeText, word) })), [words, resumeText])
-  const used = keywords.filter((entry) => entry.used)
-  const missing = keywords.filter((entry) => !entry.used)
+function PostingKeywords({ keywords: words, resumeText, report }: { keywords: string[]; resumeText: string; report: ApplicationWorkspace['fit']['report'] }) {
+  const keywords = useMemo(() => words.map((word) => ({ word, status: postingKeywordStatus(word, resumeText, report) })), [words, resumeText, report])
+  const used = keywords.filter((entry) => entry.status === 'inResume')
+  const backed = keywords.filter((entry) => entry.status === 'backed')
+  const missing = keywords.filter((entry) => entry.status === 'missing')
   if (!keywords.length) return null
   const chip = 'inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-[13px] font-medium'
   return <section aria-labelledby="keywords-title" className="sheet anim-settle p-5">
     <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
       <h2 id="keywords-title" className="text-[17px] font-semibold">Posting keywords</h2>
-      <p className="text-sm text-[var(--color-muted)]"><span className="font-semibold text-[var(--color-ok)] tnum">{used.length}</span> of <span className="tnum">{keywords.length}</span> are already in your tailored resume. A missing one may only be worded differently.</p>
+      <p className="text-sm text-[var(--color-muted)]"><span className="font-semibold text-[var(--color-ok)] tnum">{used.length}</span> of <span className="tnum">{keywords.length}</span> appear in your tailored resume{backed.length ? <>, and <span className="font-semibold text-[var(--color-warn)] tnum">{backed.length}</span> more are backed by the fit analysis</> : null}.</p>
     </div>
     <dl className="mt-4 space-y-3">
       {missing.length ? <div>
-        <dt className="mb-1.5 text-[13px] font-semibold">Missing <span className="tnum text-[var(--color-muted)]">{missing.length}</span></dt>
+        <dt className="mb-1.5 text-[13px] font-semibold">Not in resume · needs review <span className="tnum text-[var(--color-muted)]">{missing.length}</span></dt>
         <dd><ul className="flex flex-wrap gap-1.5">{missing.map(({ word }) => <li key={word} className={cn(chip, 'border border-[var(--color-border-strong)] bg-[var(--color-surface)]')}>{word}</li>)}</ul></dd>
+      </div> : null}
+      {backed.length ? <div>
+        <dt className="mb-1.5 text-[13px] font-semibold text-[var(--color-warn)]">Backed by analysis · add to resume <span className="tnum">{backed.length}</span></dt>
+        <dd><ul className="flex flex-wrap gap-1.5">{backed.map(({ word }) => <li key={word} className={cn(chip, 'bg-[var(--color-warn-soft)] text-[var(--color-warn)]')}><CircleDot size={13} aria-hidden="true" />{word}</li>)}</ul></dd>
       </div> : null}
       {used.length ? <div>
         <dt className="mb-1.5 text-[13px] font-semibold text-[var(--color-ok)]">In your resume <span className="tnum">{used.length}</span></dt>
@@ -189,7 +194,7 @@ export function FitStep({ appKey, analysis, workspace, posting, hasJd, items, re
   }
 
   return <div className="space-y-5">
-    <PostingKeywords keywords={analysis?.keywords ?? []} resumeText={resumeText} />
+    <PostingKeywords keywords={analysis?.keywords ?? []} resumeText={resumeText} report={report} />
 
     <div className="sheet flex flex-wrap items-center gap-x-6 gap-y-4 p-5">
       {report ? <FitVerdict report={report} /> : <div className="flex-1" />}
@@ -268,12 +273,4 @@ function AskButton({ item, onAsk }: { item: FitItem; onAsk: (message: string) =>
   return <button type="button" onClick={() => onAsk(askAbout(item))} className={cn('inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg bg-[var(--color-accent-soft)] px-3.5 text-sm font-semibold text-[var(--color-accent)] transition-colors duration-150 hover:bg-[var(--color-accent)] hover:text-[var(--color-on-solid)] active:translate-y-px', ring)}>
     <MessageSquareText size={15} aria-hidden="true" />{item.standing === 'direct' ? 'Ask the AI' : item.group === 'eligibility' ? 'Talk it through' : 'Have this? Tell the AI'}
   </button>
-}
-
-/** Whether `term` appears in `text` as a word, so "R" does not match every "r". */
-function mentions(text: string, term: string): boolean {
-  const needle = term.trim()
-  if (!needle) return false
-  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'iu').test(text)
 }

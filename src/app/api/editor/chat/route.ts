@@ -2,8 +2,10 @@ import { NextResponse } from 'next/server'
 import { runEditorAgent } from '@/lib/editorAgent'
 import { applicationEditorContext } from '@/lib/applicationContext'
 import type { Mode } from '@/lib/validate'
-import { readWorkspace } from '@/lib/workspaces'
-import { saveAnalysisChatReport } from '@/lib/analysisChat'
+import { readWorkspace, workspaceInputs } from '@/lib/workspaces'
+import { saveAnalysisChatChanges } from '@/lib/analysisChat'
+import { parseProfileFit } from '@/lib/profileFit'
+import { reconcileConfirmedSkills, rememberConfirmedSkills } from '@/lib/fitSkillSync'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -40,6 +42,9 @@ export async function POST(req: Request) {
           : null
         const context = applicationKey ? await applicationEditorContext(applicationKey) : null
         const analysisWorkspace = applicationKey && body.reviewOnly === true ? await readWorkspace(applicationKey) : null
+        if (analysisWorkspace && analysisWorkspace.draftYaml !== body.yaml) {
+          throw new Error('Wait for the application resume to finish saving, then retry the fit correction.')
+        }
         const result = await runEditorAgent({
           sessionId: body.sessionId as string,
           yaml: body.yaml as string,
@@ -54,10 +59,30 @@ export async function POST(req: Request) {
             if (event.type === 'activity' || body.stream === true) send({ ...event })
           },
         })
-        const analysisUpdated = applicationKey && analysisWorkspace && result.fitReport !== undefined
-          ? await saveAnalysisChatReport(applicationKey, analysisWorkspace, result.fitReport)
-          : false
-        send({ type: 'done', ...result, analysisUpdated, answer: result.answer + (analysisUpdated ? '\n\nAnalysis saved. The overview now reflects these corrections.' : '') })
+        if (body.reviewOnly === true && result.changed && (!analysisWorkspace?.fit.report || result.fitReport === undefined)) {
+          throw new Error('Wait for the first fit analysis to finish before updating the application resume.')
+        }
+        let fitReport = result.fitReport
+        let nextYaml = result.yaml
+        let confirmed: string[] = []
+        if (applicationKey && analysisWorkspace && fitReport !== undefined) {
+          const inputs = await workspaceInputs(applicationKey)
+          if (!inputs.analysis) throw new Error('Wait for the first fit analysis to finish before correcting Skills.')
+          const synced = reconcileConfirmedSkills(
+            body.message as string, inputs.analysis.keywords,
+            parseProfileFit(fitReport, inputs.analysis, `${inputs.masterYaml}\n${inputs.guidance}\n${nextYaml}`), nextYaml,
+          )
+          fitReport = synced.report
+          nextYaml = synced.yaml
+          confirmed = synced.confirmed
+          await rememberConfirmedSkills(confirmed, synced.report.keywordMappings)
+        }
+        const saved = applicationKey && analysisWorkspace && fitReport !== undefined
+          ? await saveAnalysisChatChanges(applicationKey, analysisWorkspace, fitReport, body.yaml as string, nextYaml)
+          : { analysisUpdated: false, draftUpdated: false }
+        const confirmation = [saved.analysisUpdated ? 'Fit analysis saved.' : '', saved.draftUpdated ? 'Application resume Skills saved for the Resume step.' : ''].filter(Boolean).join(' ')
+        send({ type: 'done', ...result, yaml: nextYaml, changed: body.reviewOnly === true ? false : result.changed,
+          ...saved, answer: result.answer + (confirmation ? `\n\n${confirmation}` : '') })
       } catch (error) {
         send({ type: 'error', message: (error as Error).message })
       } finally {

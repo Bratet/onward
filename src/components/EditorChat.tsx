@@ -35,6 +35,8 @@ export function EditorChat({
   reviewSource,
   tailoring,
   tailoringSkill,
+  starterMessage,
+  active = false,
   seed,
   title,
   hint,
@@ -63,6 +65,9 @@ export function EditorChat({
     /** How the latest proposal was settled; written onto the tailoring turn that made it. */
     outcome?: { text: string; at: number }
   }
+  /** An editable first request for a new chat on an active step. */
+  starterMessage?: string
+  active?: boolean
 }) {
   const storageKey = editorChatStorageKey(chatScope)
   const [turns, setTurns] = useState<DisplayTurn[]>([])
@@ -86,12 +91,14 @@ export function EditorChat({
   const rootRef = useRef<HTMLDivElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const reviewStartRef = useRef<HTMLDivElement>(null)
+  const tailoringStartRef = useRef<HTMLDivElement>(null)
   const messageRef = useRef<HTMLTextAreaElement>(null)
   const sessionRef = useRef('')
   const abortRef = useRef<AbortController | null>(null)
   /** Follow new output only while the reader is already at the bottom of the conversation. */
   const stickToBottomRef = useRef(true)
   const scrolledReviewRef = useRef(-1)
+  const scrolledTailoringRef = useRef(-1)
   const seenTurnsRef = useRef(0)
   const wasBusyRef = useRef(false)
   /** A draft write waiting out the typing debounce. */
@@ -102,12 +109,17 @@ export function EditorChat({
   /** Re-sends the request that just failed, from the conversation as it was before it. */
   const retryRef = useRef<(() => void) | null>(null)
   const pendingProposal = turns.some((turn) => turn.proposal?.status === 'pending')
+  const hasTailoringRun = turns.some((turn) => turn.skillRun?.skillId === 'tailor-cv')
   const latestResumeReviewIndex = turns.reduce((found, turn, index) => turn.review ? index : found, -1)
+  const reviewTurn = tailoringSkill?.review
+    ? turns.reduce((found, turn, index) => turn.skillRun?.skillId === 'tailor-cv' ? index : found, -1)
+    : -1
   const latestResumeReview = latestResumeReviewIndex >= 0 ? turns[latestResumeReviewIndex].review : undefined
   const staleResumeReview = Boolean(latestResumeReview && latestResumeReview.fingerprint !== resumeFingerprint(api.text))
   const reviewLocked = resumeReviewMode && (staleResumeReview || !latestResumeReview)
   /** Typing stays possible while these hold; only sending waits. */
   const sendBlocked = !hydrated || busy || api.reviewPending || editingIndex !== null || reviewLocked
+  const starterReady = active && !sendBlocked && !hasTailoringRun && Boolean(starterMessage) && message === starterMessage
 
   useEffect(() => () => {
     abortRef.current?.abort()
@@ -119,7 +131,9 @@ export function EditorChat({
     setHydrated(false)
     const saved = parseEditorChatSnapshot(readEditorChat(storageKey))
     const nextTurns = saved?.turns ?? []
-    const nextMessage = saved?.draft ?? ''
+    const tailoredBefore = nextTurns.some((turn) => turn.skillRun?.skillId === 'tailor-cv')
+    const nextMessage = saved?.draft || (!tailoredBefore ? starterMessage ?? '' : '')
+    scrolledTailoringRef.current = -1
     sessionRef.current = saved?.sessionId ?? crypto.randomUUID()
     setTurns(nextTurns)
     setMessage(nextMessage)
@@ -142,7 +156,7 @@ export function EditorChat({
       api.setText(pending.after)
       api.setReviewPending(true)
     }
-  }, [storageKey])
+  }, [storageKey, starterMessage])
 
   useEffect(() => {
     const saved = readEditorChat('career-ops-editor-stream')
@@ -159,11 +173,18 @@ export function EditorChat({
       stickToBottomRef.current = false
       return
     }
+    const tailoringReply = tailoringStartRef.current
+    if (reviewTurn >= 0 && !busy && tailoringReply && scrolledTailoringRef.current !== reviewTurn) {
+      scrolledTailoringRef.current = reviewTurn
+      list.scrollTop += tailoringReply.getBoundingClientRect().top - list.getBoundingClientRect().top - 12
+      stickToBottomRef.current = false
+      return
+    }
     const grew = turns.length > seenTurnsRef.current
     seenTurnsRef.current = turns.length
     if (stickToBottomRef.current) list.scrollTop = list.scrollHeight
     else if (busy || grew) setUnseenReply(true)
-  }, [hydrated, turns, busy, activity, liveReasoning, liveSkillEvents, latestResumeReviewIndex])
+  }, [hydrated, turns, busy, activity, liveReasoning, liveSkillEvents, latestResumeReviewIndex, reviewTurn])
 
   // A hidden tab has no height; pin to the bottom again once it is shown or resized.
   useEffect(() => {
@@ -227,9 +248,10 @@ export function EditorChat({
 
   function newChat() {
     if (pendingProposal || busy) return
+    const nextDraft = starterMessage ?? ''
     sessionRef.current = crypto.randomUUID()
     setTurns([])
-    setMessage('')
+    setMessage(nextDraft)
     setError(null)
     setActivity(null)
     setLiveReasoning('')
@@ -239,7 +261,7 @@ export function EditorChat({
     setResumeReviewMode(false)
     setConfirmingNewChat(false)
     retryRef.current = null
-    persist(storageKey, { sessionId: sessionRef.current, turns: [], draft: '', reviewMode: false })
+    persist(storageKey, { sessionId: sessionRef.current, turns: [], draft: nextDraft, reviewMode: false })
     messageRef.current?.focus()
   }
 
@@ -475,8 +497,8 @@ export function EditorChat({
       } else {
         setAnnouncement(changedYaml ? 'Reply ready with a proposed change to review.' : 'Reply ready.')
       }
-      if (userMessage === PROFILE_UPDATE_REQUEST || result.analysisUpdated === true) {
-        try { await onProfileUpdated?.() } catch { setError('Changes were saved, but the overview could not refresh. Reload to see the updated analysis.') }
+      if (reviewOnly || userMessage === PROFILE_UPDATE_REQUEST || result.analysisUpdated === true || result.draftUpdated === true) {
+        try { await onProfileUpdated?.() } catch (reason) { setError((reason as Error).message || 'Changes were saved, but the application could not refresh. Reload to see them.') }
       }
     } catch (reason) {
       const aborted = (reason as Error).name === 'AbortError'
@@ -565,10 +587,6 @@ export function EditorChat({
       return next
     })
   }
-
-  const reviewTurn = tailoringSkill?.review
-    ? turns.reduce((found, turn, index) => turn.skillRun?.skillId === 'tailor-cv' ? index : found, -1)
-    : -1
 
   return (
     <div ref={rootRef} className="flex min-h-0 flex-1 flex-col">
@@ -698,7 +716,7 @@ export function EditorChat({
           ) : (
           <div
             key={index}
-            ref={turn.review && index === latestResumeReviewIndex ? reviewStartRef : undefined}
+            ref={turn.review && index === latestResumeReviewIndex ? reviewStartRef : index === reviewTurn ? tailoringStartRef : undefined}
             className="max-w-[94%] rounded-xl rounded-bl-sm border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2.5 text-sm leading-relaxed"
           >
             <ChatMarkdown text={turn.review ? turn.review.reply : turn.content} />
@@ -727,10 +745,10 @@ export function EditorChat({
           )
         )) : !tailoring ? (
           <ChatEmpty
-            suggestions={busy || !hydrated ? [] : reviewOnly ? ['Is this role a good fit for me?', 'Which gap matters most here?'] : tailoringSkill ? ['Tailor my resume for this role', 'Which must-haves does the draft still miss?', 'Make it fit on one page'] : []}
+            suggestions={busy || !hydrated ? [] : reviewOnly ? ['Is this role a good fit for me?', 'Which gap matters most here?'] : tailoringSkill ? [starterMessage ?? 'Tailor my resume for this role', 'Which must-haves does the draft still miss?', 'Make it fit on one page'] : []}
             onPick={(text) => { setMessage(text); rootRef.current?.querySelector('textarea')?.focus() }}
             title={reviewOnly ? 'Let’s check whether this role works for you' : reviewSource ? 'Review or edit this resume' : tailoringSkill ? 'What should we do with this resume?' : 'Edit with a CLI agent'}
-            hint={reviewOnly ? 'Ask about work authorization, discuss a gap, or correct the analysis. No resume tailoring starts until you request it.' : tailoringSkill
+            hint={reviewOnly ? 'Discuss a gap or correct the analysis. Confirmed Skills are added to this application’s working resume; full tailoring starts when you request it.' : tailoringSkill
               ? 'Discuss the tailored draft, ask for changes, or compare it with anything in your repository. I can consult your masters, earlier applications, and notes.'
               : reviewSource ? 'Run a structured review, then challenge findings or answer its questions here. Switch back to editing whenever you want to change the draft.'
                 : 'This is a persistent Claude/Codex session with file tools and buffer history. Ask it to edit, explain, compare, restore, or undo.'}
@@ -798,11 +816,14 @@ export function EditorChat({
           disabled={!hydrated}
           maxLength={8000}
           rows={3}
-          className="w-full resize-none rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:opacity-60"
+          className={cn(
+            'w-full resize-none rounded-lg border px-3 py-2 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:opacity-60',
+            starterReady ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)]' : 'border-[var(--color-border)] bg-[var(--color-bg)]',
+          )}
         />
         <div className="mt-2 flex items-center justify-between gap-2">
           <span className="text-xs text-[var(--color-muted)]">
-            {busy ? 'Working… Esc stops the reply' : editingIndex !== null ? 'Editing a previous message — save to rerun from there' : api.reviewPending ? 'Accept or reject the current proposal before sending another edit' : resumeReviewMode ? 'Your feedback updates the review, not the resume' : reviewOnly ? 'Confirmed corrections are saved to this application’s analysis' : 'AI edits are previewed before they can be saved'}
+            {busy ? 'Working… Esc stops the reply' : editingIndex !== null ? 'Editing a previous message — save to rerun from there' : api.reviewPending ? 'Accept or reject the current proposal before sending another edit' : resumeReviewMode ? 'Your feedback updates the review, not the resume' : reviewOnly ? 'Confirmed corrections update the fit analysis and relevant Skills in this application’s resume' : starterReady ? 'Press Enter to start tailoring, or edit this request first' : 'AI edits are previewed before they can be saved'}
           </span>
           <button
             onClick={() => busy ? stop() : void send()}

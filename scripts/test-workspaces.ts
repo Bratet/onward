@@ -15,6 +15,7 @@ try {
     mkdir(PATHS.state, { recursive: true }),
     mkdir(join(PATHS.applications, key), { recursive: true }),
     mkdir(dirname(PATHS.masters.en), { recursive: true }),
+    mkdir(dirname(PATHS.tailoredDesign), { recursive: true }),
   ])
   await writeFile(PATHS.tracker, [
     '| # | Date | Company | Role | Score | Status | PDF | Report | Notes |',
@@ -78,7 +79,7 @@ try {
   assert.deepEqual(report.coverage.must, { evidenced: 1, total: 2 })
   assert.equal(fit.fitVerdict([{ weight: 'nice', classification: 'gap' }]), 'Weak')
 
-  const { saveAnalysisChatReport } = await import('../src/lib/analysisChat')
+  const { saveAnalysisChatReport, saveAnalysisChatChanges } = await import('../src/lib/analysisChat')
   const base = await workspaces.updateWorkspace(key, recovered.revision, (current) => ({ ...current, fit: { ...current.fit, status: 'ready', report } }))
   const corrected = structuredClone(report)
   corrected.requirements[1] = { ...corrected.requirements[1], classification: 'direct', evidence: ['User confirmed Kubernetes experience in this application discussion'] }
@@ -118,10 +119,35 @@ try {
   assert.equal(afterChat.fit.stale, false, 'the chat save reflects the current inputs')
   assert.equal(afterChat.fit.basis?.guidance, '- Standard practice: Kubernetes on every project.\n')
 
-  const legacy = await workspaces.updateWorkspace(key, afterChat.revision, (current) => ({ ...current, fit: { ...current.fit, guidanceHash: undefined } }))
+  await writeFile(PATHS.tailoredDesign, await readFile(join(originalCwd, 'templates/tailored-design.yaml')))
+  const { withTailoredDesign } = await import('../src/lib/tailoring/seed')
+  const { parse, stringify } = await import('yaml')
+  const workingResume = await withTailoredDesign('cv:\n  name: Example Candidate\n  sections:\n    Skills:\n      - label: Programming\n        details: Python\n')
+  const skillsBase = await workspaces.updateWorkspace(key, afterChat.revision, (current) => ({ ...current, draftYaml: workingResume }))
+  const editedDoc = parse(workingResume) as { cv: { sections: { Skills: { details: string }[] }; headline?: string } }
+  editedDoc.cv.sections.Skills[0].details = 'Python, Kubernetes'
+  const skillsYaml = stringify(editedDoc)
+  const skillsReport = { ...skillsBase.fit.report!, recommendedEmphasis: ['Kubernetes in Skills'] }
+  assert.deepEqual(await saveAnalysisChatChanges(key, skillsBase, skillsReport, workingResume, skillsYaml), { analysisUpdated: true, draftUpdated: true })
+  const skillsSaved = await workspaces.readWorkspace(key)
+  assert.equal((parse(skillsSaved.draftYaml) as typeof editedDoc).cv.sections.Skills[0].details, 'Python, Kubernetes', 'the Resume step receives the confirmed Skills edit')
+  assert.deepEqual(skillsSaved.fit.report?.recommendedEmphasis, ['Kubernetes in Skills'], 'the assessment and working resume save together')
+  const invalidDoc = parse(skillsSaved.draftYaml) as typeof editedDoc
+  invalidDoc.cv.headline = 'Invented title'
+  await assert.rejects(() => saveAnalysisChatChanges(key, skillsSaved, skillsSaved.fit.report, skillsSaved.draftYaml, stringify(invalidDoc)), /only the existing Skills section/)
+  const concurrent = await workspaces.updateWorkspace(key, skillsSaved.revision, (current) => ({ ...current, draftYaml: workingResume }))
+  editedDoc.cv.sections.Skills[0].details = 'Python, Kubernetes, Git'
+  await assert.rejects(() => saveAnalysisChatChanges(key, skillsSaved, skillsSaved.fit.report, skillsSaved.draftYaml, stringify(editedDoc)), /changed during this discussion/)
+  assert.equal(concurrent.draftYaml, workingResume, 'a concurrent resume edit is preserved')
+
+  const legacy = await workspaces.updateWorkspace(key, concurrent.revision, (current) => ({ ...current, fit: { ...current.fit, guidanceHash: undefined } }))
   await writeFile(PATHS.candidateGuidance, '- Something new.\n')
   assert.equal((await workspaces.readWorkspace(key)).fit.status, 'ready', 'older records do not all re-run at once')
   assert.equal(legacy.fit.status, 'ready')
+  const { rememberConfirmedSkills } = await import('../src/lib/fitSkillSync')
+  await rememberConfirmedSkills(['LlamaIndex'])
+  await rememberConfirmedSkills(['LlamaIndex'])
+  assert.equal((await readFile(PATHS.candidateGuidance, 'utf-8')).match(/User-confirmed skill: LlamaIndex/g)?.length, 1, 'a repeated confirmation is remembered once')
 
   const changes = fit.fitInputChanges(
     { master: 'cv:\n  a: 1\n  b: 2\n', guidance: '- one\n' },

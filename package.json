@@ -29,6 +29,7 @@
     "test:application-delete": "tsx scripts/test-application-delete.ts",
     "test:workspaces": "tsx scripts/test-workspaces.ts",
     "test:application-flow": "tsx scripts/test-application-flow.ts",
+    "test:keyword-coverage": "tsx scripts/test-keyword-coverage.ts",
     "test:outreach": "tsx scripts/test-outreach.ts",
     "test:activity": "tsx scripts/test-activity.ts",
     "test:goal": "tsx scripts/test-goal.ts",

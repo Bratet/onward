@@ -167,7 +167,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   const editorRef = useRef<ReactCodeMirrorRef>(null)
   const editorCardRef = useRef<HTMLDivElement>(null)
   const fitChatRef = useRef<HTMLDivElement>(null)
-  useFillHeight(fitChatRef, step === 'fit')
+  useFillHeight(fitChatRef, step === 'fit', 80)
   const resumePaneRef = useRef<HTMLElement>(null)
 
   useEffect(() => { revision.current = workspace.revision }, [workspace.revision])
@@ -612,7 +612,19 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   async function refreshAfterProfileUpdate() {
     const response = await fetch(`/api/applications/${encodeURIComponent(app.key)}/workspace`, { cache: 'no-store' })
     const data = await response.json()
-    if (response.ok && data.workspace) { setWorkspace(data.workspace); revision.current = data.workspace.revision }
+    if (!response.ok || !data.workspace) throw new Error(data.error ?? 'could not refresh the application workspace')
+    const next = data.workspace as ApplicationWorkspace
+    if (next.draftYaml !== savedDraft.current) {
+      if (latestDraft.current !== savedDraft.current) {
+        setDraftConflict(true)
+        throw new Error('The application resume changed while you had unsaved edits. Copy your edits before reloading.')
+      }
+      savedDraft.current = next.draftYaml
+      setDraft(next.draftYaml)
+      setSaveState('saved')
+    }
+    setWorkspace(next)
+    revision.current = next.revision
     router.refresh()
   }
 
@@ -621,7 +633,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
     editorCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
-  /** One chat per step: Fit talks it through and never edits; Resume proposes edits for review. */
+  /** Fit saves confirmed Skills into the working copy; Resume proposes full tailoring for review. */
   function stepChat(surface: 'overview' | 'resume', title: string, hint: string) {
     return <EditorChat
       title={title}
@@ -632,6 +644,8 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
       mode={workspace.general ? 'master' : 'tailored'}
       applicationKey={app.key}
       chatScope={applicationChatScope(app.key, surface)}
+      starterMessage={surface === 'resume' && !workspace.general ? 'Tailor my resume for this role' : undefined}
+      active={surface === 'resume' && step === 'resume'}
       seed={surface === 'overview' ? fitSeed : undefined}
       tailoringSkill={workspace.general ? undefined : {
         run: (handlers) => tailor(handlers, surface),
@@ -672,7 +686,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   const nextAction = finalizeAction ?? (next ? <button type="button" onClick={() => goTo(next.to)} className={cn(mainButton, 'h-8')}>{next.label} <ArrowRight size={14} aria-hidden="true" /></button> : null)
 
   return (
-    <div className="space-y-3">
+    <div className="-mt-2 space-y-2 sm:-mt-3">
       <ApplicationHeader
         app={app}
         status={status}
@@ -711,7 +725,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
           <div ref={editorCardRef} className="min-w-0 lg:sticky lg:top-20">
             <div ref={fitChatRef} className="flex h-[max(420px,70vh)] flex-col">
               <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                {stepChat('overview', 'Fit AI', 'Never edits your resume')}
+                {stepChat('overview', 'Fit AI', 'Adds confirmed Skills to this application’s resume')}
               </Card>
             </div>
           </div>
@@ -764,6 +778,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
       <div hidden={step !== 'documents'} className="anim-fade">
         <DocumentsStep
           app={app}
+          active={step === 'documents'}
           contact={contact}
           resumeReady={finalized}
           onGoToResume={() => goTo('resume')}
@@ -839,26 +854,17 @@ function TailoringProposal({ proposal, busy, currentPages, currentFill, onToggle
   const individuallyReviewable = !!proposal.operationBaseYaml
 
   return (
-    <div className="mt-3 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-      <div className="space-y-3 border-b border-[var(--color-border)] bg-[var(--color-accent-soft)] px-4 py-3">
-        <div>
-          <p className="text-sm font-semibold">{kept} of {proposal.ops.length} changes selected</p>
-          <p className="mt-0.5 text-[13px] leading-relaxed text-[var(--color-muted)]">
-            {currentPages ?? proposal.render.pages ?? '—'} page · {currentFill ?? proposal.render.fill ?? '—'}% of the page used. Accepting keeps these changes in your draft; finalize the resume when you’re ready.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button onClick={onAccept} disabled={busy || kept === 0} className="inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg bg-[var(--color-ok)] px-3 text-sm font-semibold text-[var(--color-on-solid)] transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40">Accept {kept === proposal.ops.length ? 'all' : kept}</button>
-          <button onClick={onReject} disabled={busy} className="inline-flex h-8 cursor-pointer items-center rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-sm font-medium text-[var(--color-bad)] transition-colors hover:bg-[var(--color-bad-soft)] disabled:opacity-40">Reject all</button>
-        </div>
+    <section aria-label="Suggested resume changes" className="mt-3 overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
+      <div className="border-b border-[var(--color-border)] px-4 py-2.5">
+        <p className="text-sm font-semibold text-[var(--color-text)]">Suggested changes <span className="ml-1 font-normal tabular-nums text-[var(--color-muted)]">{proposal.ops.length}</span></p>
       </div>
       {!individuallyReviewable ? <p className="border-b border-[var(--color-border)] px-4 py-2 text-[13px] text-[var(--color-muted)]">This older proposal can be accepted or rejected as a whole.</p> : null}
-      <ul className="max-h-80 divide-y divide-[var(--color-border)] overflow-y-auto">
+      <ul className="divide-y divide-[var(--color-border)]">
         {proposal.ops.map((op, index) => {
           const selected = proposal.choices[index] !== false
           return (
             <li key={`${op.path}-${index}`}>
-              <label className={cn('flex items-start gap-3 px-4 py-3', individuallyReviewable && !busy && 'cursor-pointer hover:bg-[var(--color-surface-2)]')}>
+              <label className={cn('flex items-start gap-3 px-4 py-3 transition-colors', individuallyReviewable && !busy && 'cursor-pointer hover:bg-[var(--color-surface-2)]')}>
                 <input
                   type="checkbox"
                   checked={selected}
@@ -884,6 +890,18 @@ function TailoringProposal({ proposal, busy, currentPages, currentFill, onToggle
           )
         })}
       </ul>
-    </div>
+      <div className="space-y-2.5 border-t border-[var(--color-border)] bg-[var(--color-surface-2)] px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold tabular-nums text-[var(--color-text)]">{kept} of {proposal.ops.length} changes selected</p>
+          <p className="mt-0.5 text-[13px] leading-relaxed text-[var(--color-muted)]">
+            {currentPages ?? proposal.render.pages ?? '—'} page · {currentFill ?? proposal.render.fill ?? '—'}% of the page used. Accepting keeps these changes in your draft; finalize the resume when you’re ready.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={onAccept} disabled={busy || kept === 0} className="inline-flex min-h-9 cursor-pointer items-center rounded-lg bg-[var(--color-accent)] px-3 text-sm font-semibold text-[var(--color-on-solid)] transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-40">Accept {kept === proposal.ops.length ? 'all' : kept}</button>
+          <button type="button" onClick={onReject} disabled={busy} className="inline-flex min-h-9 cursor-pointer items-center rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-sm font-medium text-[var(--color-bad)] transition-colors hover:bg-[var(--color-bad-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-bad)] disabled:cursor-not-allowed disabled:opacity-40">Reject all</button>
+        </div>
+      </div>
+    </section>
   )
 }
