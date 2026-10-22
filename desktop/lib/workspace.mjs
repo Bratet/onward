@@ -1,5 +1,5 @@
 import { dialog } from 'electron'
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'fs'
+import { cpSync, existsSync, mkdirSync, readdirSync, writeFileSync } from 'fs'
 import { join } from 'path'
 import { readDesktopSettings, writeDesktopSettings } from './settings.mjs'
 
@@ -26,58 +26,19 @@ export function isEmptyFolder(dir) {
   }
 }
 
-/** Same as slugify in src/lib/repoRoot.ts: resume filenames are cv-<slug>.yaml. */
-function slugify(name) {
-  return name
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/\([^)]*\)/g, ' ')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-}
-
 /**
- * Puts the user's own name and email on a sample resume and drops the sample's
- * phone, website and profiles, so nothing invented ends up on a real CV.
+ * A new workspace: the bundled skills, an empty tracker and the user's name.
+ * It has no resume: the app opens on /welcome, where theirs becomes the master
+ * and general resumes. The sample's fictional resumes and searches stay out.
  */
-function personalize(yaml, fullName, email) {
-  const lines = yaml.split('\n')
-  const out = []
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]
-    if (/^ {2}name: /.test(line)) out.push(`  name: ${JSON.stringify(fullName)}`)
-    else if (/^ {2}email: /.test(line)) { if (email) out.push(`  email: ${JSON.stringify(email)}`) }
-    else if (/^ {2}(phone|website): /.test(line)) continue
-    else if (/^ {2}social_networks:/.test(line)) { while (/^ {4}/.test(lines[i + 1] ?? '')) i++ }
-    else out.push(line)
-  }
-  return out.join('\n')
-}
-
-/**
- * A new workspace: the bundled sample's skills, empty tracker and starter
- * resumes, made out to the user. Their own resume replaces the starter in Profile.
- */
-export function createWorkspace(dir, { fullName, email }, serverDir) {
+export function createWorkspace(dir, { fullName }, serverDir) {
   mkdirSync(dir, { recursive: true })
-  cpSync(join(serverDir, 'examples', 'workspace'), dir, { recursive: true })
+  const sample = join(serverDir, 'examples', 'workspace')
+  cpSync(sample, dir, { recursive: true, filter: (from) => !from.startsWith(join(sample, 'resumes')) })
   // The installer drops empty folders.
-  mkdirSync(join(dir, 'applications'), { recursive: true })
+  for (const folder of ['applications', join('resumes', 'masters'), join('resumes', 'own')]) mkdirSync(join(dir, folder), { recursive: true })
   writeFileSync(join(dir, 'config', 'candidate.json'), JSON.stringify({ fullName, confidentialTerms: [] }, null, 2) + '\n')
-
-  const slug = slugify(fullName) || 'candidate'
-  const masters = join(dir, 'resumes', 'masters')
-  const own = join(dir, 'resumes', 'own')
-  const folders = [masters, ...(existsSync(own) ? readdirSync(own).map((name) => join(own, name)) : [])]
-  for (const folder of folders) {
-    for (const name of readdirSync(folder).filter((file) => file.endsWith('.yaml'))) {
-      const from = join(folder, name)
-      writeFileSync(from, personalize(readFileSync(from, 'utf-8'), fullName, email))
-      // General resumes are found by the candidate's slug; masters keep their fixed names.
-      if (folder !== masters && name.startsWith('cv-')) renameSync(from, join(folder, `cv-${slug}.yaml`))
-    }
-  }
+  writeFileSync(join(dir, 'state', 'saved-searches.json'), '[]\n')
   return saveWorkspace(dir)
 }
 

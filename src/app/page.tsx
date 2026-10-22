@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { computeStats, listApplications } from '@/lib/applications'
 import { readRows } from '@/lib/tracker'
 import { funnelData } from '@/lib/weeks'
@@ -10,6 +11,7 @@ import { ActivityGrid, DailyChart, FunnelChart, ScoreChart } from '@/components/
 import { GoalCard, GoalHistory } from '@/components/GoalCard'
 import { goalProgress, readGoal } from '@/lib/goal'
 import { missingFolder } from '@/lib/statuses'
+import { hasResumes } from '@/lib/paths'
 import { interviewsAhead, type InterviewItem } from '@/lib/needsYou'
 import { cn, fmtDate, pct, relDays } from '@/lib/utils'
 
@@ -18,6 +20,8 @@ export const dynamic = 'force-dynamic'
 const GRID_WEEKS = 52
 
 export default async function DashboardPage({ searchParams }: { searchParams: Promise<{ period?: string }> }) {
+  // A new workspace has no resume yet, and nothing else in the app works without one.
+  if (!hasResumes()) redirect('/welcome')
   const { period: requested } = await searchParams
   const period: Period = isPeriod(requested) ? requested : 'week'
   const [stats, rows, apps, goal] = await Promise.all([computeStats(), readRows(), listApplications(), readGoal()])

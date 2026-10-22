@@ -52,6 +52,7 @@ test: node_modules ## Tracker and tailoring tests
 	@npm run test:goal
 	@npm run test:saved-searches
 	@npm run test:resume-review
+	@npm run test:resume-import
 	@npm run test:general-application
 	@npm run test:tracker
 	@npm run test:ops

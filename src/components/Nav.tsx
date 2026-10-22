@@ -24,6 +24,9 @@ export function Nav() {
     navRef.current?.querySelector('[aria-current="page"]')?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [pathname])
 
+  // Getting started is one focused task; the rest of the app is empty until it is done.
+  if (pathname === '/welcome') return null
+
   return (
     <header className="sticky top-0 z-40 border-b border-[var(--color-border)] bg-[var(--color-bg)]">
       <div className="mx-auto flex min-h-14 max-w-[1600px] flex-wrap items-center gap-x-6 gap-y-1 px-4 py-1.5 sm:px-6">

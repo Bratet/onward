@@ -6,6 +6,7 @@
   "scripts": {
     "test:saved-searches": "tsx scripts/test-saved-searches.ts",
     "test:resume-review": "tsx scripts/test-resume-review.ts",
+    "test:resume-import": "tsx scripts/test-resume-import.ts",
     "test:general-application": "tsx scripts/test-general-application.ts",
     "dev": "next dev",
     "build": "next build",

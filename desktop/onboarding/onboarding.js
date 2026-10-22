@@ -78,7 +78,7 @@ async function finish() {
   $('#finish-error').textContent = ''
   $('#tools-next').disabled = true
   try {
-    await api.finish({ folder: state.folder.path, fullName: $('#full-name').value, email: $('#email').value })
+    await api.finish({ folder: state.folder.path, fullName: $('#full-name').value })
   } catch (err) {
     $('#finish-error').textContent = `Couldn't set up the folder: ${String(err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')}`
     $('#tools-next').disabled = false
@@ -86,8 +86,10 @@ async function finish() {
   }
   if (state.folder.kind === 'existing') {
     $('#done-title').textContent = 'Welcome back'
-    $('#done-lead').textContent = 'Onward will open your existing folder.'
+    $('#done-lead').textContent = 'Onward will open your existing folder, just as you left it.'
     $('#next-steps').hidden = true
+    $('#open-app').textContent = 'Open Onward'
+    document.querySelector('.progress li[data-step="done"]').textContent = 'Ready'
   }
   show('done')
 }
@@ -103,9 +105,7 @@ $('#existing-folder').addEventListener('click', async () => {
 $('#about-form').addEventListener('submit', (event) => { event.preventDefault(); $('#about-next').click() })
 $('#about-next').addEventListener('click', () => {
   const name = $('#full-name').value.trim()
-  const email = $('#email').value.trim()
   if (!name) return void ($('#about-error').textContent = 'Please enter your name.')
-  if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return void ($('#about-error').textContent = 'That email address doesn\'t look right.')
   $('#about-error').textContent = ''
   move(1)
 })

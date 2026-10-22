@@ -60,3 +60,29 @@ export async function pdfPageInfo(pdfPath: string): Promise<PageInfo | null> {
     return null
   }
 }
+
+/** The text of every page, line by line, or null when the file is not a readable PDF. */
+export async function pdfText(data: Uint8Array): Promise<string | null> {
+  try {
+    const { getDocument } = await load()
+    const doc = await getDocument({ data, useSystemFonts: true, isEvalSupported: false }).promise
+    try {
+      const pages: string[] = []
+      for (let n = 1; n <= doc.numPages; n++) {
+        const content = await (await doc.getPage(n)).getTextContent()
+        let page = ''
+        for (const item of content.items) {
+          if (!('str' in item)) continue
+          page += item.str + (item.hasEOL ? '\n' : '')
+        }
+        pages.push(page.replace(/[ \t]+\n/g, '\n').trim())
+      }
+      return pages.join('\n\n').trim()
+    } finally {
+      await doc.destroy()
+    }
+  } catch (err) {
+    console.warn('[pdf] text unavailable:', (err as Error).message)
+    return null
+  }
+}

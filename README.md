@@ -92,9 +92,13 @@ Node, so there is nothing else to install apart from the CLIs below.
   your subscription. If the app finds neither, it says so on launch and links to
   both installers. RenderCV is needed for PDFs, and the app warns when it is missing.
 - **First launch** opens a short walkthrough (`desktop/onboarding/`): where to save
-  your documents (`Documents/Onward` by default), your name and email for a starter
-  resume, and a check of the AI tools with install links. Someone who already has
-  an Onward folder, such as a clone of their private data repo, opens it instead.
+  your documents (`Documents/Onward` is recommended), your name, and a check of the
+  AI tools with install links. Someone who already has an Onward folder, such as a
+  clone of their private data repo, opens it instead.
+- **Getting started** (`/welcome`, also in the web app) is where a new folder's
+  resumes come from: drop in your current resume as a PDF or paste its text, and
+  your AI tool sorts it, word for word, into your master and general resumes. The
+  page explains the difference. Until a resume exists, the app opens there.
 - **Settings → App & updates** shows the version, checks for, downloads and
   installs updates, turns automatic updates on or off, and opens or changes the
   workspace folder.

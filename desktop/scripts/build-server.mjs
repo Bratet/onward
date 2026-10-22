@@ -41,9 +41,13 @@ cpSync(join(root, 'examples', 'workspace'), join(out, 'examples', 'workspace'), 
   recursive: true,
   filter: (src) => !LOCAL_STATE.test(src),
 })
-const worker = join('node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.min.mjs')
-mkdirSync(dirname(join(out, worker)), { recursive: true })
-cpSync(join(root, worker), join(out, worker))
+// The browser preview loads the minified worker; pdf.js under Node (page counts,
+// reading an uploaded resume) imports pdf.worker.mjs beside pdf.mjs. Tracing finds neither.
+for (const name of ['pdf.worker.min.mjs', 'pdf.worker.mjs']) {
+  const worker = join('node_modules', 'pdfjs-dist', 'legacy', 'build', name)
+  mkdirSync(dirname(join(out, worker)), { recursive: true })
+  cpSync(join(root, worker), join(out, worker))
+}
 
 // Releases are public: refuse to ship anything that looks like a real workspace.
 function walk(dir) {

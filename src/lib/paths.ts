@@ -89,6 +89,11 @@ export function resumePdfPath(yamlPath: string): string {
   return basename(yamlPath) === APP_FILES.yaml ? join(dirname(yamlPath), APP_FILES.pdf) : yamlPath.replace(/\.yaml$/, '.pdf')
 }
 
+/** Whether the user has any resume yet. A new workspace starts without one, and the app opens on /welcome. */
+export function hasResumes(): boolean {
+  return [PATHS.masters, PATHS.ownCv, ...Object.values(PATHS.ownCvVariants)].some((pair) => existsSync(pair.en) || existsSync(pair.fr))
+}
+
 export function isCvVariant(value: unknown): value is CvVariant {
   return value === 'ai' || value === 'ml' || value === 'ds'
 }

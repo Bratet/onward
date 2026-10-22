@@ -40,14 +40,14 @@ export function runOnboarding({ here, serverDir, path }) {
       'onboarding:open-link': (_event, tool) => {
         if (INSTALL_LINKS[tool]) shell.openExternal(INSTALL_LINKS[tool])
       },
-      'onboarding:finish': (_event, { folder, fullName, email }) => {
+      'onboarding:finish': (_event, { folder, fullName }) => {
         const chosen = describeFolder(String(folder))
         if (chosen.kind === 'existing') {
           result = { workspace: saveWorkspace(chosen.path), isNew: false }
         } else {
           const name = String(fullName ?? '').trim()
           if (!name) throw new Error('Your name is needed for your resume.')
-          const workspace = createWorkspace(chosen.path, { fullName: name, email: String(email ?? '').trim() }, serverDir)
+          const workspace = createWorkspace(chosen.path, { fullName: name }, serverDir)
           result = { workspace, isNew: true }
         }
         return result

@@ -220,7 +220,7 @@ if (!app.requestSingleInstanceLock()) {
         if (!onboarded) return app.quit()
         workspace = onboarded.workspace
         // A new user's first job is to replace the example resume with their own.
-        if (onboarded.isNew) firstPage = '/profile'
+        if (onboarded.isNew) firstPage = '/welcome'
       }
       if (!(await launchServer())) return app.quit()
     } else {

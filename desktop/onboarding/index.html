@@ -13,7 +13,7 @@
       <li data-step="folder">Your folder</li>
       <li data-step="about">About you</li>
       <li data-step="tools">AI tools</li>
-      <li data-step="done">Ready</li>
+      <li data-step="done">Your resume</li>
     </ol>
 
     <section data-step="welcome">
@@ -25,12 +25,13 @@
         <li><strong>Your own AI subscription.</strong> Onward works through Claude Code or Codex, signed in on this computer.</li>
         <li><strong>You stay in charge.</strong> Nothing is sent or submitted for you.</li>
       </ul>
+      <p class="aside">Setup takes a few minutes: choose a folder, connect your AI tool, then bring in your resume.</p>
       <div class="actions"><button class="primary" data-next>Get started</button></div>
     </section>
 
     <section data-step="folder">
       <h1>Where should Onward save your documents?</h1>
-      <p class="lead">Onward keeps everything in one folder: your resumes, every application with its tailored CV and letter, and your progress. Pick a place you back up.</p>
+      <p class="lead">Onward keeps everything in one folder: your resumes, every application with its tailored CV and letter, and your progress. We recommend your Documents folder, where it is easy to find and back up.</p>
       <div class="folder">
         <div class="folder-icon" aria-hidden="true"></div>
         <div class="folder-text">
@@ -45,15 +46,12 @@
 
     <section data-step="about">
       <h1>Tell us about you</h1>
-      <p class="lead">Onward starts you off with an example resume in your name. You'll replace its content with your own experience next.</p>
+      <p class="lead">Your name goes at the top of your resumes and in the names of the files you send.</p>
       <form id="about-form" novalidate>
         <label>Full name
           <input id="full-name" name="fullName" autocomplete="name" required placeholder="Your name as it should appear on your resume">
         </label>
-        <label>Email <span class="optional">optional</span>
-          <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com">
-        </label>
-        <p class="hint">Used on your resume and in your file names. You can change both later.</p>
+        <p class="hint">Your contact details come from your resume in the last step.</p>
         <p class="error" id="about-error" role="alert"></p>
       </form>
       <div class="actions"><button data-back>Back</button><button class="primary" id="about-next">Continue</button></div>
@@ -78,14 +76,14 @@
 
     <section data-step="done">
       <div class="check" aria-hidden="true"></div>
-      <h1 id="done-title">You're all set</h1>
-      <p class="lead" id="done-lead">Here's how to get going:</p>
+      <h1 id="done-title">Your folder is ready</h1>
+      <p class="lead" id="done-lead">One last step, in Onward itself: bring in the resume you have now.</p>
       <ol class="next-steps" id="next-steps">
-        <li><strong>Make the resume yours.</strong> Profile opens first: replace the example experience with your own. Every tailored CV is cut from it.</li>
-        <li><strong>Add a job.</strong> Choose <em>New application</em> and paste a posting.</li>
-        <li><strong>Review, then apply.</strong> Check the tailored CV, download it, and send it yourself.</li>
+        <li><strong>Add your resume.</strong> Drop in its PDF, or paste the text. Your AI tool sorts it into sections, word for word.</li>
+        <li><strong>It becomes two resumes.</strong> A <em>master</em> that holds everything you have done, and a <em>general</em> one, ready to send.</li>
+        <li><strong>Then add a job.</strong> Onward tailors a CV from them for each posting, and you send it yourself.</li>
       </ol>
-      <div class="actions"><button class="primary" id="open-app">Open Onward</button></div>
+      <div class="actions"><button class="primary" id="open-app">Continue to your resume</button></div>
     </section>
   </main>
   <script src="onboarding.js"></script>
