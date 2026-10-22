@@ -9,8 +9,10 @@ interface PreviewPage {
   height: number
 }
 
-export function PdfPreview({ token, document: label = 'CV', engine = 'RenderCV', source = 'YAML' }: {
+export function PdfPreview({ token, src, document: label = 'CV', engine = 'RenderCV', source = 'YAML' }: {
   token: string | null
+  /** A saved PDF to show instead of a render token's. */
+  src?: string
   /** What the preview shows, for its empty states and alt text. */
   document?: string
   engine?: string
@@ -26,15 +28,17 @@ export function PdfPreview({ token, document: label = 'CV', engine = 'RenderCV',
     pagesRef.current = pages
   }, [pages])
 
+  const url = src ?? (token ? `/api/render/${token}` : null)
+
   useEffect(() => {
-    if (!token) return
+    if (!url) return
     const generation = ++generationRef.current
     const controller = new AbortController()
     setLoading(true)
     setError(null)
 
     async function update() {
-      const response = await fetch(`/api/render/${token}`, { cache: 'no-store', signal: controller.signal })
+      const response = await fetch(url!, { cache: 'no-store', signal: controller.signal })
       if (!response.ok) throw new Error('preview expired before it could be displayed')
       const bytes = new Uint8Array(await response.arrayBuffer())
       const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
@@ -78,7 +82,7 @@ export function PdfPreview({ token, document: label = 'CV', engine = 'RenderCV',
     })
 
     return () => controller.abort()
-  }, [token])
+  }, [url])
 
   useEffect(() => () => {
     pagesRef.current.forEach((page) => URL.revokeObjectURL(page.url))
@@ -98,7 +102,7 @@ export function PdfPreview({ token, document: label = 'CV', engine = 'RenderCV',
           // the white flash and scroll reset caused by replacing an iframe.
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            key={`${token}-${index}`}
+            key={`${url}-${index}`}
             src={page.url}
             width={page.width}
             height={page.height}

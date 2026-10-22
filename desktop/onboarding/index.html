@@ -59,13 +59,26 @@
 
     <section data-step="tools">
       <h1>Connect your AI tools</h1>
-      <p class="lead">Onward does its AI work through Claude Code or Codex, using your own subscription. It needs one of the two, signed in on this computer. RenderCV turns your resume into a PDF.</p>
+      <p class="lead">Onward's AI runs through Claude Code or Codex, on your own subscription. It needs one of the two, signed in on this computer. RenderCV makes the PDFs.</p>
       <ul class="tools" id="tools">
         <li data-tool="claude"><span class="dot"></span><div><strong>Claude Code</strong><span class="status">Checking…</span></div><button class="link" data-install="claude">How to install</button></li>
         <li data-tool="codex"><span class="dot"></span><div><strong>Codex</strong><span class="status">Checking…</span></div><button class="link" data-install="codex">How to install</button></li>
         <li data-tool="rendercv"><span class="dot"></span><div><strong>RenderCV</strong><span class="status">Checking…</span></div><button class="link" data-install="rendercv">How to install</button></li>
       </ul>
-      <p class="hint" id="tools-hint">After installing, sign in once in a terminal: run <code>claude</code>, or <code>codex login</code>. Then check again.</p>
+      <div class="setup" id="tools-hint">
+        <p class="setup-title">Setting one up takes about five minutes</p>
+        <ol>
+          <li>Follow <strong>How to install</strong> above for Claude Code or Codex.</li>
+          <li>Open <span data-terminal>Terminal</span> and sign in once with the command below. It opens your browser to log in with your subscription.
+            <span class="commands">
+              <span class="command"><code>claude</code><button class="copy" data-copy="claude">Copy</button></span>
+              <span class="or">or</span>
+              <span class="command"><code>codex login</code><button class="copy" data-copy="codex login">Copy</button></span>
+            </span>
+          </li>
+          <li>Come back here. Onward checks again on its own.</li>
+        </ol>
+      </div>
       <p class="error" id="finish-error" role="alert"></p>
       <div class="actions">
         <button data-back>Back</button>

@@ -70,7 +70,7 @@ async function checkTools() {
   const ready = Boolean(state.tools.claude || state.tools.codex)
   $('#tools-next').textContent = ready ? 'Continue' : 'Continue anyway'
   $('#tools-next').classList.toggle('primary', ready)
-  $('#tools-hint').hidden = ready && Boolean(state.tools.rendercv)
+  $('#tools-hint').hidden = ready
   $('#recheck').disabled = false
 }
 
@@ -110,6 +110,19 @@ $('#about-next').addEventListener('click', () => {
   move(1)
 })
 $('#recheck').addEventListener('click', () => void checkTools())
+// Someone sent off to install a CLI comes back to this window; check again without being asked.
+window.addEventListener('focus', () => {
+  if (state.step === 'tools' && !$('#recheck').disabled && !(state.tools?.claude || state.tools?.codex)) void checkTools()
+})
+for (const button of document.querySelectorAll('[data-copy]')) {
+  button.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(button.dataset.copy)
+    button.textContent = 'Copied'
+    setTimeout(() => (button.textContent = 'Copy'), 1500)
+  })
+}
+const TERMINAL = { darwin: 'Terminal (in Applications › Utilities)', win32: 'PowerShell (from the Start menu)' }
+for (const span of document.querySelectorAll('[data-terminal]')) span.textContent = TERMINAL[api.platform] ?? 'a terminal'
 $('#tools-next').addEventListener('click', () => void finish())
 $('#open-app').addEventListener('click', () => window.close())
 

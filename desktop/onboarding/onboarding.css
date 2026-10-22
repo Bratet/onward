@@ -50,9 +50,10 @@ body {
   -webkit-font-smoothing: antialiased;
   user-select: none;
 }
-main { display: flex; flex-direction: column; height: 100%; padding: 28px 44px 32px; }
+main { display: flex; flex-direction: column; min-height: 100%; padding: 24px 44px 24px; }
+html { overflow-y: auto; }
 
-.progress { display: flex; gap: 6px; margin: 0 0 28px; padding: 0; list-style: none; font-size: 12px; color: var(--faint); }
+.progress { display: flex; gap: 6px; margin: 0 0 24px; padding: 0; list-style: none; font-size: 12px; color: var(--faint); }
 .progress li { flex: 1; padding-top: 8px; border-top: 3px solid var(--border); transition: border-color .2s, color .2s; }
 .progress li.done { border-color: var(--accent); }
 .progress li.current { border-color: var(--accent); color: var(--text); font-weight: 600; }
@@ -99,7 +100,7 @@ input::placeholder { color: var(--faint); }
 code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 1px 5px; border-radius: 5px; background: var(--surface-2); }
 
 .tools { margin: 0 0 16px; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
-.tools li { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
+.tools li { display: flex; align-items: center; gap: 12px; padding: 10px 16px; }
 .tools li + li { border-top: 1px solid var(--border); }
 .tools div { flex: 1; display: grid; }
 .tools .status { font-size: 13px; color: var(--muted); }
@@ -113,3 +114,13 @@ code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 1px
 .check::after { content: ''; position: absolute; left: 18px; top: 13px; width: 12px; height: 22px; border: solid var(--bg); border-width: 0 4px 4px 0; transform: rotate(45deg); }
 .next-steps { margin: 0; padding-left: 20px; display: grid; gap: 12px; color: var(--muted); max-width: 600px; }
 .next-steps strong { color: var(--text); }
+
+.setup { padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); font-size: 13px; color: var(--muted); }
+.setup-title { margin: 0 0 6px; font-weight: 600; color: var(--text); }
+.setup ol { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.setup strong { color: var(--text); font-weight: 600; }
+.commands { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.command { display: inline-flex; align-items: center; gap: 6px; padding: 3px 3px 3px 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.command code { background: none; }
+.or { color: var(--faint); }
+button.copy { height: 24px; padding: 0 8px; font-size: 12px; border-radius: 6px; }

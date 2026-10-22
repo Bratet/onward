@@ -19,7 +19,7 @@ export function runOnboarding({ here, serverDir, path }) {
   return new Promise((resolve) => {
     const window = new BrowserWindow({
       width: 760,
-      height: 640,
+      height: 720,
       resizable: false,
       maximizable: false,
       title: 'Welcome to Onward',

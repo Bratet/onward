@@ -2,6 +2,7 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('onboarding', {
+  platform: process.platform,
   defaults: () => ipcRenderer.invoke('onboarding:defaults'),
   pickFolder: (purpose) => ipcRenderer.invoke('onboarding:pick-folder', purpose),
   checkTools: () => ipcRenderer.invoke('onboarding:check-tools'),
