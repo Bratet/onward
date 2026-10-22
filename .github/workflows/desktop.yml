@@ -1,0 +1,86 @@
+# Builds the desktop app for macOS, Windows and Linux.
+#
+# A push to main publishes a GitHub release (v0.1.<run number>); installed apps
+# find it through electron-updater and update themselves. Any other branch, or a
+# manual run, only builds and keeps the installers as workflow artifacts.
+name: desktop
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+env:
+  VERSION: 0.1.${{ github.run_number }}
+  PUBLISH: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create the release the builds upload into
+        if: env.PUBLISH == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v$VERSION" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+            --title "Onward $VERSION" --notes "Built from $GITHUB_SHA." --draft
+
+  build:
+    needs: release
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+      - run: npm ci
+      - run: npm ci
+        working-directory: desktop
+      - name: Stamp the version
+        working-directory: desktop
+        run: npm version "${{ env.VERSION }}" --no-git-tag-version --allow-same-version
+      - name: Build
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # No signing certificates yet: macOS builds are unsigned (ad-hoc).
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npm run ${{ env.PUBLISH == 'true' && 'release' || 'dist' }}
+      - name: Keep the installers
+        if: env.PUBLISH != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: onward-${{ matrix.os }}
+          path: |
+            desktop/dist/*.dmg
+            desktop/dist/*.zip
+            desktop/dist/*.exe
+            desktop/dist/*.AppImage
+            desktop/dist/*.deb
+          if-no-files-found: error
+
+  publish:
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the release once every platform is in
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "v$VERSION" --repo "$GITHUB_REPOSITORY" --draft=false --latest

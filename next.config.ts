@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['yaml', 'pdfjs-dist'],
   // Keeps Next from picking ~/package-lock.json as the workspace root.
   outputFileTracingRoot: process.cwd(),
+  // The desktop app (desktop/) ships a self-contained server. Only its build asks
+  // for one, so `make start` keeps serving the regular build.
+  output: process.env.ONWARD_STANDALONE ? 'standalone' : undefined,
+  // ...and in its own folder, so it can run beside `make dev`, which owns .next/.
+  distDir: process.env.ONWARD_STANDALONE ? '.next-desktop' : '.next',
   eslint: { ignoreDuringBuilds: true },
   // /editor became /profile once the masters stopped being "a file to edit" and
   // started being the profile every tailored CV is cut from.

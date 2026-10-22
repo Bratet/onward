@@ -4,7 +4,7 @@
 # Everything runs on localhost; nothing here deploys anywhere.
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev build start stop check test reconcile engines extension clean nuke
+.PHONY: help setup dev build start stop check test reconcile engines extension desktop desktop-dist clean nuke
 
 PORT ?= 3000
 
@@ -89,13 +89,23 @@ reconcile: node_modules workspace ## Rebuild workspace/state/app-index.json from
 extension: ## Build the LinkedIn visa-badge Chrome extension
 	@cd extension/visa-badge && npm ci --silent && npm run build
 
+desktop/node_modules: desktop/package.json desktop/package-lock.json
+	@cd desktop && npm install
+	@touch desktop/node_modules
+
+desktop: node_modules desktop/node_modules ## Build the bundled server and open it in the desktop shell
+	@cd desktop && npm run server && npm start
+
+desktop-dist: node_modules desktop/node_modules ## Build desktop installers for this OS into desktop/dist/
+	@cd desktop && CSC_IDENTITY_AUTO_DISCOVERY=false npm run dist
+
 engines: ## Report whether the Claude and Codex CLIs are available
 	@printf 'claude  '; claude --version 2>/dev/null || echo "not found — install Claude Code and run 'claude login'"
 	@printf 'codex   '; codex --version 2>/dev/null || echo "not found — install codex and run 'codex login'"
 	@printf 'rendercv '; rendercv --version 2>/dev/null || python3 -m rendercv --version 2>/dev/null || echo "not found — pip install 'rendercv>=2.8'"
 
 clean: ## Remove build output
-	@rm -rf .next
+	@rm -rf .next .next-desktop desktop/build desktop/dist
 	@rm -rf rendercv_output
 	@echo "cleaned"
 

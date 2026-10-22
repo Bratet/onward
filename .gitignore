@@ -24,6 +24,11 @@ __pycache__/
 # Node / Next.js (this repo now hosts a Next app)
 node_modules/
 .next/
+.next-desktop/
+# Desktop app build output
+/desktop/build/
+/desktop/dist/
+/desktop/node_modules/
 out/
 next-env.d.ts
 *.tsbuildinfo

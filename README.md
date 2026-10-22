@@ -78,6 +78,36 @@ there). Code updates then come from pulling this repo, and nothing you write can
 end up in a public commit. To keep the data somewhere else entirely, set
 `ONWARD_WORKSPACE` to its path.
 
+## Desktop app
+
+Onward also ships as an installable app for macOS, Windows and Linux. It is the
+same app: Electron wraps a bundled copy of the server and runs it with its own
+Node, so there is nothing else to install apart from the CLIs below.
+
+- **Download** the installer for your system from the
+  [latest release](https://github.com/Bratet/onward/releases/latest): `.dmg` for
+  macOS (Apple silicon `arm64` or Intel `x64`), `.exe` for Windows, `.AppImage` or
+  `.deb` for Linux.
+- **Claude Code and Codex** are still the ones on your computer, signed in with
+  your subscription. If the app finds neither, it says so on launch and links to
+  both installers. RenderCV is needed for PDFs, and the app warns when it is missing.
+- **Your data:** on first launch, pick your existing workspace folder (for example
+  a clone of your private data repo), or start with sample data in
+  `Documents/Onward`. *Change Workspace Folder…* in the app menu switches later.
+- **Updates:** every push to `main` builds the installers and publishes them as a
+  GitHub release (`.github/workflows/desktop.yml`). The installed app checks on
+  launch and every four hours, downloads the update in the background, and offers
+  a restart. *Check for Updates…* in the app menu checks right away.
+
+The builds are not code-signed yet. On macOS, open the app the first time with
+right-click → Open; Windows SmartScreen asks once too. An unsigned Mac app can't
+replace itself, so on macOS the update prompt links to the new download instead.
+
+To work on it: `make desktop` builds the bundled server and opens it in the
+desktop shell, and `make desktop-dist` builds this OS's installers into
+`desktop/dist/`. The build refuses to bundle anything from `workspace/`, since
+releases are public.
+
 ## Make it yours
 
 This is a personal-use tool: it's built around one candidate's identity and

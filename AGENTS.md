@@ -16,6 +16,7 @@ Everything the app reads or writes lives under `workspace/`, grouped by role: `w
 - `make check`: run strict TypeScript checking without emitting files.
 - `make test`: run tracker round-trip, operation, and tailoring tests.
 - `make build`: create a production build; do not run it beside `make dev` because both use `.next/`.
+- `make desktop` / `make desktop-dist`: run the Electron desktop shell (`desktop/`) or build its installers. Pushes to `main` publish desktop releases that installed apps auto-update from.
 - `make reconcile`: rebuild `workspace/state/app-index.json` from application folder names.
 - `npm run onward -- <command>`: the command-line interface for applications, stats, the goal and saved searches; `npm run onward -- help` lists the commands. It calls the same `src/lib/` code as the app, so use it rather than editing `workspace/state/` files by hand.
 
