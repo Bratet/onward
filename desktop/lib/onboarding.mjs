@@ -1,8 +1,26 @@
-import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, screen, shell } from 'electron'
 import { existsSync } from 'fs'
 import { basename, join } from 'path'
 import { detectEngines, INSTALL_LINKS } from './environment.mjs'
 import { createWorkspace, isEmptyFolder, looksLikeWorkspace, saveWorkspace } from './workspace.mjs'
+
+/** The walkthrough's --bg and --text (onboarding.css), for the parts of the window the page doesn't paint. */
+function theme() {
+  const dark = nativeTheme.shouldUseDarkColors
+  const background = dark ? '#151312' : '#f6f2ea'
+  return { background, overlay: { color: background, symbolColor: dark ? '#f4f1ec' : '#2a2522', height: 40 } }
+}
+
+/**
+ * The page draws its own title bar so the window reads as one surface instead of
+ * a white system bar over a dark page. Windows keeps its buttons as an overlay,
+ * macOS its traffic lights; Linux keeps the system frame.
+ */
+function titleBar() {
+  if (process.platform === 'win32') return { titleBarStyle: 'hidden', titleBarOverlay: theme().overlay }
+  if (process.platform === 'darwin') return { titleBarStyle: 'hiddenInset' }
+  return {}
+}
 
 /** What a folder the user picked means: their existing data, a fresh place, or a parent to create Onward/ in. */
 function describeFolder(dir) {
@@ -17,16 +35,26 @@ function describeFolder(dir) {
  */
 export function runOnboarding({ here, serverDir, path }) {
   return new Promise((resolve) => {
+    // Never taller than the screen: at 150% scaling a laptop has well under 720 points of height.
+    const { height: available } = screen.getPrimaryDisplay().workAreaSize
     const window = new BrowserWindow({
-      width: 760,
-      height: 720,
+      width: 720,
+      height: Math.min(700, available - 40),
       resizable: false,
       maximizable: false,
+      fullscreenable: false,
       title: 'Welcome to Onward',
       icon: join(here, 'resources', 'icon.png'),
       show: false,
+      backgroundColor: theme().background,
+      ...titleBar(),
       webPreferences: { contextIsolation: true, sandbox: true, preload: join(here, 'onboarding', 'preload.cjs') },
     })
+    const retheme = () => {
+      window.setBackgroundColor(theme().background)
+      if (process.platform === 'win32') window.setTitleBarOverlay(theme().overlay)
+    }
+    nativeTheme.on('updated', retheme)
     let result = null
     const handlers = {
       'onboarding:defaults': () => describeFolder(join(app.getPath('documents'), 'Onward')),
@@ -62,6 +90,7 @@ export function runOnboarding({ here, serverDir, path }) {
     }
     window.once('ready-to-show', () => window.show())
     window.on('closed', () => {
+      nativeTheme.off('updated', retheme)
       for (const channel of Object.keys(handlers)) ipcMain.removeHandler(channel)
       resolve(result)
     })

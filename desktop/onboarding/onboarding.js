@@ -4,6 +4,8 @@ const STEPS = ['welcome', 'folder', 'about', 'tools', 'done']
 const state = { step: 'welcome', folder: null, tools: null }
 
 const $ = (selector) => document.querySelector(selector)
+// The stylesheet draws a title bar only where the window has no system one.
+document.documentElement.classList.add(`platform-${api.platform}`)
 
 /** "About you" only applies to a new folder: an existing one already knows who it belongs to. */
 function skipped(step) {
@@ -20,6 +22,9 @@ function show(step) {
     if (at === index) item.setAttribute('aria-current', 'step')
     else item.removeAttribute('aria-current')
   }
+  const counted = STEPS.filter((name) => !skipped(name))
+  const current = document.querySelector(`.progress li[data-step="${step}"]`).textContent
+  $('#progress-label').textContent = `Step ${counted.indexOf(step) + 1} of ${counted.length} · ${current}`
   const focus = document.querySelector(`section[data-step="${step}"] input, section[data-step="${step}"] .primary`)
   focus?.focus()
   if (step === 'tools' && !state.tools) void checkTools()

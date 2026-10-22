@@ -7,14 +7,18 @@
   <link rel="stylesheet" href="onboarding.css">
 </head>
 <body>
+  <header class="titlebar"><span class="titlebar-name">Onward setup</span></header>
   <main>
-    <ol class="progress" aria-label="Setup steps">
-      <li data-step="welcome">Welcome</li>
-      <li data-step="folder">Your folder</li>
-      <li data-step="about">About you</li>
-      <li data-step="tools">AI tools</li>
-      <li data-step="done">Your resume</li>
-    </ol>
+    <nav class="progress" aria-label="Setup steps">
+      <ol>
+        <li data-step="welcome">Welcome</li>
+        <li data-step="folder">Your folder</li>
+        <li data-step="about">About you</li>
+        <li data-step="tools">AI tools</li>
+        <li data-step="done">Your resume</li>
+      </ol>
+      <p class="progress-label" id="progress-label" aria-hidden="true"></p>
+    </nav>
 
     <section data-step="welcome">
       <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
@@ -25,9 +29,18 @@
       <h1>Welcome to Onward</h1>
       <p class="lead">Your job application companion. Paste a job posting and Onward reads it, tailors your resume to it, writes a cover letter if you want one, and keeps track of every application until you get an offer.</p>
       <ul class="points">
-        <li><strong>Your files stay yours.</strong> Resumes, letters and applications are saved as ordinary files in a folder on this computer.</li>
-        <li><strong>Your own AI subscription.</strong> Onward works through Claude Code or Codex, signed in on this computer.</li>
-        <li><strong>You stay in charge.</strong> Nothing is sent or submitted for you.</li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+          <div><strong>Your files stay yours</strong>Resumes, letters and applications are ordinary files in a folder on this computer.</div>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
+          <div><strong>Your own AI subscription</strong>Onward works through Claude Code or Codex, signed in on this computer.</div>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+          <div><strong>You stay in charge</strong>Nothing is ever sent or submitted for you.</div>
+        </li>
       </ul>
       <p class="aside">Setup takes a few minutes: choose a folder, connect your AI tool, then bring in your resume.</p>
       <div class="actions"><button class="primary" data-next>Get started</button></div>
@@ -37,7 +50,7 @@
       <h1>Where should Onward save your documents?</h1>
       <p class="lead">Onward keeps everything in one folder: your resumes, every application with its tailored CV and letter, and your progress. We recommend your Documents folder, where it is easy to find and back up.</p>
       <div class="folder">
-        <div class="folder-icon" aria-hidden="true"></div>
+        <svg class="folder-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
         <div class="folder-text">
           <p class="folder-path" id="folder-path">…</p>
           <p class="folder-note" id="folder-note"></p>
@@ -92,13 +105,13 @@
     </section>
 
     <section data-step="done">
-      <div class="check" aria-hidden="true"></div>
+      <svg class="check" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="26"/><path d="M16 27l7 7 13-15"/></svg>
       <h1 id="done-title">Your folder is ready</h1>
       <p class="lead" id="done-lead">One last step, in Onward itself: bring in the resume you have now.</p>
       <ol class="next-steps" id="next-steps">
-        <li><strong>Add your resume.</strong> Drop in its PDF, or paste the text. Your AI tool sorts it into sections, word for word.</li>
-        <li><strong>It becomes two resumes.</strong> A <em>master</em> that holds everything you have done, and a <em>general</em> one, ready to send.</li>
-        <li><strong>Then add a job.</strong> Onward tailors a CV from them for each posting, and you send it yourself.</li>
+        <li><span><strong>Add your resume.</strong> Drop in its PDF, or paste the text. Your AI tool sorts it into sections, word for word.</span></li>
+        <li><span><strong>It becomes two resumes.</strong> A <em>master</em> that holds everything you have done, and a <em>general</em> one, ready to send.</span></li>
+        <li><span><strong>Then add a job.</strong> Onward tailors a CV from them for each posting, and you send it yourself.</span></li>
       </ol>
       <div class="actions"><button class="primary" id="open-app">Continue to your resume</button></div>
     </section>
