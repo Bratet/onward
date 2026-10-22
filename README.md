@@ -91,13 +91,17 @@ Node, so there is nothing else to install apart from the CLIs below.
 - **Claude Code and Codex** are still the ones on your computer, signed in with
   your subscription. If the app finds neither, it says so on launch and links to
   both installers. RenderCV is needed for PDFs, and the app warns when it is missing.
-- **Your data:** on first launch, pick your existing workspace folder (for example
-  a clone of your private data repo), or start with sample data in
-  `Documents/Onward`. *Change Workspace Folder…* in the app menu switches later.
+- **First launch** opens a short walkthrough (`desktop/onboarding/`): where to save
+  your documents (`Documents/Onward` by default), your name and email for a starter
+  resume, and a check of the AI tools with install links. Someone who already has
+  an Onward folder, such as a clone of their private data repo, opens it instead.
+- **Settings → App & updates** shows the version, checks for, downloads and
+  installs updates, turns automatic updates on or off, and opens or changes the
+  workspace folder.
 - **Updates:** every push to `main` builds the installers and publishes them as a
-  GitHub release (`.github/workflows/desktop.yml`). The installed app checks on
-  launch and every four hours, downloads the update in the background, and offers
-  a restart. *Check for Updates…* in the app menu checks right away.
+  GitHub release (`.github/workflows/desktop.yml`). With automatic updates on, the
+  app checks on launch and every four hours, downloads in the background, and
+  offers a restart.
 
 The builds are not code-signed yet. On macOS, open the app the first time with
 right-click → Open; Windows SmartScreen asks once too. An unsigned Mac app can't

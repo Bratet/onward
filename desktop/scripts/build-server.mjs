@@ -14,6 +14,8 @@ const root = resolve(desktop, '..')
 const out = join(desktop, 'build', 'server')
 const distDir = join(root, '.next-desktop')
 
+// A clean build every time: a reused cache can keep a stylesheet that misses new classes.
+rmSync(distDir, { recursive: true, force: true })
 const build = spawnSync('npx', ['next', 'build'], {
   cwd: root,
   stdio: 'inherit',
@@ -33,7 +35,12 @@ const skipPyCache = (src) => !src.includes('__pycache__')
 cpSync(join(root, 'templates'), join(out, 'templates'), { recursive: true })
 cpSync(join(root, 'patches'), join(out, 'patches'), { recursive: true, filter: skipPyCache })
 cpSync(join(root, 'AGENTS.md'), join(out, 'AGENTS.md'))
-cpSync(join(root, 'examples', 'workspace'), join(out, 'examples', 'workspace'), { recursive: true })
+// Only the tracked sample: tests leave settings, runs and chats in it (see .gitignore).
+const LOCAL_STATE = /[\\/]state[\\/](settings\.json|claude-models\.json|codex-models\.json|goal\.json|\.trash|runs|chats|workspaces)([\\/]|$)/
+cpSync(join(root, 'examples', 'workspace'), join(out, 'examples', 'workspace'), {
+  recursive: true,
+  filter: (src) => !LOCAL_STATE.test(src),
+})
 const worker = join('node_modules', 'pdfjs-dist', 'legacy', 'build', 'pdf.worker.min.mjs')
 mkdirSync(dirname(join(out, worker)), { recursive: true })
 cpSync(join(root, worker), join(out, worker))

@@ -1,4 +1,4 @@
-import { spawnSync } from 'child_process'
+import { execFile, spawnSync } from 'child_process'
 import { homedir } from 'os'
 import { delimiter, join } from 'path'
 
@@ -36,26 +36,30 @@ export function shellPath() {
   return [...new Set(parts.filter(Boolean))].join(delimiter)
 }
 
-function works(bin, args, env) {
-  const result = spawnSync(bin, args, {
-    env,
-    encoding: 'utf-8',
-    timeout: 15000,
-    // npm installs `claude` and `codex` as .cmd shims on Windows, which only a shell can run.
-    shell: process.platform === 'win32',
-    windowsHide: true,
+/** First line of `<bin> <args>`, or null when it isn't installed or fails. */
+function version(bin, args, env) {
+  return new Promise((resolve) => {
+    execFile(bin, args, {
+      env,
+      timeout: 15000,
+      // npm installs `claude` and `codex` as .cmd shims on Windows, which only a shell can run.
+      shell: process.platform === 'win32',
+      windowsHide: true,
+    }, (err, stdout, stderr) => {
+      resolve(err ? null : (String(stdout) || String(stderr)).trim().split('\n')[0] || 'installed')
+    })
   })
-  return result.status === 0
 }
 
-/** Which of the tools the app shells out to are reachable with this environment. */
-export function detectEngines(env) {
+/** The version of each tool the app shells out to, or null for one it can't reach. */
+export async function detectEngines(env) {
   const python = process.platform === 'win32' ? 'python' : 'python3'
-  return {
-    claude: works('claude', ['--version'], env),
-    codex: works('codex', ['--version'], env),
-    rendercv: works('rendercv', ['--version'], env) || works(python, ['-m', 'rendercv', '--version'], env),
-  }
+  const [claude, codex, rendercv] = await Promise.all([
+    version('claude', ['--version'], env),
+    version('codex', ['--version'], env),
+    version('rendercv', ['--version'], env).then((found) => found ?? version(python, ['-m', 'rendercv', '--version'], env)),
+  ])
+  return { claude, codex, rendercv }
 }
 
 export const INSTALL_LINKS = {

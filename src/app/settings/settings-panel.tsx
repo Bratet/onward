@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Check, CircleAlert, Monitor, Moon, Sun } from 'lucide-react'
 import type { AiFeature } from '@/lib/engine'
 import type { EngineId, EngineStatus, ModelOption } from '@/lib/engine/types'
+import { DesktopSection } from './desktop-section'
 
 export type SettingsFeature = AiFeature
 type Theme = 'system' | 'light' | 'dark'
@@ -136,6 +137,8 @@ export function SettingsPanel({ initial }: { initial: SettingsData }) {
           <p className="text-xs text-[var(--color-muted)]">To edit the instructions behind a task, visit <Link href="/skills" className="font-medium text-[var(--color-accent)] underline underline-offset-2">Skills</Link>.</p>
         </div>
       </section>
+
+      <DesktopSection />
     </div>
   )
 }

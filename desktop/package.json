@@ -27,7 +27,7 @@
     "productName": "Onward",
     "artifactName": "Onward-${version}-${os}-${arch}.${ext}",
     "directories": { "output": "dist" },
-    "files": ["main.mjs", "lib/**", "package.json"],
+    "files": ["main.mjs", "preload.cjs", "lib/**", "onboarding/**", "package.json"],
     "extraResources": [{ "from": "build", "to": ".", "filter": ["server/**/*"] }],
     "publish": [{ "provider": "github", "owner": "Bratet", "repo": "onward", "releaseType": "draft" }],
     "mac": {

@@ -1,0 +1,93 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+  <title>Welcome to Onward</title>
+  <link rel="stylesheet" href="onboarding.css">
+</head>
+<body>
+  <main>
+    <ol class="progress" aria-label="Setup steps">
+      <li data-step="welcome">Welcome</li>
+      <li data-step="folder">Your folder</li>
+      <li data-step="about">About you</li>
+      <li data-step="tools">AI tools</li>
+      <li data-step="done">Ready</li>
+    </ol>
+
+    <section data-step="welcome">
+      <div class="mark" aria-hidden="true">on</div>
+      <h1>Welcome to Onward</h1>
+      <p class="lead">Your job application companion. Paste a job posting and Onward reads it, tailors your resume to it, writes a cover letter if you want one, and keeps track of every application until you get an offer.</p>
+      <ul class="points">
+        <li><strong>Your files stay yours.</strong> Resumes, letters and applications are saved as ordinary files in a folder on this computer.</li>
+        <li><strong>Your own AI subscription.</strong> Onward works through Claude Code or Codex, signed in on this computer.</li>
+        <li><strong>You stay in charge.</strong> Nothing is sent or submitted for you.</li>
+      </ul>
+      <div class="actions"><button class="primary" data-next>Get started</button></div>
+    </section>
+
+    <section data-step="folder">
+      <h1>Where should Onward save your documents?</h1>
+      <p class="lead">Onward keeps everything in one folder: your resumes, every application with its tailored CV and letter, and your progress. Pick a place you back up.</p>
+      <div class="folder">
+        <div class="folder-icon" aria-hidden="true"></div>
+        <div class="folder-text">
+          <p class="folder-path" id="folder-path">…</p>
+          <p class="folder-note" id="folder-note"></p>
+        </div>
+        <button id="change-folder">Change…</button>
+      </div>
+      <p class="aside">Already use Onward? <button class="link" id="existing-folder">Open your existing folder</button></p>
+      <div class="actions"><button data-back>Back</button><button class="primary" data-next>Continue</button></div>
+    </section>
+
+    <section data-step="about">
+      <h1>Tell us about you</h1>
+      <p class="lead">Onward starts you off with an example resume in your name. You'll replace its content with your own experience next.</p>
+      <form id="about-form" novalidate>
+        <label>Full name
+          <input id="full-name" name="fullName" autocomplete="name" required placeholder="Your name as it should appear on your resume">
+        </label>
+        <label>Email <span class="optional">optional</span>
+          <input id="email" name="email" type="email" autocomplete="email" placeholder="you@example.com">
+        </label>
+        <p class="hint">Used on your resume and in your file names. You can change both later.</p>
+        <p class="error" id="about-error" role="alert"></p>
+      </form>
+      <div class="actions"><button data-back>Back</button><button class="primary" id="about-next">Continue</button></div>
+    </section>
+
+    <section data-step="tools">
+      <h1>Connect your AI tools</h1>
+      <p class="lead">Onward does its AI work through Claude Code or Codex, using your own subscription. It needs one of the two, signed in on this computer. RenderCV turns your resume into a PDF.</p>
+      <ul class="tools" id="tools">
+        <li data-tool="claude"><span class="dot"></span><div><strong>Claude Code</strong><span class="status">Checking…</span></div><button class="link" data-install="claude">How to install</button></li>
+        <li data-tool="codex"><span class="dot"></span><div><strong>Codex</strong><span class="status">Checking…</span></div><button class="link" data-install="codex">How to install</button></li>
+        <li data-tool="rendercv"><span class="dot"></span><div><strong>RenderCV</strong><span class="status">Checking…</span></div><button class="link" data-install="rendercv">How to install</button></li>
+      </ul>
+      <p class="hint" id="tools-hint">After installing, sign in once in a terminal: run <code>claude</code>, or <code>codex login</code>. Then check again.</p>
+      <p class="error" id="finish-error" role="alert"></p>
+      <div class="actions">
+        <button data-back>Back</button>
+        <button id="recheck">Check again</button>
+        <button class="primary" id="tools-next">Continue</button>
+      </div>
+    </section>
+
+    <section data-step="done">
+      <div class="check" aria-hidden="true"></div>
+      <h1 id="done-title">You're all set</h1>
+      <p class="lead" id="done-lead">Here's how to get going:</p>
+      <ol class="next-steps" id="next-steps">
+        <li><strong>Make the resume yours.</strong> Profile opens first: replace the example experience with your own. Every tailored CV is cut from it.</li>
+        <li><strong>Add a job.</strong> Choose <em>New application</em> and paste a posting.</li>
+        <li><strong>Review, then apply.</strong> Check the tailored CV, download it, and send it yourself.</li>
+      </ol>
+      <div class="actions"><button class="primary" id="open-app">Open Onward</button></div>
+    </section>
+  </main>
+  <script src="onboarding.js"></script>
+</body>
+</html>

@@ -1,42 +1,52 @@
-import { app, BrowserWindow, dialog, Menu, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
+import { readFileSync } from 'fs'
 import { dirname, join } from 'path'
 import { fileURLToPath } from 'url'
 import { detectEngines, INSTALL_LINKS, shellPath } from './lib/environment.mjs'
 import { startServer } from './lib/server.mjs'
-import { checkForUpdates, setupUpdates } from './lib/updater.mjs'
-import { chooseWorkspace, pickWorkspace, savedWorkspace } from './lib/workspace.mjs'
+import { readDesktopSettings } from './lib/settings.mjs'
+import {
+  checkForUpdates,
+  downloadUpdate,
+  installUpdate,
+  openDownload,
+  RELEASES,
+  setAutoUpdate,
+  setupUpdates,
+  updateState,
+} from './lib/updater.mjs'
+import { runOnboarding } from './lib/onboarding.mjs'
+import { pickWorkspace, savedWorkspace } from './lib/workspace.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
 // Packaged: resources/server. From source: desktop/build/server (npm run server).
 const serverDir = app.isPackaged ? join(process.resourcesPath, 'server') : join(here, 'build', 'server')
 const logFile = () => join(app.getPath('logs'), 'server.log')
+// CI stamps the commit a release was built from into package.json.
+const buildCommit = (() => {
+  try {
+    return JSON.parse(readFileSync(join(app.getAppPath(), 'package.json'), 'utf-8')).onwardCommit ?? null
+  } catch {
+    return null
+  }
+})()
 
 let window = null
 let server = null
 let workspace = null
+// Onboarding closes its window before the app's opens; that must not quit the app.
+let starting = true
 const path = shellPath()
 
 /**
  * Onward does its AI work through the Claude Code and Codex CLIs signed in on
- * this computer. Without either one it cannot tailor anything, so say how to
- * get one before opening the app.
+ * this computer. Onboarding walks a new user through them; on later launches,
+ * say so if both have gone missing since.
  */
 async function checkEngines() {
   for (;;) {
-    const found = detectEngines({ ...process.env, PATH: path })
-    if (found.claude || found.codex) {
-      if (!found.rendercv) {
-        const { response } = await dialog.showMessageBox({
-          type: 'warning',
-          message: 'RenderCV is not installed',
-          detail: 'Onward needs RenderCV 2.8 or newer to make PDFs. Install it with:\n\npip install "rendercv>=2.8"',
-          buttons: ['Continue', 'Open RenderCV Docs'],
-          defaultId: 0,
-        })
-        if (response === 1) shell.openExternal(INSTALL_LINKS.rendercv)
-      }
-      return true
-    }
+    const found = await detectEngines({ ...process.env, PATH: path })
+    if (found.claude || found.codex) return true
     const { response } = await dialog.showMessageBox({
       type: 'warning',
       message: 'Install Claude Code or Codex to use Onward',
@@ -74,7 +84,7 @@ function isLocal(url) {
   return server && url.startsWith(server.url)
 }
 
-function createWindow() {
+function createWindow(page = '') {
   window = new BrowserWindow({
     width: 1440,
     height: 940,
@@ -82,7 +92,7 @@ function createWindow() {
     minHeight: 600,
     title: 'Onward',
     show: false,
-    webPreferences: { contextIsolation: true, sandbox: true },
+    webPreferences: { contextIsolation: true, sandbox: true, preload: join(here, 'preload.cjs') },
   })
   window.once('ready-to-show', () => window.show())
   // Postings, company pages and docs open in the user's browser, not inside the app.
@@ -97,22 +107,61 @@ function createWindow() {
     shell.openExternal(url)
   })
   window.on('closed', () => { window = null })
-  window.loadURL(server.url)
+  window.loadURL(`${server.url}${page}`)
 }
 
 async function changeWorkspace() {
   const dir = await pickWorkspace(window)
-  if (!dir || dir === workspace) return
+  if (!dir || dir === workspace) return workspace
   workspace = dir
   server?.stop()
-  if (await launchServer()) window?.loadURL(server.url)
+  if (await launchServer()) window?.loadURL(`${server.url}/settings`)
   else app.quit()
+  return workspace
+}
+
+/** Settings is where the version and updates live; the menu item goes there. */
+function openUpdateSettings() {
+  if (!window) createWindow()
+  const target = `${server.url}/settings#app`
+  if (window.webContents.getURL() !== target) window.loadURL(target)
+  window.focus()
+  checkForUpdates()
+}
+
+/** Only the app's own pages may use the bridge, never a page opened from a link. */
+function handle(channel, fn) {
+  ipcMain.handle(channel, (event, ...args) => {
+    if (!isLocal(event.senderFrame?.url ?? '')) throw new Error('not allowed')
+    return fn(...args)
+  })
+}
+
+function registerBridge() {
+  handle('onward:info', () => ({
+    version: app.getVersion(),
+    commit: buildCommit,
+    platform: process.platform,
+    arch: process.arch,
+    packaged: app.isPackaged,
+    workspace,
+    autoUpdate: readDesktopSettings().autoUpdate,
+    update: updateState(),
+  }))
+  handle('onward:check-updates', () => checkForUpdates())
+  handle('onward:download-update', () => downloadUpdate())
+  handle('onward:install-update', () => installUpdate())
+  handle('onward:open-download', () => openDownload())
+  handle('onward:release-notes', () => shell.openExternal(`${RELEASES}/tag/v${app.getVersion()}`))
+  handle('onward:set-auto-update', (enabled) => setAutoUpdate(enabled))
+  handle('onward:change-workspace', () => changeWorkspace())
+  handle('onward:open-workspace', () => shell.openPath(workspace))
 }
 
 function buildMenu() {
   const isMac = process.platform === 'darwin'
   const onwardItems = [
-    { label: 'Check for Updates…', click: () => checkForUpdates() },
+    { label: 'Check for Updates…', click: openUpdateSettings },
     { type: 'separator' },
     { label: 'Change Workspace Folder…', click: changeWorkspace },
     { label: 'Open Workspace Folder', click: () => shell.openPath(workspace) },
@@ -162,14 +211,25 @@ if (!app.requestSingleInstanceLock()) {
     // ONWARD_DESKTOP_URL lets the shell wrap a running `make dev` while working on the UI.
     const devUrl = process.env.ONWARD_DESKTOP_URL
     workspace = savedWorkspace()
+    let firstPage = ''
     if (!devUrl) {
-      if (!workspace) workspace = await chooseWorkspace(serverDir)
-      if (!workspace || !(await checkEngines()) || !(await launchServer())) return app.quit()
+      if (workspace) {
+        if (!(await checkEngines())) return app.quit()
+      } else {
+        const onboarded = await runOnboarding({ here, serverDir, path })
+        if (!onboarded) return app.quit()
+        workspace = onboarded.workspace
+        // A new user's first job is to replace the example resume with their own.
+        if (onboarded.isNew) firstPage = '/profile'
+      }
+      if (!(await launchServer())) return app.quit()
     } else {
       server = { url: devUrl.replace(/\/$/, ''), stop: () => {} }
     }
+    registerBridge()
     buildMenu()
-    createWindow()
+    createWindow(firstPage)
+    starting = false
     setupUpdates()
 
     app.on('activate', () => {
@@ -178,7 +238,7 @@ if (!app.requestSingleInstanceLock()) {
   })
 
   app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') app.quit()
+    if (process.platform !== 'darwin' && !starting) app.quit()
   })
   app.on('before-quit', () => server?.stop())
 }
