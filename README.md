@@ -109,9 +109,12 @@ Node, so there is nothing else to install apart from the CLIs below.
   app checks on launch and every four hours, downloads in the background, and
   offers a restart.
 
-The builds are not code-signed yet. On macOS, open the app the first time with
-right-click → Open; Windows SmartScreen asks once too. An unsigned Mac app can't
-replace itself, so on macOS the update prompt links to the new download instead.
+The builds are not signed with an Apple or Microsoft certificate yet, so both
+systems ask once. On macOS, open Onward, close the "could not verify" message,
+then go to System Settings → Privacy & Security and choose Open Anyway. On
+Windows, choose More info → Run anyway on the SmartScreen message. Without a
+certificate a Mac app can't replace itself, so on macOS the update prompt links
+to the new download instead.
 
 To work on it: `make desktop` builds the bundled server and opens it in the
 desktop shell, and `make desktop-dist` builds this OS's installers into

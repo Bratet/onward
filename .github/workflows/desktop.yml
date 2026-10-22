@@ -62,7 +62,9 @@ jobs:
         working-directory: desktop
         env:
           GH_TOKEN: ${{ github.token }}
-          # No signing certificates yet: macOS builds are unsigned (ad-hoc).
+          # No Apple certificate yet: macOS builds are signed ad-hoc (mac.identity "-"
+          # in desktop/package.json). Without a valid signature, macOS calls a
+          # downloaded app "damaged" and offers no way to open it.
           CSC_IDENTITY_AUTO_DISCOVERY: false
         run: npm run dist
       # electron-builder's own upload races between the three runners and can open a
