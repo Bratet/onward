@@ -149,8 +149,8 @@ export function SkillEditor({
           <button onClick={() => setDuplicateOpen((open) => !open)} disabled={busy !== null} className="rounded-md border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-text)] disabled:opacity-40">
             Duplicate
           </button>
-          <button onClick={save} disabled={busy !== null || !dirty} className="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-bg)] disabled:opacity-40">
-            {busy === 'save' ? <Spinner className="border-t-[var(--color-bg)]" /> : null}
+          <button onClick={save} disabled={busy !== null || !dirty} className="flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-on-solid)] disabled:opacity-40">
+            {busy === 'save' ? <Spinner className="border-t-[var(--color-on-solid)]" /> : null}
             {busy === 'save' ? 'Saving…' : dirty ? 'Save new version' : 'Saved ✓'}
           </button>
         </div>
@@ -160,7 +160,7 @@ export function SkillEditor({
         <Card className="flex flex-wrap items-center gap-2 p-3">
           <label className="text-xs text-[var(--color-muted)]" htmlFor="duplicate-id">New skill ID</label>
           <input id="duplicate-id" value={duplicateId} onChange={(event) => setDuplicateId(event.target.value)} spellCheck={false} className="min-w-56 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2.5 py-1.5 font-mono text-xs outline-none focus:border-[var(--color-accent)]" />
-          <button onClick={duplicate} disabled={busy !== null || !duplicateId.trim()} className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-bg)] disabled:opacity-40">
+          <button onClick={duplicate} disabled={busy !== null || !duplicateId.trim()} className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-on-solid)] disabled:opacity-40">
             {busy === 'duplicate' ? 'Creating…' : 'Create copy'}
           </button>
         </Card>

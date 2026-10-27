@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ARCHETYPES, GENERAL_BASE, isProfileId } from './baseCv'
 
 /**
  * JD analysis: the first structured LLM call.
@@ -20,10 +21,7 @@ export const jdAnalysisSchema = {
   properties: {
     company: { type: 'string', description: 'Hiring company. The employer, not the recruiting agency, when both appear. An empty string when the posting never names it, never a placeholder such as "Not stated".' },
     role: { type: 'string', description: 'Exact job title as posted, plus location and work mode in parentheses.' },
-    archetype: {
-      type: 'string',
-      enum: ['data-science', 'ml-engineering', 'ai-llm', 'applied-research', 'ml-performance', 'software', 'other'],
-    },
+    archetype: { type: 'string', enum: ARCHETYPES },
     language: { type: 'string', enum: ['en', 'fr'], description: 'Language the posting is written in.' },
     paperSize: { type: 'string', enum: ['a4', 'us-letter'], description: 'us-letter for US/Canada roles, a4 otherwise.' },
     seniority: { type: ['string', 'null'], description: 'Stated seniority, or null if the posting does not say.' },
@@ -93,8 +91,8 @@ const rawJdAnalysisParser = z.object({
   })),
   keywords: z.array(z.string()),
   summary: z.string().nullish(),
-  /** Chosen on the review step, not by the model; absent means the archetype default. */
-  baseCv: z.enum(['general', 'ai', 'ml', 'ds']).nullish(),
+  /** Chosen on the review step, not by the model: `general` or a resume profile id; absent means the archetype default. */
+  baseCv: z.string().refine((value) => value === GENERAL_BASE.id || isProfileId(value), 'unknown starting resume').nullish(),
 })
 
 /**

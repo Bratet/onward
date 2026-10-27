@@ -57,7 +57,7 @@ export function GeneralApplicationForm({ onCreated, onBusy }: { onCreated?: () =
       {created ? <Link href={`/applications/${created}?tab=workspace&pane=preview`} onClick={onCreated} className="text-sm text-[var(--color-accent)] underline">Open saved application</Link> : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Link href={`/profile?src=general-${language}`} onClick={onCreated} className="text-xs text-[var(--color-accent)] underline">Edit general CV in Profile</Link>
-        <button disabled={busy || !!created} className="flex items-center gap-2 rounded-md bg-[var(--color-accent)] px-3 py-2 text-xs font-medium text-[var(--color-bg)] disabled:opacity-50">{busy ? <Spinner /> : null}{busy ? 'Creating…' : `Create with ${language === 'en' ? 'English' : 'French'} resume`}</button>
+        <button disabled={busy || !!created} className="flex items-center gap-2 rounded-md bg-[var(--color-accent)] px-3 py-2 text-xs font-medium text-[var(--color-on-solid)] disabled:opacity-50">{busy ? <Spinner /> : null}{busy ? 'Creating…' : `Create with ${language === 'en' ? 'English' : 'French'} resume`}</button>
       </div>
     </form>
   )

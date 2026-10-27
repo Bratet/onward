@@ -53,6 +53,8 @@ test: node_modules ## Tracker and tailoring tests
 	@npm run test:saved-searches
 	@npm run test:resume-review
 	@npm run test:resume-import
+	@npm run test:resume-profiles
+	@npm run test:resume-revisions
 	@npm run test:general-application
 	@npm run test:tracker
 	@npm run test:ops
@@ -120,3 +122,6 @@ claude :
 
 codex:
 	- codex --dangerously-bypass-approvals-and-sandbox
+
+omp:
+	- omp --yolo

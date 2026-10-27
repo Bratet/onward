@@ -53,9 +53,10 @@ export function statusTone(status: string): Tone {
     case 'Responded': return 'accent'
     case 'Applied':
     case 'Tailored': return 'warn'
-    case 'Rejected':
+    case 'Rejected': return 'bad'
+    // Set aside and Skipped are the candidate's own decisions, not a failure.
     case 'SKIP':
-    case 'Discarded': return 'bad'
+    case 'Discarded': return 'neutral'
     default: return 'neutral'
   }
 }

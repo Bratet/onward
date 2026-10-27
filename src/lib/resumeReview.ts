@@ -19,9 +19,8 @@ export type ResumeReview = z.infer<typeof resumeReviewParser>
 
 export const reviewRequestParser = z.object({
   yaml: z.string().trim().min(1).max(150000),
-  source: z.enum([
-    'general-en', 'general-fr', 'ai-en', 'ai-fr', 'ml-en', 'ml-fr', 'ds-en', 'ds-fr', 'master-en', 'master-fr',
-  ]),
+  /** The Profile page source under review, such as `general-en` or `backend-fr`; a label only. */
+  source: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*-(?:en|fr)$/),
   message: z.string().trim().min(1).max(8000).optional(),
   previousReview: resumeReviewParser.optional(),
   conversation: z.array(z.object({ role: z.enum(['user', 'assistant']), content: z.string().max(16000) })).max(20).optional(),

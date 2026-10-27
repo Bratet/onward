@@ -294,11 +294,11 @@ export function TailorPanel({
             'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium hover:opacity-90 disabled:opacity-40',
             phase === 'tailoring'
               ? 'border border-[var(--color-bad)] text-[var(--color-bad)]'
-              : 'bg-[var(--color-accent)] text-[var(--color-bg)]',
+              : 'bg-[var(--color-accent)] text-[var(--color-on-solid)]',
           )}
           title="Tailors the general resume using the full master as evidence"
         >
-          {phase === 'tailoring' ? <Spinner className="border-t-[var(--color-bg)]" /> : null}
+          {phase === 'tailoring' ? <Spinner className="border-t-[var(--color-on-solid)]" /> : null}
           {phase === 'tailoring' ? 'Cancel tailoring' : snapshot ? 'Proposal ready' : 'Tailor resume'}
         </button>
 

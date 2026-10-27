@@ -282,7 +282,7 @@ function FolderLinker({ folders, onLink }: { folders: string[]; onLink: (f: stri
         <button
           disabled={!pick}
           onClick={() => onLink(pick)}
-          className="rounded-md bg-[var(--color-accent)] px-2.5 py-1 text-xs font-medium text-[var(--color-bg)] disabled:opacity-40"
+          className="rounded-md bg-[var(--color-accent)] px-2.5 py-1 text-xs font-medium text-[var(--color-on-solid)] disabled:opacity-40"
         >
           Link
         </button>

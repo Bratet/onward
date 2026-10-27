@@ -251,7 +251,7 @@ function Stat({
           // Arrow + sign, never color alone.
           <span
             className="text-[11px] font-medium tnum"
-            style={{ color: delta > 0 ? 'var(--color-status-good)' : 'var(--color-muted)' }}
+            style={{ color: delta > 0 ? 'var(--color-ok)' : 'var(--color-muted)' }}
           >
             {delta > 0 ? '↑' : '↓'} {Math.abs(delta)}
           </span>

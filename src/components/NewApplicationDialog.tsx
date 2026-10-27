@@ -37,9 +37,10 @@ export function NewApplicationDialog() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex min-h-8 items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3 text-xs font-semibold text-[var(--color-on-solid)] transition-colors hover:opacity-90"
+        // A secondary in the top bar: it is on every page, so it must not outrank the page's own next move.
+        className="flex min-h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-xs font-semibold text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]"
       >
-        <Plus aria-hidden="true" className="size-4" />
+        <Plus aria-hidden="true" className="size-4 text-[var(--color-accent)]" />
         <span className="hidden sm:inline">New application</span><span className="sm:hidden">New</span>
       </button>
       <dialog

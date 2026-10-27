@@ -13,7 +13,7 @@ const source = readFileSync(join(root, 'src/app/icon.svg'), 'utf-8')
 const resources = join(root, 'desktop/resources')
 mkdirSync(resources, { recursive: true })
 
-const gradient = source.match(/<defs>[\s\S]*<\/defs>/)[0]
+const tile = source.match(/<rect[^>]*fill="([^"]+)"/)[1]
 const mark = source.match(/<path[^>]*\/>/)[0]
 
 /** The mark on a 64-unit tile, placed in a canvas; `rx` 0 gives a square tile for platforms that round it themselves. */
@@ -21,11 +21,11 @@ function svg({ canvas = 64, inset = 0, rx = 15, shadow = false }) {
   const size = canvas - inset * 2
   const scale = size / 64
   const filter = shadow
-    ? '<filter id="shadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="0.8" stdDeviation="1.1" flood-color="#1c0d3d" flood-opacity="0.3"/></filter>'
+    ? '<defs><filter id="shadow" x="-10%" y="-10%" width="120%" height="125%"><feDropShadow dx="0" dy="0.8" stdDeviation="1.1" flood-color="#2a1408" flood-opacity="0.3"/></filter></defs>'
     : ''
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvas} ${canvas}">${gradient.replace('</defs>', `${filter}</defs>`)}
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${canvas} ${canvas}">${filter}
     <g transform="translate(${inset} ${inset}) scale(${scale})">
-      <rect width="64" height="64" rx="${rx}" fill="url(#onward-tile)"${shadow ? ' filter="url(#shadow)"' : ''}/>${mark}
+      <rect width="64" height="64" rx="${rx}" fill="${tile}"${shadow ? ' filter="url(#shadow)"' : ''}/>${mark}
     </g></svg>`
 }
 

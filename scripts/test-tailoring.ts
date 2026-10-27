@@ -1,7 +1,7 @@
-import { existsSync } from 'fs'
 import { readFile } from 'fs/promises'
 import { parse } from 'yaml'
 import { baseCvPath, PATHS } from '../src/lib/paths'
+import { readProfiles } from '../src/lib/resumeProfiles'
 import { defaultBaseCv } from '../src/lib/tailoring/baseCv'
 import { jdAnalysisParser, rankedRequirements } from '../src/lib/tailoring/jd'
 import { requirementMap, withTailoredDesign, seedYaml } from '../src/lib/tailoring/seed'
@@ -159,10 +159,11 @@ check('accepted proposal records rendered result', accepted.includes('1 page, 94
 
 
 // The sample workspace ships only the all-round resume, so every archetype
-// falls back to it; with a variant file present, baseCvPath picks the variant.
+// falls back to it; with a profile file present, baseCvPath picks the profile.
+const profiles = await readProfiles()
 for (const archetype of ['ai-llm', 'ml-engineering', 'ml-performance', 'data-science', 'applied-research', 'other']) {
   for (const language of ['en', 'fr'] as const) {
-    const expected = baseCvPath(defaultBaseCv(archetype), language)
+    const expected = baseCvPath(defaultBaseCv(archetype, profiles), language)
     const source = parse(await readFile(expected, 'utf-8'))
     const seeded = parse(await seedYaml({ ...ranked, archetype, language, paperSize: 'us-letter' }))
     check(`${archetype} ${language} baseline preserves its base content and section order`, JSON.stringify(seeded.cv) === JSON.stringify(source.cv))
@@ -170,7 +171,7 @@ for (const archetype of ['ai-llm', 'ml-engineering', 'ml-performance', 'data-sci
     check(`${archetype} ${language} baseline honors JD paper size`, seeded.design.page.size === 'us-letter')
   }
 }
-check('a missing variant falls back to the all-round resume', existsSync(PATHS.ownCvVariants.ai.en) || baseCvPath('ai', 'en') === PATHS.ownCv.en)
+check('a missing profile falls back to the all-round resume', baseCvPath('ai', 'en') === PATHS.ownCv.en)
 for (const language of ['en', 'fr'] as const) {
   const chosen = parse(await seedYaml({ ...ranked, archetype: 'ai-llm', baseCv: 'ds', language }))
   const ds = parse(await readFile(baseCvPath('ds', language), 'utf-8'))

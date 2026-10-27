@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { ChevronRight, ClipboardList, Copy, FileText, Linkedin, ListPlus, Mail, MessageSquareText, Plus, Square, Trash2, X } from 'lucide-react'
+import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { ChevronRight, ClipboardList, Copy, FileText, Linkedin, ListPlus, Mail, MessageSquareText, Plus, Trash2, X } from 'lucide-react'
 import type { Application } from '@/lib/applications'
 import type { CoverLetter } from '@/lib/coverLetter'
 import type { PostingContact } from '@/lib/postingContact'
@@ -10,6 +10,7 @@ import type { OutreachDrafts } from '@/lib/outreach'
 import { isAnswered, newFormAnswer, overLimit, splitQuestions, type AnswerTurn, type FormAnswer } from '@/lib/formAnswers'
 import { ErrorNotice } from '@/components/ErrorNotice'
 import { LearnFromChat } from '@/components/LearnFromChat'
+import { AiBlocked, AiComposer, AiEmpty, AiPanelHeader, AiPrompts, AiReview, aiReply, aiUserBubble } from '@/components/AiPanel'
 import { Spinner } from '@/components/ui/primitives'
 import { cn } from '@/lib/utils'
 import { useFillHeight } from '@/components/useFillHeight'
@@ -18,20 +19,19 @@ import { CoverLetterTask } from './cover-letter-task'
 export type DocumentKind = 'cover-letter' | 'answers' | 'email' | 'linkedin'
 export const DOCUMENT_KINDS: readonly DocumentKind[] = ['cover-letter', 'answers', 'email', 'linkedin']
 
-type Tone = 'ok' | 'warn' | 'accent' | 'neutral'
+type Tone = 'ok' | 'warn' | 'neutral'
 const TONE: Record<Tone, string> = {
   ok: 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]',
   warn: 'bg-[var(--color-warn-soft)] text-[var(--color-warn)]',
-  accent: 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]',
   neutral: 'bg-[var(--color-surface-2)] text-[var(--color-muted)]',
 }
 
 const ring = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]'
 const primaryButton = `inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-3.5 text-sm font-semibold text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] transition-[filter] hover:brightness-110 ${ring} disabled:cursor-not-allowed disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-faint)] disabled:shadow-none`
 const secondaryButton = `inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] ${ring} disabled:cursor-not-allowed disabled:opacity-40`
-const linkButton = `inline-flex cursor-pointer items-center gap-1.5 rounded text-xs font-medium text-[var(--color-accent)] underline-offset-4 hover:underline ${ring} disabled:cursor-not-allowed disabled:text-[var(--color-faint)] disabled:no-underline`
-const field = 'w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-[var(--color-faint)] focus:border-[var(--color-accent)] disabled:opacity-60'
-const panelFrame = 'flex min-h-0 flex-col overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] lg:sticky lg:top-20'
+const linkButton = `inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded text-xs font-medium text-[var(--color-accent)] underline-offset-4 hover:underline ${ring} disabled:cursor-not-allowed disabled:text-[var(--color-faint)] disabled:no-underline`
+const field = 'w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:opacity-60'
+const panelFrame = 'sheet flex min-h-0 flex-col overflow-hidden lg:sticky lg:top-20'
 /** A chat fills the pane's fixed height; a short form only needs its own. */
 const panel = `workspace-pane ${panelFrame}`
 
@@ -66,8 +66,8 @@ export function DocumentsStep(props: {
   const { app, contact, doc, onDoc, letterPdf, initialLetter, drafts, savedDrafts, answers } = props
   const answered = answers.filter(isAnswered).length
   const status = (kind: DocumentKind): { label: string; tone: Tone } => {
-    if (kind === 'cover-letter') return letterPdf ? { label: 'Final', tone: 'ok' } : initialLetter.content.trim() ? { label: 'Draft', tone: 'accent' } : contact.coverLetter ? { label: 'Asked for', tone: 'warn' } : { label: 'Optional', tone: 'neutral' }
-    if (kind === 'answers') return answers.length ? { label: `${answered} of ${answers.length} answered`, tone: answered === answers.length ? 'ok' : 'accent' } : { label: 'Not started', tone: 'neutral' }
+    if (kind === 'cover-letter') return letterPdf ? { label: 'Final', tone: 'ok' } : initialLetter.content.trim() ? { label: 'Draft', tone: 'neutral' } : contact.coverLetter ? { label: 'Asked for', tone: 'warn' } : { label: 'Optional', tone: 'neutral' }
+    if (kind === 'answers') return answers.length ? { label: `${answered} of ${answers.length} answered`, tone: answered === answers.length ? 'ok' : 'neutral' } : { label: 'Not started', tone: 'neutral' }
     const draft = drafts[kind] ?? ''
     return draft !== (savedDrafts[kind] ?? '') ? { label: 'Unsaved', tone: 'warn' } : draft ? { label: 'Draft saved', tone: 'ok' } : { label: 'Not started', tone: 'neutral' }
   }
@@ -78,32 +78,43 @@ export function DocumentsStep(props: {
     { kind: 'linkedin', title: 'LinkedIn message', hint: 'A note to the recruiter', icon: <Linkedin size={17} /> },
   ]
 
+  // Arrow keys move between the documents, as in any tab list.
+  const onPickerKey = (event: KeyboardEvent) => {
+    const step = event.key === 'ArrowRight' || event.key === 'ArrowDown' ? 1 : event.key === 'ArrowLeft' || event.key === 'ArrowUp' ? -1 : 0
+    if (!step) return
+    event.preventDefault()
+    const next = items[(items.findIndex((item) => item.kind === doc) + step + items.length) % items.length].kind
+    onDoc(next)
+    document.getElementById(`doc-tab-${next}`)?.focus()
+  }
+
   return <div className="space-y-4">
-    <div role="tablist" aria-label="Documents" className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+    {/* Two by two on a phone, with only the name and its state, so the open document starts near the top. */}
+    <div role="tablist" aria-label="Documents" onKeyDown={onPickerKey} className="grid grid-cols-2 gap-2 xl:grid-cols-4">
       {items.map((item) => {
         const selected = item.kind === doc
         const state = status(item.kind)
-        return <button key={item.kind} type="button" role="tab" aria-selected={selected} aria-controls={`doc-${item.kind}`} onClick={() => onDoc(item.kind)} className={cn(
-          'group flex cursor-pointer items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors', ring,
-          selected ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)]' : 'border-[var(--color-border)] bg-[var(--color-surface)] hover:border-[var(--color-border-strong)] hover:bg-[var(--color-surface-2)]',
+        return <button key={item.kind} type="button" role="tab" id={`doc-tab-${item.kind}`} aria-selected={selected} aria-controls={`doc-${item.kind}`} tabIndex={selected ? 0 : -1} onClick={() => onDoc(item.kind)} className={cn(
+          'group flex cursor-pointer flex-col items-start gap-1 rounded-xl border px-3 py-2.5 text-left transition-colors sm:flex-row sm:items-center sm:gap-3 sm:px-3.5 sm:py-3', ring,
+          selected ? 'border-[var(--color-accent)] bg-[var(--color-surface)] shadow-[var(--shadow-sheet)]' : 'border-[var(--color-border)] bg-[color-mix(in_oklab,var(--color-surface)_50%,var(--color-bg))] hover:border-[var(--color-border-strong)] hover:bg-[var(--color-surface)]',
         )}>
-          <span aria-hidden="true" className={cn('grid size-9 shrink-0 place-items-center rounded-lg', selected ? 'bg-[var(--color-accent)] text-[var(--color-on-solid)]' : 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]')}>{item.icon}</span>
-          <span className="min-w-0 flex-1">
+          <span aria-hidden="true" className={cn('hidden size-9 shrink-0 place-items-center rounded-lg bg-[var(--color-surface-2)] sm:grid', selected ? 'text-[var(--color-text)]' : 'text-[var(--color-muted)]')}>{item.icon}</span>
+          <span className="w-full min-w-0 sm:flex-1">
             <span className="block truncate text-sm font-semibold">{item.title}</span>
-            <span className="block truncate text-xs text-[var(--color-muted)]">{item.hint}</span>
+            <span className="hidden truncate text-xs text-[var(--color-muted)] sm:block">{item.hint}</span>
           </span>
-          <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium', TONE[state.tone])}>{state.label}</span>
+          <span className={cn('shrink-0 rounded-[var(--radius-md)] px-1.5 py-0.5 text-xs font-medium', TONE[state.tone])}>{state.label}</span>
         </button>
       })}
     </div>
 
-    <div id="doc-cover-letter" role="tabpanel" hidden={doc !== 'cover-letter'}>
+    <div id="doc-cover-letter" role="tabpanel" aria-labelledby="doc-tab-cover-letter" hidden={doc !== 'cover-letter'}>
       <CoverLetterTask key={app.key} app={app} active={props.active !== false && doc === 'cover-letter'} initialLetter={initialLetter} savedLetter={props.storedLetter} finalizedAtLoad={props.letterFinalized} onLetterSaved={props.onLetterSaved} onLetterFinalized={props.onLetterFinalized} resumeReady={props.resumeReady} onGoToResume={props.onGoToResume} />
     </div>
-    <div id="doc-answers" role="tabpanel" hidden={doc !== 'answers'}>
+    <div id="doc-answers" role="tabpanel" aria-labelledby="doc-tab-answers" hidden={doc !== 'answers'}>
       <FormAnswersTask appKey={app.key} answers={answers} imported={props.answersImported} onAnswers={props.onAnswers} />
     </div>
-    {(['email', 'linkedin'] as const).map((kind) => <div key={kind} id={`doc-${kind}`} role="tabpanel" hidden={doc !== kind}>
+    {(['email', 'linkedin'] as const).map((kind) => <div key={kind} id={`doc-${kind}`} role="tabpanel" aria-labelledby={`doc-tab-${kind}`} hidden={doc !== kind}>
       <MessageTask kind={kind} appKey={app.key} contact={contact} resumeReady={props.resumeReady} onGoToResume={props.onGoToResume} draft={drafts[kind] ?? ''} saved={savedDrafts[kind] ?? ''} onDraft={(text) => props.onDraft(kind, text)} onSaved={(text) => props.onDraftSaved(kind, text)} />
     </div>)}
   </div>
@@ -114,21 +125,6 @@ async function request<T = Record<string, unknown>>(url: string, method: string,
   const data = await response.json()
   if (!response.ok) throw new Error(data.error ?? 'Could not save. Please try again.')
   return data as T
-}
-
-function AiHeader({ title, hint }: { title: string; hint: string }) {
-  return <div className="shrink-0 border-b border-[var(--color-border)] px-4 py-3">
-    <h3 className="text-sm font-semibold">{title}</h3>
-    <p className="mt-0.5 text-xs leading-relaxed text-[var(--color-muted)]">{hint}</p>
-  </div>
-}
-
-function NeedsResume({ onGoToResume }: { onGoToResume: () => void }) {
-  return <div className="border-t border-[var(--color-border)] bg-[var(--color-warn-soft)] px-4 py-3 text-xs">
-    <p className="font-medium">Finalize your resume first</p>
-    <p className="mt-0.5 text-[var(--color-muted)]">The AI writes from the resume you send, so it needs that version.</p>
-    <button type="button" onClick={onGoToResume} className={cn(linkButton, 'mt-2')}>Go to the Resume step</button>
-  </div>
 }
 
 // ── Form questions ────────────────────────────────────────────────────────────
@@ -158,6 +154,7 @@ function FormAnswersTask({ appKey, answers, imported, onAnswers }: { appKey: str
   const abortRef = useRef<AbortController | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const aiPanel = useRef<HTMLElement>(null)
+  const composer = useRef<HTMLTextAreaElement>(null)
   useFillHeight(aiPanel)
   const focused = answers.find((entry) => entry.id === focus) ?? null
   const answered = answers.filter(isAnswered).length
@@ -239,8 +236,8 @@ function FormAnswersTask({ appKey, answers, imported, onAnswers }: { appKey: str
       <section aria-labelledby="form-title" className="min-w-0 space-y-3">
         <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h2 id="form-title" className="text-base font-semibold tracking-tight">Form questions</h2>
-          {answers.length ? <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', answered === answers.length ? TONE.ok : TONE.accent)}>{answered} of {answers.length} answered</span> : null}
-          <span role="status" className="text-xs text-[var(--color-faint)]">{saveState === 'saving' ? 'Saving…' : saveState === 'error' ? 'Not saved' : saveState === 'imported' ? 'From your application-answers.md, saved here on your first edit' : answers.length ? 'Saved' : ''}</span>
+          {answers.length ? <span className={cn('rounded-[var(--radius-md)] px-1.5 py-0.5 text-xs font-medium', answered === answers.length ? TONE.ok : TONE.neutral)}>{answered} of {answers.length} answered</span> : null}
+          <span role="status" className="text-xs text-[var(--color-muted)]">{saveState === 'saving' ? 'Saving…' : saveState === 'error' ? 'Not saved' : saveState === 'imported' ? 'From your application-answers.md, saved here on your first edit' : answers.length ? 'Saved' : ''}</span>
           {copied ? <span role="status" className="text-xs text-[var(--color-ok)]">{copied} copied</span> : null}
           {answered ? <button type="button" onClick={() => void copy(answers.filter(isAnswered).map((entry) => `${entry.question}\n${entry.answer}`).join('\n\n'), 'All answers')} className={cn(secondaryButton, 'ml-auto')}><Copy size={13} aria-hidden="true" />Copy all</button> : null}
         </header>
@@ -260,7 +257,7 @@ function FormAnswersTask({ appKey, answers, imported, onAnswers }: { appKey: str
           />)}
         </ol> : null}
 
-        {pasting ? <div className="rounded-xl bg-[var(--color-accent-soft)] p-4">
+        {pasting ? <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface-2)] p-4">
           <label htmlFor="form-paste" className="block text-sm font-semibold">{answers.length ? 'Paste more questions' : 'Paste the form’s questions'}</label>
           <p className="mt-0.5 text-xs text-[var(--color-muted)]">One per line. Numbering, bullets and “required” marks are removed.</p>
           <textarea id="form-paste" value={paste} onChange={(event) => setPaste(event.target.value)} rows={5} placeholder={'Why do you want to join us?\nWhat is your notice period?\nSalary expectations'} className={cn(field, 'mt-3 bg-[var(--color-surface)]')} />
@@ -278,51 +275,39 @@ function FormAnswersTask({ appKey, answers, imported, onAnswers }: { appKey: str
       </section>
 
       <aside ref={aiPanel} aria-label="Form answers AI" className={panel}>
-        <AiHeader title="Form answers AI" hint="Drafts answers in your voice from your resume and guidance. It asks when it needs a fact it doesn't have." />
+        <AiPanelHeader title="Form answers AI" hint="Drafts answers in your voice from your resume and guidance. It asks when it needs a fact it doesn't have." />
         {turns.length >= 2 ? <LearnFromChat skillId="write-form-answers" turns={turns} disabled={thinking} /> : null}
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
-          {turns.length ? turns.map((turn, index) => <div key={index} className={turn.role === 'user'
-            ? 'ml-auto max-w-[88%] rounded-xl rounded-br-sm bg-[var(--color-accent-soft)] px-3 py-2 text-sm leading-relaxed'
-            : 'max-w-[94%] rounded-xl rounded-bl-sm border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2.5 text-sm leading-relaxed'}>
+          {turns.length ? turns.map((turn, index) => <div key={index} className={turn.role === 'user' ? aiUserBubble : aiReply}>
             <p className="whitespace-pre-wrap">{turn.content}</p>
-          </div>) : <div className="space-y-2 py-6 text-center">
-            <p className="text-sm font-medium">{answers.length ? 'Pick a question, or ask about the whole form' : 'Add the form’s questions first'}</p>
-            <p className="mx-auto max-w-xs text-xs leading-relaxed text-[var(--color-muted)]">Answers stay short and plain, the way you would say them. Every change can be undone.</p>
-          </div>}
+          </div>) : <AiEmpty title={answers.length ? 'Pick a question, or ask about the whole form' : 'Add the form’s questions first'} hint="Answers stay short and plain, the way you would say them. Every change can be undone." />}
           {thinking ? <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]"><Spinner /> Writing… usually under a minute</div> : null}
+          {undo && !thinking ? <AiReview title="Answers updated" hint="The changed answers are on the left. Keep them, or undo to restore the previous answers.">
+            <button type="button" onClick={() => setUndo(null)} className={secondaryButton}>Keep</button>
+            <button type="button" onClick={() => { onAnswers(undo); setUndo(null) }} className={secondaryButton}>Undo</button>
+          </AiReview> : null}
           <div ref={endRef} />
         </div>
-        {undo && !thinking ? <div className="flex items-center gap-2 border-t border-[var(--color-border)] bg-[var(--color-ok-soft)] px-4 py-2 text-xs">
-          <span className="min-w-0 flex-1">Answers updated on the left.</span>
-          <button type="button" onClick={() => setUndo(null)} className={cn(secondaryButton, 'h-7')}>Keep</button>
-          <button type="button" onClick={() => { onAnswers(undo); setUndo(null) }} className={cn(secondaryButton, 'h-7')}>Undo</button>
-        </div> : null}
-        <div className="shrink-0 space-y-2 border-t border-[var(--color-border)] px-4 py-3">
+        <AiComposer
+          value={message}
+          onChange={setMessage}
+          onSubmit={() => void send()}
+          onStop={() => abortRef.current?.abort()}
+          busy={thinking}
+          blocked={!message.trim()}
+          disabled={!answers.length}
+          label="Message the form answers AI"
+          placeholder={answers.length ? 'Say what to change, or give a fact the AI needs…' : 'Add questions on the left to start.'}
+          hint="Nothing is sent."
+          textareaRef={composer}
+        >
           {focused ? <p className="flex items-center gap-2 text-xs">
             <span className="text-[var(--color-muted)]">Working on</span>
             <span className="min-w-0 flex-1 truncate font-medium">Q{answers.indexOf(focused) + 1}. {focused.question || 'Untitled question'}</span>
             <button type="button" onClick={() => setFocus(null)} aria-label="Work on the whole form" title="Work on the whole form" className="grid size-6 cursor-pointer place-items-center rounded-md text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><X size={13} aria-hidden="true" /></button>
           </p> : answers.length ? <p className="text-xs text-[var(--color-muted)]">Working on the whole form</p> : null}
-          {answers.length ? <div className="flex flex-wrap gap-1.5">
-            {prompts.map((prompt) => <button key={prompt} type="button" disabled={thinking} onClick={() => void send(prompt)} className={cn('cursor-pointer rounded-full border border-[var(--color-accent)] px-2.5 py-1 text-xs font-medium text-[var(--color-accent)] transition-colors hover:bg-[var(--color-accent-soft)] disabled:cursor-not-allowed disabled:opacity-40', ring)}>{prompt}</button>)}
-          </div> : null}
-          <textarea
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            onKeyDown={(event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); void send() } }}
-            placeholder={answers.length ? 'Say what to change, or give a fact the AI needs…' : 'Add questions on the left to start.'}
-            aria-label="Message the form answers AI"
-            disabled={thinking || !answers.length}
-            rows={3}
-            className={cn(field, 'resize-none')}
-          />
-          <div className="flex items-center justify-between gap-2">
-            <span className="text-xs text-[var(--color-faint)]">Nothing is sent.</span>
-            <button type="button" onClick={() => thinking ? abortRef.current?.abort() : void send()} disabled={!thinking && (!message.trim() || !answers.length)} className={thinking ? cn(secondaryButton, 'border-[var(--color-bad)] text-[var(--color-bad)]') : primaryButton}>
-              {thinking ? <><Square size={12} aria-hidden="true" />Stop</> : 'Send'}
-            </button>
-          </div>
-        </div>
+          {answers.length ? <AiPrompts prompts={prompts} disabled={thinking} onPick={(prompt) => { setMessage(prompt); composer.current?.focus() }} /> : null}
+        </AiComposer>
       </aside>
     </div>
   </div>
@@ -341,15 +326,15 @@ function QuestionCard({ index, entry, focused, busy, onFocus, onChange, onRemove
 }) {
   const [noting, setNoting] = useState(!!entry.note)
   const over = overLimit(entry)
-  return <li onFocusCapture={onFocus} className={cn('rounded-xl border bg-[var(--color-surface)] transition-colors', focused ? 'border-[var(--color-accent)] shadow-[0_0_0_3px_var(--color-accent-soft)]' : 'border-[var(--color-border)]')}>
+  return <li onFocusCapture={onFocus} className={cn('rounded-xl border bg-[var(--color-surface)] transition-colors', focused ? 'border-[var(--color-accent)]' : 'border-[var(--color-border)]')}>
     <div className="flex items-start gap-2 px-4 pt-3.5">
-      <span aria-hidden="true" className={cn('mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-[11px] font-semibold', isAnswered(entry) ? 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]')}>{index + 1}</span>
-      <textarea value={entry.question} onChange={(event) => onChange({ question: event.target.value })} rows={1} placeholder="Type the question" aria-label={`Question ${index + 1}`} className="field-sizing-content min-h-7 w-full resize-none bg-transparent py-0.5 text-sm font-semibold leading-snug outline-none placeholder:font-normal placeholder:text-[var(--color-faint)]" />
+      <span aria-hidden="true" className={cn('mt-0.5 grid size-6 shrink-0 place-items-center rounded-full text-xs font-semibold', isAnswered(entry) ? 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]')}>{index + 1}</span>
+      <textarea value={entry.question} onChange={(event) => onChange({ question: event.target.value })} rows={1} placeholder="Type the question" aria-label={`Question ${index + 1}`} className="field-sizing-content min-h-7 w-full resize-none bg-transparent py-0.5 text-sm font-semibold leading-snug outline-none placeholder:font-normal placeholder:text-[var(--color-muted)]" />
       <button type="button" onClick={onRemove} aria-label={`Remove question ${index + 1}`} title="Remove the question" className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-md text-[var(--color-faint)] transition-colors hover:bg-[var(--color-bad-soft)] hover:text-[var(--color-bad)]"><Trash2 size={14} aria-hidden="true" /></button>
     </div>
     <div className="px-4 pb-3 pt-2">
       <textarea value={entry.answer} onChange={(event) => onChange({ answer: event.target.value })} disabled={busy && focused} rows={3} placeholder="Your answer, or ask the AI to draft it" aria-label={`Answer to question ${index + 1}`} className={cn(field, 'field-sizing-content min-h-20', over && 'border-[var(--color-bad)]')} />
-      {noting ? <input value={entry.note} onChange={(event) => onChange({ note: event.target.value })} placeholder="A note for yourself, never sent" aria-label={`Note on question ${index + 1}`} className="mt-2 w-full rounded-md bg-[var(--color-surface-2)] px-3 py-1.5 text-xs text-[var(--color-muted)] outline-none placeholder:text-[var(--color-faint)] focus:ring-1 focus:ring-[var(--color-accent)]" /> : null}
+      {noting ? <input value={entry.note} onChange={(event) => onChange({ note: event.target.value })} placeholder="A note for yourself, never sent" aria-label={`Note on question ${index + 1}`} className="mt-2 w-full rounded-md bg-[var(--color-surface-2)] px-3 py-1.5 text-xs text-[var(--color-muted)] outline-none placeholder:text-[var(--color-muted)] focus:ring-1 focus:ring-[var(--color-accent)]" /> : null}
       <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1.5">
         <button type="button" disabled={busy || !entry.question.trim()} onClick={onDraft} className={linkButton}><MessageSquareText size={13} aria-hidden="true" />{entry.answer.trim() ? 'Improve with AI' : 'Draft with AI'}</button>
         {entry.answer.trim() ? <button type="button" onClick={onCopy} className={cn(linkButton, 'text-[var(--color-muted)] hover:text-[var(--color-accent)]')}><Copy size={13} aria-hidden="true" />Copy</button> : null}
@@ -357,7 +342,7 @@ function QuestionCard({ index, entry, focused, busy, onFocus, onChange, onRemove
         <label className="ml-auto flex items-center gap-1.5 text-xs text-[var(--color-muted)]">
           <span className={cn('tnum', over && 'font-semibold text-[var(--color-bad)]')}>{entry.answer.length}{entry.limit ? ` / ${entry.limit}` : ''} characters</span>
           <span className="sr-only">Character limit</span>
-          <input type="number" min={1} max={20000} value={entry.limit ?? ''} onChange={(event) => onChange({ limit: event.target.value ? Math.max(1, Math.min(20000, Math.round(Number(event.target.value)))) : null })} placeholder="Limit" title="The form's character limit, if it has one" className="h-7 w-16 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 text-xs outline-none placeholder:text-[var(--color-faint)] focus:border-[var(--color-accent)]" />
+          <input type="number" min={1} max={20000} value={entry.limit ?? ''} onChange={(event) => onChange({ limit: event.target.value ? Math.max(1, Math.min(20000, Math.round(Number(event.target.value)))) : null })} placeholder="Limit" title="The form's character limit, if it has one" className="h-7 w-16 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 text-xs outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)]" />
         </label>
       </div>
     </div>
@@ -379,7 +364,7 @@ const MESSAGE: Record<'email' | 'linkedin', { title: string; placeholder: string
   linkedin: { title: 'LinkedIn message', placeholder: 'Who you are writing to, where you found the role, connection request or InMail…' },
 }
 
-/** The message on the left, edited directly; the AI that drafts it on the right. */
+/** The message on the left, edited directly and saved as you type; the AI that drafts it on the right. */
 function MessageTask({ kind, appKey, contact, resumeReady, onGoToResume, draft, saved, onDraft, onSaved }: {
   kind: 'email' | 'linkedin'
   appKey: string
@@ -396,19 +381,63 @@ function MessageTask({ kind, appKey, contact, resumeReady, onGoToResume, draft, 
   const [instructions, setInstructions] = useState('')
   // The last AI draft; once the candidate edits it, the difference is what the skill can learn from.
   const [aiDraft, setAiDraft] = useState<{ request: string; text: string } | null>(null)
-  const [busy, setBusy] = useState<'generate' | 'save' | null>(null)
+  // The text the last AI draft replaced, so the candidate can put it back.
+  const [replaced, setReplaced] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [saveState, setSaveState] = useState<'saved' | 'saving' | 'error'>('saved')
   const [error, setError] = useState<string | null>(null)
   const [notice, setNotice] = useState('')
-  const dirty = draft !== saved
+  const abortRef = useRef<AbortController | null>(null)
+  // Only the latest save may report its outcome.
+  const saveRun = useRef(0)
   const subject = draft.match(/^Subject:\s*(.+)$/im)?.[1].trim() || null
 
-  async function perform(action: 'generate' | 'save', task: () => Promise<void>) {
-    setBusy(action); setError(null); setNotice('')
-    try { await task() } catch (reason) { setError((reason as Error).message) } finally { setBusy(null) }
+  async function persist(text: string) {
+    const run = ++saveRun.current
+    setSaveState('saving')
+    try {
+      await request(base, 'PUT', { kind, text })
+      onSaved(text)
+      if (run === saveRun.current) setSaveState('saved')
+    } catch (reason) {
+      if (run === saveRun.current) { setSaveState('error'); setError((reason as Error).message) }
+    }
   }
-  async function save(text: string) {
-    await request(base, 'PUT', { kind, text })
-    onSaved(text)
+  // The timer calls the latest persist, so a new onSaved from the parent does not restart it.
+  const persistRef = useRef(persist)
+  useEffect(() => { persistRef.current = persist })
+
+  useEffect(() => () => abortRef.current?.abort(), [])
+
+  // Autosave once typing pauses, like the form answers.
+  useEffect(() => {
+    // A newer state replaces whatever an earlier save would report.
+    saveRun.current++
+    if (draft === saved) { setSaveState('saved'); return }
+    setSaveState('saving')
+    const timer = window.setTimeout(() => void persistRef.current(draft), 700)
+    return () => window.clearTimeout(timer)
+  }, [draft, saved])
+
+  async function copy() {
+    setError(null)
+    try { await navigator.clipboard.writeText(draft); setNotice('Copied to clipboard.') } catch { setError('The clipboard is not available in this browser.') }
+  }
+
+  async function generate() {
+    if (generating) return
+    const controller = new AbortController()
+    abortRef.current = controller
+    const previous = draft
+    setGenerating(true); setError(null); setNotice('')
+    try {
+      const data = await request<{ text: string }>(base, 'POST', { kind, instructions }, controller.signal)
+      onDraft(data.text)
+      setReplaced(previous)
+      setAiDraft({ request: instructions.trim() || `Draft the ${kind === 'email' ? 'application email' : 'LinkedIn message'}.`, text: data.text })
+    } catch (reason) {
+      if ((reason as Error).name !== 'AbortError') setError((reason as Error).message)
+    } finally { setGenerating(false); abortRef.current = null }
   }
 
   return <div className="space-y-3">
@@ -417,7 +446,8 @@ function MessageTask({ kind, appKey, contact, resumeReady, onGoToResume, draft, 
       <section aria-label={meta.title} className="min-w-0 space-y-3">
         <header className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <h2 className="text-base font-semibold tracking-tight">{meta.title}</h2>
-          {dirty ? <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', TONE.warn)}>Unsaved changes</span> : draft ? <span className={cn('rounded-full px-2 py-0.5 text-xs font-medium', TONE.ok)}>Saved</span> : null}
+          <span role="status" className="text-xs text-[var(--color-muted)]">{saveState === 'saving' ? 'Saving…' : saveState === 'error' ? 'Not saved' : draft ? 'Saved' : ''}</span>
+          {saveState === 'error' ? <button type="button" onClick={() => void persist(draft)} className={secondaryButton}>Retry saving</button> : null}
           {notice ? <span role="status" className="text-xs text-[var(--color-ok)]">{notice}</span> : null}
         </header>
         {kind === 'email' && contact.email ? <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-2.5 text-xs">
@@ -427,13 +457,12 @@ function MessageTask({ kind, appKey, contact, resumeReady, onGoToResume, draft, 
           <button type="button" className={cn(secondaryButton, 'ml-auto h-7')} onClick={() => void navigator.clipboard.writeText(contact.email!).then(() => setNotice('Address copied.'))}>Copy address</button>
           <a className={cn(secondaryButton, 'h-7')} href={`mailto:${contact.email}${subject ? `?subject=${encodeURIComponent(subject)}` : ''}`}>Open in mail app</a>
         </div> : null}
-        <textarea disabled={!!busy} rows={16} maxLength={30000} className={cn(field, 'bg-[var(--color-surface)]')} value={draft} onChange={(event) => { onDraft(event.target.value); setNotice('') }} placeholder="Ask the AI for a draft on the right, or write your own here." aria-label={meta.title} />
+        <textarea disabled={generating} rows={16} maxLength={30000} className={cn(field, 'bg-[var(--color-surface)]')} value={draft} onChange={(event) => { onDraft(event.target.value); setNotice('') }} placeholder="Ask the AI for a draft on the right, or write your own here." aria-label={meta.title} />
         <div className="flex flex-wrap items-center gap-2">
-          <button type="button" disabled={!!busy || !dirty} className={primaryButton} onClick={() => void perform('save', async () => { await save(draft); setNotice('Draft saved.') })}>{busy === 'save' ? 'Saving…' : 'Save draft'}</button>
-          <button type="button" disabled={!!busy || !draft} className={secondaryButton} onClick={() => void perform('save', async () => { await navigator.clipboard.writeText(draft); setNotice('Copied to clipboard.') })}><Copy size={13} aria-hidden="true" />Copy</button>
+          <button type="button" disabled={generating || !draft} className={secondaryButton} onClick={() => void copy()}><Copy size={13} aria-hidden="true" />Copy</button>
         </div>
         {aiDraft && saved && saved !== aiDraft.text ? <div className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-          <LearnFromChat skillId="write-outreach" disabled={!!busy} turns={[
+          <LearnFromChat skillId="write-outreach" disabled={generating} turns={[
             { role: 'user', content: aiDraft.request },
             { role: 'assistant', content: aiDraft.text },
             { role: 'user', content: `I edited your draft before using it. My final version:\n\n${saved}` },
@@ -442,23 +471,27 @@ function MessageTask({ kind, appKey, contact, resumeReady, onGoToResume, draft, 
       </section>
 
       <aside aria-label={`${meta.title} AI`} className={panelFrame}>
-        <AiHeader title={`${meta.title} AI`} hint="Uses your finalized resume, your cover letter and the posting. It drafts the whole message; nothing is sent." />
-        {resumeReady ? <div className="space-y-3 p-4">
-          <label className="block space-y-1.5 text-sm">
-            <span className="font-medium">What should it know? <span className="font-normal text-[var(--color-faint)]">(optional)</span></span>
-            <textarea disabled={!!busy} rows={5} maxLength={8000} className={field} value={instructions} onChange={(event) => setInstructions(event.target.value)} placeholder={meta.placeholder} />
-          </label>
-          <button type="button" disabled={!!busy} className={cn(primaryButton, 'w-full')} onClick={() => {
-            if (draft && dirty && !window.confirm('Replace your unsaved edits with a new draft?')) return
-            void perform('generate', async () => {
-              const data = await request<{ text: string }>(base, 'POST', { kind, instructions })
-              onDraft(data.text); await save(data.text)
-              setAiDraft({ request: instructions.trim() || `Draft the ${kind === 'email' ? 'application email' : 'LinkedIn message'}.`, text: data.text })
-              setNotice('Draft ready and saved.')
-            })
-          }}>{busy === 'generate' ? <><Spinner className="border-[var(--color-on-solid)]/30 border-t-[var(--color-on-solid)]" /> Writing… up to a minute</> : draft ? 'Write a new draft' : 'Draft it with AI'}</button>
-          {draft && busy !== 'generate' ? <p className="text-xs text-[var(--color-muted)]">A new draft replaces the one on the left.</p> : null}
-        </div> : <NeedsResume onGoToResume={onGoToResume} />}
+        <AiPanelHeader title={`${meta.title} AI`} hint="Uses your finalized resume, your cover letter and the posting. It drafts the whole message; nothing is sent." />
+        {resumeReady ? <>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            {replaced !== null && !generating ? <AiReview title="New draft on the left" hint="Keep it, or undo to put back what you had before.">
+              <button type="button" onClick={() => setReplaced(null)} className={secondaryButton}>Keep</button>
+              <button type="button" onClick={() => { onDraft(replaced); setReplaced(null); setAiDraft(null) }} className={secondaryButton}>Undo</button>
+            </AiReview> : <AiEmpty title="What should it know?" hint="Optional: the recipient, where you found the role, the language, first contact or a reply. The draft appears on the left." />}
+          </div>
+          <AiComposer
+            value={instructions}
+            onChange={setInstructions}
+            onSubmit={() => void generate()}
+            onStop={() => abortRef.current?.abort()}
+            busy={generating}
+            label="What should the AI know?"
+            sendLabel={draft ? 'Write a new draft' : 'Draft it with AI'}
+            placeholder={meta.placeholder}
+            rows={4}
+            hint={generating ? 'Writing… up to a minute. Esc stops.' : draft ? 'Enter writes a new draft; you can undo it.' : 'Enter drafts the whole message. Nothing is sent.'}
+          />
+        </> : <AiBlocked title="Finalize your resume first" hint="The AI writes from the resume you send, so it needs that version." action={<button type="button" onClick={onGoToResume} className={secondaryButton}>Go to the Resume step</button>} />}
       </aside>
     </div>
   </div>

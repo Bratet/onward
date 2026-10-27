@@ -42,7 +42,7 @@ export function PostApplicationView({ app, record, analysis, initialWorkspace }:
 
   /** The preparation tools live on the pre-application page; this opens them there. */
   function openPreparation() {
-    router.push(`/applications/${encodeURIComponent(app.key)}?view=prepare&tab=workspace&pane=fit`)
+    router.push(`/applications/${encodeURIComponent(app.key)}?view=prepare&step=fit`)
   }
 
   function statusChanged(previous: string, next: string, origin?: { x: number; y: number }) {

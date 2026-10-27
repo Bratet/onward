@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, Code2, Eye, FileText } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Code2, Eye, FileText, MessageSquareText, X } from 'lucide-react'
 import type { ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import type { Application } from '@/lib/applications'
 import type { ApplicationRecord } from '@/lib/applicationRecord'
@@ -142,6 +142,9 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   const [workspace, setWorkspace] = useState(initialWorkspace)
   const fitList = useMemo(() => fitItems(workspace.fit.report, analysis, eligibility), [workspace.fit.report, analysis, eligibility])
   const [draft, setDraft] = useState(initialWorkspace.draftYaml)
+  // A resume already finalized from this draft does not open with "Tailor my resume" waiting in the
+  // composer, one keystroke from an AI run. Read once, so finalizing later does not reset the chat.
+  const [offerTailorStarter] = useState(() => !(serverApp.folder?.has.pdf && finalizedAtLoad.resume?.yaml === initialWorkspace.draftYaml))
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [preview, setPreview] = useState<{ token: string | null; pages: number | null; fill: number | null; failures: { why: string }[] }>({ token: null, pages: null, fill: null, failures: [] })
   const [rendering, setRendering] = useState(false)
@@ -167,6 +170,8 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   const editorRef = useRef<ReactCodeMirrorRef>(null)
   const editorCardRef = useRef<HTMLDivElement>(null)
   const fitChatRef = useRef<HTMLDivElement>(null)
+  // Below the wide layout the Fit AI would sit far under the list; it opens as a sheet over it instead.
+  const [fitSheet, setFitSheet] = useState(false)
   useFillHeight(fitChatRef, step === 'fit', 80)
   const resumePaneRef = useRef<HTMLElement>(null)
 
@@ -630,7 +635,8 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
 
   function askFit(text: string) {
     setFitSeed({ text, at: Date.now() })
-    editorCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    setFitSheet(true)
+    if (window.matchMedia('(min-width: 1024px)').matches) editorCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
   }
 
   /** Fit saves confirmed Skills into the working copy; Resume proposes full tailoring for review. */
@@ -644,7 +650,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
       mode={workspace.general ? 'master' : 'tailored'}
       applicationKey={app.key}
       chatScope={applicationChatScope(app.key, surface)}
-      starterMessage={surface === 'resume' && !workspace.general ? 'Tailor my resume for this role' : undefined}
+      starterMessage={surface === 'resume' && !workspace.general && offerTailorStarter ? 'Tailor my resume for this role' : undefined}
       active={surface === 'resume' && step === 'resume'}
       seed={surface === 'overview' ? fitSeed : undefined}
       tailoringSkill={workspace.general ? undefined : {
@@ -680,10 +686,14 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
     : step === 'resume' ? (finalized && resumeCurrent ? { to: 'documents' as const, label: 'Continue to Documents' } : null)
     : step === 'documents' ? { to: 'send' as const, label: 'Continue to Send' }
     : null
+  // A role you set aside or skipped can still be worked on, but nothing on it is the page's next move.
+  const closedByYou = status === 'Discarded' || status === 'SKIP'
   const finalizeAction = !reviewing && step === 'resume' && !(finalized && resumeCurrent)
-    ? <button type="button" disabled={busy || draftConflict || reviewPending || saveState !== 'saved'} onClick={() => void finalize()} title={reviewPending ? 'Accept or reject the pending change first' : 'Saves the current draft as the PDF you send'} className={cn(mainButton, 'h-8')}><Check size={14} strokeWidth={2.5} aria-hidden="true" /> {finalized ? 'Finalize again' : 'Finalize resume'}</button>
+    ? <button type="button" disabled={busy || draftConflict || reviewPending || saveState !== 'saved'} onClick={() => void finalize()} title={reviewPending ? 'Accept or reject the pending change first' : 'Saves the current draft as the PDF you send'} className={closedByYou ? toolButton : cn(mainButton, 'h-8')}><Check size={14} strokeWidth={2.5} aria-hidden="true" /> {finalized ? 'Finalize again' : 'Finalize resume'}</button>
     : null
-  const nextAction = finalizeAction ?? (next ? <button type="button" onClick={() => goTo(next.to)} className={cn(mainButton, 'h-8')}>{next.label} <ArrowRight size={14} aria-hidden="true" /></button> : null)
+  // One primary per view: on Documents the open document has its own (Finalize letter, Draft it with AI),
+  // and every document is optional, so moving on to Send is the quieter choice there.
+  const nextAction = finalizeAction ?? (next ? <button type="button" onClick={() => goTo(next.to)} className={step === 'documents' || closedByYou ? toolButton : cn(mainButton, 'h-8')}>{next.label} <ArrowRight size={14} aria-hidden="true" /></button> : null)
 
   return (
     <div className="-mt-2 space-y-2 sm:-mt-3">
@@ -722,13 +732,19 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
               onRetry={() => setWorkspace((current) => ({ ...current, fit: { ...current.fit, status: 'queued' } }))}
               onAsk={askFit} />
           </div>
-          <div ref={editorCardRef} className="min-w-0 lg:sticky lg:top-20">
-            <div ref={fitChatRef} className="flex h-[max(420px,70vh)] flex-col">
+          {fitSheet ? <div aria-hidden="true" onClick={() => setFitSheet(false)} className="anim-fade fixed inset-0 z-40 bg-[oklch(0.1_0.01_65/0.55)] lg:hidden" /> : null}
+          <div ref={editorCardRef} onKeyDown={(event) => { if (event.key === 'Escape' && !event.defaultPrevented) setFitSheet(false) }}
+            className={cn('min-w-0 lg:sticky lg:top-20', 'max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-50 max-lg:px-2 max-lg:pb-2', !fitSheet && 'max-lg:hidden')}>
+            <div ref={fitChatRef} className="flex h-[max(420px,70vh)] flex-col max-lg:h-[85dvh]">
               <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+                <div className="flex shrink-0 justify-end border-b border-[var(--color-border)] px-2 py-1 lg:hidden">
+                  <button type="button" onClick={() => setFitSheet(false)} className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><X size={14} aria-hidden="true" />Close</button>
+                </div>
                 {stepChat('overview', 'Fit AI', 'Adds confirmed Skills to this application’s resume')}
               </Card>
             </div>
           </div>
+          {!fitSheet ? <button type="button" onClick={() => setFitSheet(true)} className="ask-button fixed bottom-4 right-4 z-30 h-10 bg-[var(--color-surface)] px-3.5 text-sm shadow-[var(--shadow-sheet)] lg:hidden"><MessageSquareText size={15} aria-hidden="true" />Fit AI</button> : null}
         </div>
       </div>
 
@@ -744,20 +760,20 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
                     resumeState.tone === 'ok' ? 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]' : resumeState.tone === 'bad' ? 'bg-[var(--color-bad-soft)] text-[var(--color-bad)]' : 'bg-[var(--color-warn-soft)] text-[var(--color-warn)]')}>
                     {resumeState.tone === 'ok' ? <Check size={13} strokeWidth={3} /> : <AlertTriangle size={12} strokeWidth={2.5} />}
                   </span>
-                  <p className="min-w-0 text-sm leading-snug sm:truncate" title={resumeState.detail}>
+                  <p className="min-w-0 text-sm leading-snug">
                     <span className="font-semibold">{saveState === 'saving' ? 'Saving your draft…' : resumeState.title}</span>
                     <span className="text-[var(--color-muted)]"> · {resumeState.detail}</span>
                   </p>
                 </div>
                 {rendering ? <span className="flex items-center gap-1.5 text-sm text-[var(--color-muted)]"><Spinner /> Rendering…</span>
                   : preview.pages ? <div className="flex items-center gap-2 text-sm" title={`${preview.pages} page${preview.pages === 1 ? '' : 's'}${preview.fill != null ? `, ${preview.fill}% of the page used` : ''}`}>
-                    <span className={cn('rounded-full px-2 py-0.5 text-xs font-semibold', fitsPage ? 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]' : 'bg-[var(--color-warn-soft)] text-[var(--color-warn)]')}>{preview.pages} page{preview.pages === 1 ? '' : 's'}</span>
+                    <span className={cn('rounded-[var(--radius-md)] px-1.5 py-0.5 text-xs font-semibold', fitsPage ? 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]' : 'bg-[var(--color-warn-soft)] text-[var(--color-warn)]')}>{preview.pages} page{preview.pages === 1 ? '' : 's'}</span>
                     {preview.fill != null ? <>
-                      <span aria-hidden="true" className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--color-surface-2)]"><span className={cn('block h-full rounded-full', fitsPage ? 'bg-[var(--color-ok)]' : 'bg-[var(--color-warn)]')} style={{ width: `${Math.min(100, preview.fill)}%` }} /></span>
+                      <span aria-hidden="true" className="h-1.5 w-16 overflow-hidden rounded-[2px] bg-[var(--color-surface-2)]"><span className={cn('block h-full', fitsPage ? 'bg-[var(--color-ok)]' : 'bg-[var(--color-warn)]')} style={{ width: `${Math.min(100, preview.fill)}%` }} /></span>
                       <span className="font-semibold tabular-nums">{preview.fill}%</span><span className="sr-only"> of the page used</span>
                     </> : null}
                   </div> : null}
-                {located ? <span role="status" className="text-xs text-[var(--color-accent)]">{located}</span> : null}
+                {located ? <span role="status" className="text-xs text-[var(--color-muted)]">{located}</span> : null}
                 <div className="flex items-center gap-2">
                   {finalized && pdfName ? <a href={`/api/applications/${encodeURIComponent(app.key)}/file/${encodeURIComponent(pdfName)}`} target="_blank" rel="noreferrer" className={cn(toolButton, 'h-7')}><FileText size={13} aria-hidden="true" /> Open PDF</a> : null}
                   <button type="button" aria-pressed={pane === 'source'} onClick={() => setPane(pane === 'source' ? 'preview' : 'source')} className={cn(toolButton, 'h-7')}>{pane === 'source' ? <><Eye size={13} aria-hidden="true" /> Preview</> : <><Code2 size={13} aria-hidden="true" /> Edit source</>}</button>
@@ -817,7 +833,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
           onLocatePdf={(reveal) => void locatePdf(reveal)}
           onSent={(next, origin) => { const previous = status; setStatus(next); onStatusChanged(previous, next, origin); router.refresh() }}
         />
-        {located ? <p role="status" className="mt-2 text-center text-xs text-[var(--color-accent)]">{located}</p> : null}
+        {located ? <p role="status" className="mt-2 text-center text-xs text-[var(--color-muted)]">{located}</p> : null}
       </div> : null}
     </div>
   )
@@ -837,8 +853,8 @@ const OP_TONE: Record<Op['op'], string> = {
   set: 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]',
   import: 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]',
   drop: 'bg-[var(--color-bad-soft)] text-[var(--color-bad)]',
-  reword: 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]',
-  reorder: 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]',
+  reword: 'bg-[var(--color-surface-2)] text-[var(--color-muted)]',
+  reorder: 'bg-[var(--color-surface-2)] text-[var(--color-muted)]',
 }
 
 function TailoringProposal({ proposal, busy, currentPages, currentFill, onToggle, onReject, onAccept }: {
@@ -875,7 +891,7 @@ function TailoringProposal({ proposal, busy, currentPages, currentFill, onToggle
                 />
                 <div className={cn('min-w-0 flex-1 space-y-1.5', !selected && 'opacity-50')}>
                   <p className={cn('text-sm leading-snug', !selected && 'line-through')}>
-                    <span className={cn('mr-2 rounded-full px-2 py-0.5 text-xs font-semibold capitalize', OP_TONE[op.op])}>{op.op}</span>
+                    <span className={cn('mr-2 rounded-[var(--radius-md)] px-1.5 py-0.5 text-xs font-semibold capitalize', OP_TONE[op.op])}>{op.op}</span>
                     {op.why}
                   </p>
                   {op.op === 'reword' ? <div className="space-y-1 text-[13px] leading-relaxed">

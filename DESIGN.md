@@ -8,7 +8,7 @@ colors:
   moss-wash: "oklch(0.3 0.05 138)"
   straw: "oklch(0.85 0.115 92)"
   straw-wash: "oklch(0.32 0.05 92)"
-  crimson: "oklch(0.67 0.17 16)"
+  crimson: "oklch(0.69 0.17 16)"
   crimson-wash: "oklch(0.29 0.07 16)"
   walnut-ground: "oklch(0.165 0.01 65)"
   sheet: "oklch(0.225 0.013 68)"
@@ -262,6 +262,9 @@ A sticky top bar on the walnut ground with a hairline bottom rule. Links are 13p
 
 ### Phase Strip and Pane Tabs
 The phase strip is a sheet-styled band that holds the two phases joined by a 1px link. Steps inside it are 30px items, and the current step sits on the cinnabar wash. Pane tabs switch what a single pane shows, using a 2px cinnabar underline on the selected tab.
+
+### AI Panels
+Every AI in an application (Fit, Resume, cover letter, form answers, email, LinkedIn) is one sheet built from the same parts (`src/components/AiPanel.tsx`). The header holds the panel's name in the serif, a muted line saying what it uses, and quiet New chat and Chat settings controls. An empty conversation opens left-aligned on what the AI is for, with secondary prompt buttons that fill the composer and never send. The candidate's messages sit in sheet-shade bubbles; replies are plain text on the sheet. When the AI changed something, a sheet-shade review card offers Keep and Undo. The composer is one field with an arrow send control on a cinnabar wash and a crimson square to stop; it never carries a solid primary, so the view's one primary stays the step's real next move. Drafts save themselves while typing.
 
 ### Company Monogram
 A flat OKLCH fill (lightness 0.42, chroma 0.05) whose hue comes from a fixed set chosen by hashing the name. The initials are set in the serif in a fixed light paper ink. It is never a gradient.

@@ -2,7 +2,8 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { ChevronRight, ClipboardCheck, Pencil, SlidersHorizontal, Square } from 'lucide-react'
+import { ChevronRight, ClipboardCheck, Pencil } from 'lucide-react'
+import { AiComposer, AiEmpty, AiNewChat, AiPanelHeader, AiSettingsToggle, aiHeaderButton, aiReply, aiUserBubble } from './AiPanel'
 import { Badge, Spinner } from './ui/primitives'
 import { ResumeReview } from './ResumeReview'
 import { ChatMarkdown } from './ChatMarkdown'
@@ -83,7 +84,6 @@ export function EditorChat({
   const [editingIndex, setEditingIndex] = useState<number | null>(null)
   const [editingText, setEditingText] = useState('')
   const [resumeReviewMode, setResumeReviewMode] = useState(false)
-  const [confirmingNewChat, setConfirmingNewChat] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const settingsId = useId()
   const [unseenReply, setUnseenReply] = useState(false)
@@ -144,7 +144,6 @@ export function EditorChat({
     setEditingIndex(null)
     setEditingText('')
     setResumeReviewMode(saved?.reviewMode === true)
-    setConfirmingNewChat(false)
     setUnseenReply(false)
     stickToBottomRef.current = true
     scrolledReviewRef.current = -1
@@ -259,7 +258,6 @@ export function EditorChat({
     setEditingIndex(null)
     setEditingText('')
     setResumeReviewMode(false)
-    setConfirmingNewChat(false)
     retryRef.current = null
     persist(storageKey, { sessionId: sessionRef.current, turns: [], draft: nextDraft, reviewMode: false })
     messageRef.current?.focus()
@@ -350,7 +348,6 @@ export function EditorChat({
     setLiveReasoning('')
     setLiveSkillEvents([])
     setError(null)
-    setConfirmingNewChat(false)
     retryRef.current = null
     // Retry works from the draft as it is then, and takes the request back out of the composer.
     const retry = () => {
@@ -590,11 +587,7 @@ export function EditorChat({
 
   return (
     <div ref={rootRef} className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-3 py-2 text-xs">
-        {title ? <div className="flex min-w-0 flex-1 items-baseline gap-2 pl-1">
-          <h2 className="shrink-0 text-[15px] font-semibold">{title}</h2>
-          {hint ? <p title={hint} className="min-w-0 truncate text-[13px] text-[var(--color-muted)]">{hint}</p> : null}
-        </div> : null}
+      <AiPanelHeader title={title} hint={hint}>
         {reviewSource ? (
           <>
             <button
@@ -602,44 +595,20 @@ export function EditorChat({
               onClick={() => void send('Review this resume.', undefined, true)}
               disabled={!hydrated || busy || api.reviewPending || pendingProposal || !api.text.trim()}
               title="Reviews the draft as it is now, unsaved edits included. The resume is not changed."
-              className="inline-flex min-h-8 items-center gap-1.5 rounded-md bg-[var(--color-accent-soft)] px-2.5 font-medium text-[var(--color-accent)] hover:opacity-80 disabled:opacity-40"
+              className="ask-button"
             >
               <ClipboardCheck size={14} aria-hidden="true" />
               {latestResumeReview ? 'Review current draft' : 'Review resume'}
             </button>
             {resumeReviewMode && latestResumeReview ? (
-              <button type="button" onClick={exitResumeReview} disabled={busy} className="min-h-8 rounded-md border border-[var(--color-border)] px-2.5 font-medium hover:bg-[var(--color-surface-2)] disabled:opacity-40">Back to editing</button>
+              <button type="button" onClick={exitResumeReview} disabled={busy} className={aiHeaderButton}>Back to editing</button>
             ) : null}
-            {resumeReviewMode && staleResumeReview ? <span className="text-[var(--color-muted)]">Draft changed · review again to continue</span> : null}
+            {resumeReviewMode && staleResumeReview ? <span className="text-xs text-[var(--color-muted)]">Draft changed · review again to continue</span> : null}
           </>
         ) : null}
-        <div className="ml-auto flex items-center gap-1">
-          {confirmingNewChat ? (
-            <span className="flex items-center gap-1" role="group" aria-label="Clear this conversation">
-              <span className="px-1 text-[var(--color-muted)]">Clear this conversation?</span>
-              <button type="button" onClick={newChat} disabled={busy || pendingProposal} className="min-h-8 rounded-md px-2 font-medium text-[var(--color-bad)] hover:bg-[var(--color-bad-soft)] disabled:opacity-40">Clear</button>
-              <button type="button" onClick={() => setConfirmingNewChat(false)} autoFocus className="min-h-8 rounded-md px-2 hover:bg-[var(--color-surface-2)]">Keep</button>
-            </span>
-          ) : (
-            <button type="button" onClick={() => setConfirmingNewChat(true)} disabled={!hydrated || busy || api.reviewPending || pendingProposal || !turns.length} className="min-h-8 rounded-md px-2 text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)] disabled:opacity-40">
-              New chat
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => setSettingsOpen((open) => !open)}
-            aria-expanded={settingsOpen}
-            aria-controls={settingsId}
-            className={cn(
-              'inline-flex min-h-8 items-center gap-1.5 rounded-md px-2 hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]',
-              settingsOpen ? 'bg-[var(--color-surface-2)] text-[var(--color-text)]' : 'text-[var(--color-muted)]',
-            )}
-          >
-            <SlidersHorizontal size={14} aria-hidden="true" />
-            Chat settings
-          </button>
-        </div>
-      </div>
+        <AiNewChat disabled={!hydrated || busy || api.reviewPending || pendingProposal || !turns.length} onClear={newChat} />
+        <AiSettingsToggle open={settingsOpen} controls={settingsId} onToggle={() => setSettingsOpen((open) => !open)} />
+      </AiPanelHeader>
 
       {/* Stays mounted while closed, so a skill update being drafted is not lost. */}
       <div id={settingsId} hidden={!settingsOpen} className="shrink-0 space-y-3 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-3 text-xs">
@@ -666,7 +635,7 @@ export function EditorChat({
           <div className="flex h-48 items-center justify-center"><Spinner /></div>
         ) : turns.length ? turns.map((turn, index) => (
           editingIndex === index ? (
-            <div key={index} className="ml-auto max-w-[88%] rounded-xl rounded-br-sm border border-[var(--color-accent)] bg-[var(--color-bg)] px-3 py-2">
+            <div key={index} className={cn(aiUserBubble, 'border border-[var(--color-border-strong)]')}>
               <textarea
                 value={editingText}
                 onChange={(event) => setEditingText(event.target.value)}
@@ -685,13 +654,13 @@ export function EditorChat({
                 className="w-full resize-none bg-transparent text-sm leading-relaxed outline-none"
               />
               <div className="mt-1.5 flex justify-end gap-2">
-                <button onClick={cancelEdit} className="rounded-md border border-[var(--color-border-strong)] px-2.5 py-1.5 text-xs hover:bg-[var(--color-surface-2)]">
+                <button type="button" onClick={cancelEdit} className={aiHeaderButton}>
                   Cancel
                 </button>
                 <button
                   onClick={() => void submitEdit()}
                   disabled={busy || !editingText.trim()}
-                  className="rounded-md bg-[var(--color-accent)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-bg)] disabled:opacity-40"
+                  className="ask-button"
                 >
                   Save &amp; rerun
                 </button>
@@ -704,12 +673,12 @@ export function EditorChat({
               <button
                 type="button"
                 onClick={() => startEdit(index)}
-                className="mb-1 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs text-[var(--color-muted)] opacity-0 transition-opacity hover:text-[var(--color-accent)] focus:opacity-100 group-hover:opacity-100"
+                className="mb-1 flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-xs text-[var(--color-muted)] opacity-0 transition-opacity hover:text-[var(--color-text)] focus:opacity-100 group-hover:opacity-100"
               >
                 <Pencil size={12} aria-hidden="true" /> Edit &amp; rerun
               </button>
             ) : null}
-            <div className="max-w-[88%] rounded-xl rounded-br-sm bg-[var(--color-accent-soft)] px-3 py-2 text-sm leading-relaxed">
+            <div className={aiUserBubble}>
               <p className="whitespace-pre-wrap break-words">{turn.content}</p>
             </div>
           </div>
@@ -717,7 +686,7 @@ export function EditorChat({
           <div
             key={index}
             ref={turn.review && index === latestResumeReviewIndex ? reviewStartRef : index === reviewTurn ? tailoringStartRef : undefined}
-            className="max-w-[94%] rounded-xl rounded-bl-sm border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2.5 text-sm leading-relaxed"
+            className={aiReply}
           >
             <ChatMarkdown text={turn.review ? turn.review.reply : turn.content} />
             {turn.role === 'assistant' && turn.review ? (
@@ -744,9 +713,9 @@ export function EditorChat({
           </div>
           )
         )) : !tailoring ? (
-          <ChatEmpty
-            suggestions={busy || !hydrated ? [] : reviewOnly ? ['Is this role a good fit for me?', 'Which gap matters most here?'] : tailoringSkill ? [starterMessage ?? 'Tailor my resume for this role', 'Which must-haves does the draft still miss?', 'Make it fit on one page'] : []}
-            onPick={(text) => { setMessage(text); rootRef.current?.querySelector('textarea')?.focus() }}
+          <AiEmpty
+            prompts={busy || !hydrated ? [] : reviewOnly ? ['Is this role a good fit for me?', 'Which gap matters most here?'] : tailoringSkill ? [starterMessage ?? 'Tailor my resume for this role', 'Which must-haves does the draft still miss?', 'Make it fit on one page'] : []}
+            onPick={(text) => { setMessage(text); messageRef.current?.focus() }}
             title={reviewOnly ? 'Let’s check whether this role works for you' : reviewSource ? 'Review or edit this resume' : tailoringSkill ? 'What should we do with this resume?' : 'Edit with a CLI agent'}
             hint={reviewOnly ? 'Discuss a gap or correct the analysis. Confirmed Skills are added to this application’s working resume; full tailoring starts when you request it.' : tailoringSkill
               ? 'Discuss the tailored draft, ask for changes, or compare it with anything in your repository. I can consult your masters, earlier applications, and notes.'
@@ -755,13 +724,13 @@ export function EditorChat({
           />
         ) : null}
         {busy && liveReasoning ? (
-          <div className="max-w-[94%] rounded-xl rounded-bl-sm border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2.5">
+          <div className={aiReply}>
             <p className="text-xs font-medium text-[var(--color-muted)]">Reasoning summary · live</p>
             <ChatMarkdown text={liveReasoning} className="mt-1 text-xs leading-relaxed text-[var(--color-muted)]" />
           </div>
         ) : null}
         {busy && liveSkillEvents.length ? (
-          <div className="max-w-[94%] rounded-xl rounded-bl-sm border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2.5 text-sm leading-relaxed">
+          <div className={aiReply}>
             <p>Tailoring your resume…</p>
             <SkillRunTranscript run={{ skillId: 'tailor-cv', events: liveSkillEvents }} live />
           </div>
@@ -769,7 +738,7 @@ export function EditorChat({
         {busy && activity ? <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]"><Spinner /> {activity}</div> : null}
         {tailoring}
         {tailoringSkill?.review && reviewTurn === -1 ? (
-          <div className="max-w-[94%] rounded-xl rounded-bl-sm border border-[var(--color-border)] bg-[var(--color-surface-2)] px-3 py-2.5 text-sm leading-relaxed">
+          <div className={aiReply}>
             <p>I restored the tailoring proposal for review.</p>
             {tailoringSkill.review}
           </div>
@@ -789,55 +758,24 @@ export function EditorChat({
 
       {error ? <ErrorNotice error={error} className="border-t border-[var(--color-bad-soft)]" onRetry={retryRef.current && !busy ? retryRef.current : undefined} onDismiss={() => { setError(null); retryRef.current = null }} /> : null}
 
-      <div className="shrink-0 border-t border-[var(--color-border)] p-3">
-        <textarea
-          ref={messageRef}
-          value={message}
-          onChange={(event) => {
-            const draft = event.target.value
-            setMessage(draft)
-            persistDraftSoon({ sessionId: sessionRef.current, turns, draft, reviewMode: resumeReviewMode })
-          }}
-          onKeyDown={(event) => {
-            // Enter also confirms an IME candidate; that keystroke is not a send.
-            if (event.nativeEvent.isComposing) return
-            if (event.key === 'Escape' && busy) {
-              event.preventDefault()
-              stop()
-              return
-            }
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault()
-              if (!sendBlocked) void send()
-            }
-          }}
-          placeholder={resumeReviewMode ? 'Question a finding or add context…' : reviewOnly ? 'What should we clarify before I apply?' : tailoringSkill ? 'Try “Tailor my resume for this role”…' : tailoring ? 'Ask for another edit, explanation, or undo…' : 'Ask the Claude/Codex editor agent…'}
-          aria-label="Message CV editor agent"
-          disabled={!hydrated}
-          maxLength={8000}
-          rows={3}
-          className={cn(
-            'w-full resize-none rounded-lg border px-3 py-2 text-sm leading-relaxed outline-none transition-colors placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:opacity-60',
-            starterReady ? 'border-[var(--color-accent)] bg-[var(--color-accent-soft)]' : 'border-[var(--color-border)] bg-[var(--color-bg)]',
-          )}
-        />
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <span className="text-xs text-[var(--color-muted)]">
-            {busy ? 'Working… Esc stops the reply' : editingIndex !== null ? 'Editing a previous message — save to rerun from there' : api.reviewPending ? 'Accept or reject the current proposal before sending another edit' : resumeReviewMode ? 'Your feedback updates the review, not the resume' : reviewOnly ? 'Confirmed corrections update the fit analysis and relevant Skills in this application’s resume' : starterReady ? 'Press Enter to start tailoring, or edit this request first' : 'AI edits are previewed before they can be saved'}
-          </span>
-          <button
-            onClick={() => busy ? stop() : void send()}
-            disabled={!busy && (sendBlocked || !message.trim())}
-            className={cn(
-              'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-40',
-              busy ? 'border border-[var(--color-bad)] text-[var(--color-bad)]' : 'bg-[var(--color-accent)] text-[var(--color-bg)]',
-            )}
-          >
-            {busy ? <Square size={12} aria-hidden="true" /> : null}
-            {busy ? 'Stop' : 'Send'}
-          </button>
-        </div>
-      </div>
+      <AiComposer
+        value={message}
+        onChange={(draft) => {
+          setMessage(draft)
+          persistDraftSoon({ sessionId: sessionRef.current, turns, draft, reviewMode: resumeReviewMode })
+        }}
+        onSubmit={() => void send()}
+        onStop={stop}
+        busy={busy}
+        blocked={sendBlocked || !message.trim()}
+        disabled={!hydrated}
+        highlight={starterReady}
+        label="Message CV editor agent"
+        placeholder={resumeReviewMode ? 'Question a finding or add context…' : reviewOnly ? 'What should we clarify before I apply?' : tailoringSkill ? 'Try “Tailor my resume for this role”…' : tailoring ? 'Ask for another edit, explanation, or undo…' : 'Ask the Claude/Codex editor agent…'}
+        hint={busy ? 'Working… Esc stops the reply' : editingIndex !== null ? 'Editing a previous message — save to rerun from there' : api.reviewPending ? 'Accept or reject the current proposal before sending another edit' : resumeReviewMode ? 'Your feedback updates the review, not the resume' : reviewOnly ? 'Confirmed corrections update the fit analysis and relevant Skills in this application’s resume' : starterReady ? 'Press Enter to start tailoring, or edit this request first' : 'AI edits are previewed before they can be saved'}
+        maxLength={8000}
+        textareaRef={messageRef}
+      />
     </div>
   )
 }
@@ -1082,16 +1020,4 @@ function changedMiddle(left: string[], right: string[]): ChangedLine[] {
     ...left.slice(start, leftEnd + 1).map((text) => ({ kind: 'remove' as const, text })),
     ...right.slice(start, rightEnd + 1).map((text) => ({ kind: 'add' as const, text })),
   ]
-}
-
-/** The chat before its first message: what it is for, in readable type, and a few ways to start. */
-function ChatEmpty({ title, hint, suggestions, onPick }: { title: string; hint: string; suggestions: string[]; onPick: (text: string) => void }) {
-  return <div className="mx-auto flex max-w-md flex-col items-center gap-2 px-4 py-12 text-center">
-    <p className="text-base font-semibold">{title}</p>
-    <p className="text-sm leading-relaxed text-[var(--color-muted)]">{hint}</p>
-    {suggestions.length ? <div className="mt-3 flex flex-wrap justify-center gap-2">
-      {suggestions.map((text) => <button key={text} type="button" onClick={() => onPick(text)}
-        className="cursor-pointer rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-1.5 text-[13px] font-medium transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]">{text}</button>)}
-    </div> : null}
-  </div>
 }

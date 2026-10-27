@@ -61,7 +61,7 @@ export function LearnFromChat({ turns, disabled, skillId = 'tailor-cv', onUpdate
           className="mt-1 h-56 w-full resize-y rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] p-2 font-mono text-xs focus:border-[var(--color-accent)]" />
       </label>
       <div className="flex gap-3">
-        <button type="button" onClick={() => void apply()} disabled={busy || disabled || proposal.markdown === proposal.before} className="rounded-md bg-[var(--color-accent)] px-3 py-2 font-medium text-[var(--color-bg)] disabled:opacity-40">Apply skill update</button>
+        <button type="button" onClick={() => void apply()} disabled={busy || disabled || proposal.markdown === proposal.before} className="rounded-md bg-[var(--color-accent)] px-3 py-2 font-medium text-[var(--color-on-solid)] disabled:opacity-40">Apply skill update</button>
         <button type="button" disabled={busy} onClick={() => { setProposal(null); setError(null) }} className="rounded-md px-3 py-2 hover:bg-[var(--color-surface-2)]">Discard</button>
       </div>
     </div> : null}

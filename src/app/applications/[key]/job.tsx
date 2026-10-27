@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils'
  * it was saved, and what it asks for with how the resume stands on each.
  */
 
-const primary = 'inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-bg)] hover:opacity-90 disabled:opacity-40'
+const primary = 'inline-flex items-center gap-1.5 rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-[var(--color-on-solid)] hover:opacity-90 disabled:opacity-40'
 const input = 'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none focus:border-[var(--color-accent)] disabled:opacity-60'
 
 export type Requirement = Omit<ProfileFitRow, 'classification'> & { classification: ProfileFitRow['classification'] | null }
@@ -103,7 +103,7 @@ function RequirementCard({ row, onAsk, delay = 0 }: { row: Requirement; onAsk?: 
   const [open, setOpen] = useState(false)
   const standing = row.classification ? STANDING[row.classification] : null
   const link = 'group inline-flex cursor-pointer items-center gap-1 rounded text-xs font-medium underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]'
-  return <li style={{ '--delay': `${Math.min(delay, 8) * 35}ms` } as CSSProperties} className={cn('anim-rise flex min-h-36 min-w-0 flex-col rounded-xl border px-4 pb-3 pt-3.5', standing?.card ?? 'border-[var(--color-border)] bg-[var(--color-surface)]')}>
+  return <li style={{ '--delay': `${Math.min(delay, 8) * 45}ms` } as CSSProperties} className={cn('anim-rise flex min-h-36 min-w-0 flex-col rounded-xl border px-4 pb-3 pt-3.5', standing?.card ?? 'border-[var(--color-border)] bg-[var(--color-surface)]')}>
     <p className="text-xs text-[var(--color-muted)]">{row.weight === 'must' ? 'Must-have' : 'Nice to have'}</p>
     <p className="mt-1 flex-1 break-words text-sm leading-relaxed">{row.requirement}</p>
     {open ? <Evidence items={row.evidence} /> : null}
@@ -205,7 +205,7 @@ function PostingText({ text, terms, query }: { text: string; terms: string[]; qu
     {blocks.map((block, index) => block.kind === 'heading'
       ? <h3 key={index} className={cn('text-base font-semibold tracking-tight', index ? 'mb-2 mt-8' : 'mb-2')}>{mark(block.text)}</h3>
       : block.kind === 'list'
-        ? <ul key={index} className="mb-4 space-y-1.5 pl-1">{block.items.map((item, i) => <li key={i} className="relative pl-5 before:absolute before:left-1 before:top-[0.75em] before:size-1.5 before:rounded-full before:bg-[var(--color-accent)]">{mark(item)}</li>)}</ul>
+        ? <ul key={index} className="mb-4 space-y-1.5 pl-1">{block.items.map((item, i) => <li key={i} className="relative pl-5 before:absolute before:left-1 before:top-[0.75em] before:size-1.5 before:rounded-full before:bg-[var(--color-faint)]">{mark(item)}</li>)}</ul>
         : <p key={index} className={cn('mb-4', block.strong && 'font-semibold')}>{mark(block.text)}</p>)}
   </div>
 }

@@ -11,7 +11,7 @@ import { statusLabel } from '@/lib/statuses'
 import { cn, fmtDate } from '@/lib/utils'
 
 const button = 'inline-flex items-center justify-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs text-[var(--color-muted)] transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)] disabled:opacity-40'
-const primary = 'inline-flex items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 py-2 text-xs font-semibold text-[var(--color-bg)] transition-opacity hover:opacity-90 disabled:opacity-40'
+const primary = 'inline-flex items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 py-2 text-xs font-semibold text-[var(--color-on-solid)] transition-opacity hover:opacity-90 disabled:opacity-40'
 const input = 'w-full rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5 text-sm focus:border-[var(--color-accent)] focus:outline-none disabled:opacity-50'
 const chip = 'flex min-h-14 min-w-36 max-w-60 flex-col justify-center rounded-lg border px-3 py-2 text-left transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] disabled:opacity-40'
 
@@ -283,7 +283,7 @@ export function JourneyTrack({ appKey, status, sentAt, withdrawn, busy: moving, 
 function Phase({ index, label, here, done, reached, rail, children }: { index: number; label: string; here: boolean; done: boolean; reached?: boolean; rail?: 'done' | 'todo'; children: React.ReactNode }) {
   return <li aria-current={here ? 'step' : undefined} className="flex min-w-0 flex-col gap-2.5">
     <span className="flex items-center gap-2">
-      <span className={cn('grid size-5 shrink-0 place-items-center rounded-full text-xs font-semibold', done ? 'bg-[var(--color-ok)] text-[var(--color-bg)]' : here ? 'bg-[var(--color-accent)] text-[var(--color-bg)]' : reached ? 'border border-[var(--color-text)] text-[var(--color-text)]' : 'border border-[var(--color-border-strong)] text-[var(--color-muted)]')}>{done ? <Check size={11} strokeWidth={3} aria-hidden="true" /> : index + 1}</span>
+      <span className={cn('grid size-5 shrink-0 place-items-center rounded-full text-xs font-semibold', done ? 'bg-[var(--color-ok)] text-[var(--color-on-solid)]' : here ? 'bg-[var(--color-accent)] text-[var(--color-on-solid)]' : reached ? 'border border-[var(--color-text)] text-[var(--color-text)]' : 'border border-[var(--color-border-strong)] text-[var(--color-muted)]')}>{done ? <Check size={11} strokeWidth={3} aria-hidden="true" /> : index + 1}</span>
       <span className={cn('whitespace-nowrap text-sm font-semibold', !here && !done && !reached && 'text-[var(--color-muted)]')}>{label}</span>
       {rail ? <span aria-hidden="true" className={cn('ml-1 mr-3 hidden h-px min-w-10 flex-1 sm:block', rail === 'done' ? 'bg-[var(--color-ok)]' : 'bg-[var(--color-border-strong)]')} /> : null}
     </span>
@@ -314,7 +314,7 @@ function StepChip({ step, closed, disabled, onOpen }: { step: Step; closed: bool
 /** Where the application ended: a rejection or a withdrawal in red, an offer in green. */
 function Outcome({ tone, icon, title, hint }: { tone: 'bad' | 'ok'; icon: React.ReactNode; title: string; hint: string }) {
   return <div className={cn(chip, 'flex-row items-center gap-2.5', tone === 'bad' ? 'border-[var(--color-bad)] bg-[var(--color-bad-soft)]' : 'border-[var(--color-ok)] bg-[var(--color-ok-soft)]')}>
-    <span className={cn('grid size-6 shrink-0 place-items-center rounded-full text-[var(--color-bg)]', tone === 'bad' ? 'bg-[var(--color-bad)]' : 'bg-[var(--color-ok)]')}>{icon}</span>
+    <span className={cn('grid size-6 shrink-0 place-items-center rounded-full text-[var(--color-on-solid)]', tone === 'bad' ? 'bg-[var(--color-bad)]' : 'bg-[var(--color-ok)]')}>{icon}</span>
     <span className="min-w-0">
       <span className="block text-sm font-semibold">{title}</span>
       <span className="block truncate text-xs text-[var(--color-muted)]">{hint}</span>

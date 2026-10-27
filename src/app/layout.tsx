@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Nav } from '@/components/Nav'
-import '@fontsource-variable/schibsted-grotesk/wght.css'
+import '@fontsource-variable/literata/opsz.css'
 import './globals.css'
 
 export const metadata: Metadata = {

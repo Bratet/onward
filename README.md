@@ -19,7 +19,7 @@ it is deployable to a serverless host.
 | `/` Dashboard | daily and weekly activity, status and score charts, response rate, and an optional application goal |
 | `/applications` | the tracker — sortable table over `workspace/state/applications.md`, with a 4-dot indicator for which documents each folder actually has |
 | `/applications/[key]` | canonical application workspace: overview and fit, persistent resume draft/preview, source files, runs, and assistant |
-| `/profile` | edit the English or French master resume — the source material for every tailored CV |
+| `/profile` | edit the English or French master and general resumes — the source material for every tailored CV — and add, rename or delete resume profiles |
 | `/plan` | Apply plan — a board of saved job-search URLs to return to |
 | `/applications/[key]?tab=next` | Apply & follow up: update status and notes, draft and render a cover letter, or prepare an email or LinkedIn message |
 | `/settings` | theme, engine choices, and live model lists |
@@ -142,6 +142,16 @@ master resumes, not a multi-tenant product. To use it for yourself:
    and/or `general-fr/` (matching the slug from step 1): a shorter, balanced CV that
    seeds every new tailored application. Edit it on **Profile**. Tailoring then
    imports stronger evidence from the master where it helps a specific posting.
+   On **Profile**, **Add profile** copies the general resume (or another profile) into
+   a new one aimed at one kind of role, such as Backend Engineer, stored as
+   `own/<profile>-en/` and `own/<profile>-fr/` with names and role types in
+   `own/profiles.json`. A profile can be suggested for job-analysis role types; new
+   applications for those postings start from it. **Profile settings** renames it,
+   changes its role types, or deletes it, moving its folders to
+   `workspace/state/.trash/resume-profiles/`.
+   Every save on **Profile** that changes a resume first keeps the version it replaces
+   under `workspace/state/resume-revisions/` (the newest 20 per file); **Revert to saved**
+   drops unsaved edits, and saving with no changes only refreshes the PDF.
 4. Clear the sample rows from `workspace/state/applications.md`; `workspace/applications/`
    fills up as you create applications through the app.
 5. Optionally place a handwritten signature at `workspace/config/signature.png` for cover
@@ -360,7 +370,7 @@ progress track where you add and update interview rounds, messages and status, a
 Cover letters research the company automatically and finish with a `humanize-text`
 pass that removes AI-writing patterns without changing facts; the reply always says
 what that pass changed. Tailoring re-selects bullets from the master instead of
-padding the general resume, can start from optional AI, ML or DS variants of it, and
+padding the general resume, can start from any resume profile you create on Profile, and
 the new-application form can fetch a posting from its link. `npm run onward -- help`
 lists the command-line interface for applications, stats, the goal and saved searches.
 

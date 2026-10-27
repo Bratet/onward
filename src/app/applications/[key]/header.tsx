@@ -73,9 +73,10 @@ export function ApplicationHeader<T extends string>({ app, status, interviewed, 
     <div className="flex flex-wrap items-center gap-2.5">
       <Link href="/applications" aria-label="Back to applications" title="Applications" className="grid size-7 place-items-center rounded-lg text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><ArrowLeft size={16} aria-hidden="true" /></Link>
       <CompanyAvatar name={company} size={28} />
-      <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2.5">
-        <h1 className="truncate text-[17px] font-semibold leading-tight tracking-tight">{company}</h1>
-        <p className="min-w-0 truncate text-sm text-[var(--color-muted)]">
+      <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2.5 max-sm:basis-[calc(100%-4.75rem)]">
+        <h1 className="truncate text-lg font-semibold leading-tight tracking-tight">{company}</h1>
+        {/* On a phone the role takes its own line and wraps, instead of being cut to a few letters. */}
+        <p className="min-w-0 text-sm text-[var(--color-muted)] max-sm:basis-full sm:truncate">
           {app.row?.role ?? 'No tracker row linked'}
           {days !== null ? <span className="tnum" suppressHydrationWarning> · day {days}</span> : null}
         </p>
@@ -91,12 +92,13 @@ export function ApplicationHeader<T extends string>({ app, status, interviewed, 
 
     {app.row && progress ? progress : app.row ? <nav aria-label="Where this application stands" className="phase-strip">
       <Segment index={0} label={PHASE_LABEL.applying} here={phase === 'applying' && !closed} done={phase === 'interviewing'}>
-        {steps && (stepsWhenSent || (phase === 'applying' && !closed))
-          ? <ol className="flex flex-wrap items-center gap-1">
+        {/* A role you set aside or skipped keeps its steps: everything prepared is still there to open. */}
+        {steps && (stepsWhenSent || phase === 'applying')
+          ? <ol className="no-scrollbar flex items-center gap-1 max-sm:w-full max-sm:overflow-x-auto sm:flex-wrap">
             {steps.map((each, position) => {
               const here = each.value === step
               return <li key={each.value} className="flex items-center gap-1">
-                {position ? <span aria-hidden="true" className="h-px w-4 bg-[var(--color-border-strong)] sm:w-6" /> : null}
+                {position ? <span aria-hidden="true" className="h-px w-2 shrink-0 bg-[var(--color-border-strong)] sm:w-6" /> : null}
                 <button
                   type="button"
                   onClick={() => onStep?.(each.value)}
@@ -114,8 +116,9 @@ export function ApplicationHeader<T extends string>({ app, status, interviewed, 
           </ol>
           : <span className="text-xs text-[var(--color-muted)]" suppressHydrationWarning>{sentAt ? `Sent ${fmtDate(sentAt.slice(0, 10))}` : closed ? 'Not sent' : phase === 'interviewing' ? 'Done' : 'Preparing'}</span>}
       </Segment>
-      <span aria-hidden="true" className="phase-link" />
-      <Segment index={1} label={PHASE_LABEL.interviewing} here={phase === 'interviewing' && !closed} done={false}>
+      {/* On a phone, while still applying, the Interviewing half is only a promise: it gives its room to the steps. */}
+      <span aria-hidden="true" className={cn('phase-link', phase === 'applying' && 'max-sm:hidden')} />
+      <Segment index={1} label={PHASE_LABEL.interviewing} here={phase === 'interviewing' && !closed} done={false} className={phase === 'applying' ? 'max-sm:hidden' : undefined}>
         {phase === 'interviewing'
           ? <ol className="flex items-center gap-2 text-xs">
             {PHASE_STEPS.interviewing.map((each, position) => {
@@ -125,8 +128,9 @@ export function ApplicationHeader<T extends string>({ app, status, interviewed, 
           </ol>
           : <span className="text-xs text-[var(--color-muted)]">Once they invite you</span>}
       </Segment>
-      {closed ? <Badge tone={statusTone(status)}>{stageLabelForStatus(status)}</Badge> : null}
-      {action ? <div className="ml-auto">{action}</div> : null}
+      {/* Set aside and Skipped are your own calls, so they read in the select's words; a rejection keeps its outcome. */}
+      {closed ? <Badge tone={statusTone(status)}>{status === 'Discarded' || status === 'SKIP' ? statusLabel(status) : stageLabelForStatus(status)}</Badge> : null}
+      {action ? <div className="ml-auto max-sm:w-full max-sm:[&>*]:w-full max-sm:[&>*]:justify-center">{action}</div> : null}
     </nav> : null}
   </header>
 }
@@ -145,8 +149,8 @@ function ActionMenu({ items, busy, onSelect }: { items: MenuItem[]; busy: boolea
   </Menu>
 }
 
-function Segment({ index, label, here, done, children }: { index: number; label: string; here: boolean; done: boolean; children: React.ReactNode }) {
-  return <div aria-current={here ? 'step' : undefined} className={cn('flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1', here && 'phase-segment-here')}>
+function Segment({ index, label, here, done, className, children }: { index: number; label: string; here: boolean; done: boolean; className?: string; children: React.ReactNode }) {
+  return <div aria-current={here ? 'step' : undefined} className={cn('flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1', here && 'phase-segment-here', className)}>
     <span className="flex items-center gap-2">
       <span className={cn('tnum text-sm font-bold', !here && !done && 'text-[var(--color-muted)]')}>{done ? <Check size={13} strokeWidth={2.5} aria-label="Done" /> : index + 1}</span>
       <span className={cn('text-sm font-semibold', !here && !done && 'text-[var(--color-muted)]')}>{label}</span>

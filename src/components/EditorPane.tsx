@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
+import { Check, ChevronDown, Undo2 } from 'lucide-react'
 import type { ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import { YamlEditor } from './YamlEditor'
 import { EditorChat } from './EditorChat'
@@ -47,6 +48,8 @@ export function EditorPane({
   general = false,
   onDirtyChange,
   reviewSource,
+  saveLabel,
+  outputStale = false,
 }: {
   initialYaml: string
   mode: 'master' | 'tailored'
@@ -61,13 +64,16 @@ export function EditorPane({
   general?: boolean
   onDirtyChange?: (dirty: boolean) => void
   reviewSource?: string
+  /** Names the file Save writes, e.g. "Master EN": the button reads "Save Master EN" while there are changes. */
+  saveLabel?: string
+  /** The saved file's output is behind it (a PDF older than the YAML, or none), so saving with no changes still has work to do. */
+  outputStale?: boolean
 }) {
   const [text, setText] = useState(initialYaml)
   const [savedText, setSavedText] = useState(initialYaml)
   const [state, setState] = useState<RenderState | null>(null)
   const [rendering, setRendering] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [saveError, setSaveError] = useState('')
   const [reviewPending, setReviewPending] = useState(false)
   const [tab, setTab] = useState<'chat' | 'editor'>('chat')
@@ -146,7 +152,6 @@ export function EditorPane({
     }
   }, [])
 
-  useEffect(() => { setSaved(false) }, [text])
   useEffect(() => { onDirtyChange?.(text !== savedText || reviewPending) }, [text, savedText, reviewPending, onDirtyChange])
 
   function jumpTo(path: string) {
@@ -164,7 +169,6 @@ export function EditorPane({
     setSaveError('')
     try {
       await onSave(yaml)
-      setSaved(true)
       setSavedText(yaml)
     } catch (cause) {
       setSaveError(cause instanceof Error ? cause.message : 'Could not save this resume. Try again.')
@@ -177,17 +181,23 @@ export function EditorPane({
   // Ctrl/Cmd+S saves, as in any editor, instead of opening the browser's save dialog.
   const saveRef = useRef(save)
   saveRef.current = save
-  const canSave = Boolean(onSave) && !saving && !reviewPending
+  const dirty = text !== savedText
+  const canSave = Boolean(onSave) && !saving && !reviewPending && (dirty || outputStale)
   useEffect(() => {
-    if (!canSave) return
+    if (!onSave) return
     function onKey(event: KeyboardEvent) {
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== 's') return
       event.preventDefault()
-      void saveRef.current().catch(() => {})
+      if (canSave) void saveRef.current().catch(() => {})
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [canSave])
+  }, [onSave, canSave])
+
+  function revert() {
+    setText(savedText)
+    setSaveError('')
+  }
 
   const failures = state?.failures ?? []
   const blocking = failures.filter((f) => f.kind === 'yaml' || f.kind === 'render')
@@ -196,7 +206,7 @@ export function EditorPane({
     setText,
     jumpTo,
     save,
-    markSaved: () => { setSaved(true); setSavedText(text) },
+    markSaved: () => { setSavedText(text) },
     setReviewPending,
     reviewPending,
     showEditor: () => setTab('editor'),
@@ -205,7 +215,7 @@ export function EditorPane({
   }
 
   return (
-    <div className="flex h-[calc(100vh-8.5rem)] flex-col gap-3">
+    <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2.5">
           <h2 className="text-sm font-semibold">{title}</h2>
@@ -216,23 +226,50 @@ export function EditorPane({
         </div>
 
         <div className="flex items-center gap-2">
-          <PageBadge pages={state?.pages ?? null} fill={state?.fill ?? null} mode={mode} />
+          <PageBadge pages={state?.pages ?? null} fill={state?.fill ?? null} mode={mode} general={general} />
+          {onSave && dirty && !reviewPending ? (
+            <button
+              type="button"
+              onClick={revert}
+              disabled={saving}
+              title="Discard the changes since the last save"
+              className="inline-flex min-h-8 items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] disabled:opacity-40"
+            >
+              <Undo2 aria-hidden="true" size={13} />Revert to saved
+            </button>
+          ) : null}
           {onSave ? (
             <button
+              type="button"
               onClick={() => { void save().catch(() => {}) }}
-              disabled={saving || reviewPending}
-              title="Save (Ctrl+S)"
-              className="rounded-md bg-[var(--color-accent)] px-3 py-1.5 text-xs font-medium text-[var(--color-bg)] hover:opacity-90 disabled:opacity-50"
+              disabled={!canSave}
+              aria-keyshortcuts="Control+S Meta+S"
+              className={cn(
+                'inline-flex min-h-8 items-center gap-1.5 rounded-lg px-3.5 text-xs font-semibold transition-[filter,background-color,color]',
+                canSave
+                  ? 'bg-[var(--color-accent)] text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] hover:brightness-110'
+                  : 'bg-[var(--color-surface-2)] text-[var(--color-faint)]',
+              )}
             >
-              {saving ? 'Saving…' : reviewPending ? 'Review proposal below' : saved ? 'Saved ✓' : 'Save'}
+              {saving
+                ? 'Saving…'
+                : reviewPending
+                  ? 'Review proposal below'
+                  : dirty
+                    ? saveLabel ? `Save ${saveLabel}` : 'Save'
+                    : outputStale
+                      ? 'Refresh PDF'
+                      : <><Check aria-hidden="true" size={13} strokeWidth={2.5} />Saved</>}
             </button>
           ) : null}
         </div>
       </div>
 
       {saveError && <p role="alert" className="text-xs text-[var(--color-bad)]">{saveError}</p>}
-      <div className="grid min-h-0 flex-1 gap-3 lg:grid-cols-2">
-        <Card className="flex min-h-0 flex-col overflow-hidden">
+      {/* The row is as tall as the rendered pages, so the whole resume shows without scrolling the
+          preview; the editor column takes that height without adding to it (size containment). */}
+      <div className="grid min-h-[560px] gap-3 lg:grid-cols-2">
+        <Card className="flex h-[70vh] min-h-0 flex-col overflow-hidden lg:h-auto lg:[contain:size]">
           <div className="flex shrink-0 items-center gap-1 border-b border-[var(--color-border)] bg-[var(--color-bg)] px-2 py-1.5" role="tablist" aria-label="CV editing mode">
             {(['chat', 'editor'] as const).map((value) => (
               <button
@@ -241,7 +278,7 @@ export function EditorPane({
                 aria-selected={tab === value}
                 onClick={() => setTab(value)}
                 className={cn(
-                  'rounded-md px-3 py-1.5 text-xs capitalize transition-colors',
+                  'rounded-md px-3 py-1.5 text-xs transition-colors',
                   tab === value
                     ? 'bg-[var(--color-surface-2)] font-medium text-[var(--color-text)]'
                     : 'text-[var(--color-muted)] hover:text-[var(--color-text)]',
@@ -250,7 +287,7 @@ export function EditorPane({
                 {value === 'chat' ? 'Chat with AI' : 'YAML editor'}
               </button>
             ))}
-            <span className="ml-auto pr-1 text-[10px] text-[var(--color-faint)]">
+            <span className="ml-auto pr-1 text-xs text-[var(--color-faint)]">
               {tab === 'chat' ? 'AI edits the current buffer' : 'Edit it yourself'}
             </span>
           </div>
@@ -275,7 +312,7 @@ export function EditorPane({
 
         <Card className="flex min-h-0 flex-col overflow-hidden">
           {state?.token ? (
-            <PdfPreview token={state.token} />
+            <PdfPreview token={state.token} grow />
           ) : blocking.length ? (
             <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
               <p className="text-sm text-[var(--color-bad)]">Cannot render</p>
@@ -290,30 +327,36 @@ export function EditorPane({
   )
 }
 
-/** One page and 95%+ fill is the target for a tailored CV; a master has no limit. */
-function PageBadge({ pages, fill, mode }: { pages: number | null; fill: number | null; mode: 'master' | 'tailored' }) {
+/**
+ * One page and 95%+ fill is the target for a tailored CV, so only there does the
+ * fill bar take a standing colour. A general resume shows its fill as plain ink;
+ * a master has no page limit and shows only its page count.
+ */
+function PageBadge({ pages, fill, mode, general }: { pages: number | null; fill: number | null; mode: 'master' | 'tailored'; general: boolean }) {
   if (pages === null) return null
 
-  const overflow = mode === 'tailored' && pages !== 1
-  const thin = mode === 'tailored' && pages === 1 && fill !== null && fill < 95
+  const judged = mode === 'tailored'
+  const overflow = judged && pages !== 1
+  const thin = judged && pages === 1 && fill !== null && fill < 95
+  const showFill = fill !== null && (judged || general)
 
   return (
     <div className="flex items-center gap-2">
       <Badge tone={overflow ? 'bad' : 'neutral'}>
         {pages} page{pages === 1 ? '' : 's'}
       </Badge>
-      {fill !== null ? (
-        <div className="flex items-center gap-1.5" title={`first-page fill ${fill}%`}>
-          <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--color-surface-2)]">
+      {showFill ? (
+        <div className="flex items-center gap-1.5" title={`First-page fill ${fill}%`}>
+          <div className="h-1.5 w-16 overflow-hidden rounded-[2px] bg-[var(--color-surface-2)]">
             <div
-              className="h-full rounded-full transition-all"
+              className="h-full rounded-[2px] transition-[width]"
               style={{
                 width: `${Math.min(100, fill)}%`,
-                background: overflow || thin ? 'var(--color-warn)' : 'var(--color-ok)',
+                background: !judged ? 'var(--color-faint)' : overflow || thin ? 'var(--color-warn)' : 'var(--color-ok)',
               }}
             />
           </div>
-          <span className="text-[11px] text-[var(--color-faint)] tnum">{fill}%</span>
+          <span className="text-xs text-[var(--color-muted)] tnum">{fill}%</span>
         </div>
       ) : null}
     </div>
@@ -343,7 +386,9 @@ function ValidationPanel({
   return (
     <div className="shrink-0 border-t border-[var(--color-border)]">
       <button
+        type="button"
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
         className="flex w-full items-center gap-2 px-3 py-2 text-left text-xs hover:bg-[var(--color-surface-2)]"
       >
         <span className={cn('size-1.5 rounded-full', failures.length ? 'bg-[var(--color-bad)]' : 'bg-[var(--color-ok)]')} />
@@ -351,7 +396,7 @@ function ValidationPanel({
           {failures.length ? `${failures.length} rule violation${failures.length === 1 ? '' : 's'}` : 'All rules pass'}
         </span>
         {notes.length ? <span className="truncate text-[var(--color-faint)]">· {notes[0]}</span> : null}
-        <span className="ml-auto text-[var(--color-faint)]">{open ? '▾' : '▸'}</span>
+        <ChevronDown aria-hidden="true" size={14} className={cn('ml-auto shrink-0 text-[var(--color-faint)] transition-transform motion-reduce:transition-none', !open && '-rotate-90')} />
       </button>
 
       {open && failures.length > 0 ? (
@@ -367,8 +412,8 @@ function ValidationPanel({
                   style={{ background: KIND_TONE[f.kind] ?? 'var(--color-muted)' }}
                 />
                 <span className="min-w-0">
-                  <span className="block font-mono text-[11px] text-[var(--color-accent)]">{f.where}</span>
-                  <span className="block text-[11px] leading-snug text-[var(--color-muted)]">{f.why}</span>
+                  <span className="block font-mono text-xs text-[var(--color-accent)]">{f.where}</span>
+                  <span className="block text-xs leading-snug text-[var(--color-muted)]">{f.why}</span>
                 </span>
               </button>
             </li>

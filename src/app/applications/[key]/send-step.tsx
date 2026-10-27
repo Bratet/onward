@@ -26,7 +26,7 @@ export interface SendChecks {
 
 const ring = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]'
 const small = `inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2.5 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] ${ring}`
-const go = `group inline-flex cursor-pointer items-center gap-1 rounded text-xs font-medium text-[var(--color-accent)] underline-offset-4 hover:underline ${ring}`
+const go = `group inline-flex min-h-8 cursor-pointer items-center gap-1 rounded text-xs font-medium text-[var(--color-accent)] underline-offset-4 hover:underline ${ring}`
 
 /**
  * Step 4: the packet as it stands, then record that it went out. Nothing
@@ -59,7 +59,7 @@ export function SendStep({ app, status, pdfName, letterPdf, letterDrafted, lette
 
   return <section aria-labelledby="send-title" className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
     <header className="border-b border-[var(--color-border)] px-6 py-5">
-      <h2 id="send-title" className="text-lg font-semibold tracking-tight">Send it</h2>
+      <h2 id="send-title" className="text-[17px]">Send it</h2>
       <p className="mt-1 text-sm leading-relaxed text-[var(--color-muted)]">Check the packet, send it where the posting says, then record it here.</p>
     </header>
     <ul className="space-y-5 px-6 py-5" aria-label="Your packet">
@@ -115,7 +115,7 @@ export function SendStep({ app, status, pdfName, letterPdf, letterDrafted, lette
       } catch (reason) { setError((reason as Error).message) } finally { setBusy(false) }
     }}>
       <label className="block space-y-1.5 text-xs"><span className="font-medium">Add a note <span className="font-normal text-[var(--color-muted)]">(optional, added to your tracker notes)</span></span>
-        <textarea disabled={busy} rows={2} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Where you applied, who you contacted…" className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none placeholder:text-[var(--color-faint)] focus:border-[var(--color-accent)] disabled:opacity-60" />
+        <textarea disabled={busy} rows={2} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Where you applied, who you contacted…" className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:opacity-60" />
       </label>
       <button disabled={busy || status === 'Applied'} className={cn('inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] py-2.5 text-sm font-semibold text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50', ring)}>{busy ? <><Spinner className="border-[var(--color-on-solid)]/30 border-t-[var(--color-on-solid)]" /> Saving…</> : <><Send size={15} aria-hidden="true" /> I sent it</>}</button>
       <p className="text-center text-xs text-[var(--color-muted)]">{attention ? `${attention} item${attention === 1 ? '' : 's'} above need${attention === 1 ? 's' : ''} attention. You can still record it.` : 'This moves the application to Sent. You can undo it from the ⋯ menu.'}</p>

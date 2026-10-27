@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { Spinner } from '@/components/ui/primitives'
 import { readNdjson } from '@/lib/ndjson'
 import { isUnnamedCompany, type JdAnalysis } from '@/lib/tailoring/jd'
-import { BASE_CVS, defaultBaseCv, type BaseCv } from '@/lib/tailoring/baseCv'
+import { defaultBaseCv, GENERAL_BASE, type ResumeProfile } from '@/lib/tailoring/baseCv'
 import type { DuplicateMatch } from '@/lib/duplicates'
 import { cn } from '@/lib/utils'
 import type { SkillSummary } from '@/lib/skills/types'
@@ -42,11 +42,17 @@ export function NewApplicationFlow({ onClose, onStateChange }: { onClose?: () =>
   const blocking = duplicates.filter((match) => match.reason !== 'same-company')
   const missingCompany = !!analysis && isUnnamedCompany(analysis.company)
 
+  const [profiles, setProfiles] = useState<ResumeProfile[]>([])
+
   useEffect(() => {
     fetch('/api/skills')
       .then((response) => response.json())
       .then((data) => setSkills((data.skills as SkillSummary[]).filter((skill) => skill.runner === 'job-analysis')))
       .catch(() => setSkills([]))
+    fetch('/api/profile/resumes')
+      .then((response) => response.json())
+      .then((data) => setProfiles(data.profiles as ResumeProfile[]))
+      .catch(() => setProfiles([]))
   }, [])
 
   const [createdKey, setCreatedKey] = useState<string | null>(null)
@@ -169,8 +175,9 @@ export function NewApplicationFlow({ onClose, onStateChange }: { onClose?: () =>
     }
   }
 
-  const resume = analysis ? analysis.baseCv ?? defaultBaseCv(analysis.archetype) : 'general'
-  const suggested = analysis ? defaultBaseCv(analysis.archetype) : 'general'
+  const suggested = analysis ? defaultBaseCv(analysis.archetype, profiles) : GENERAL_BASE.id
+  const resume = analysis?.baseCv ?? suggested
+  const bases = [GENERAL_BASE, ...profiles]
   const facts = analysis ? [analysis.seniority, analysis.location, analysis.workMode].filter((fact): fact is string => !!fact && !/^(not |unknown|n\/a)/i.test(fact)) : []
   const sponsorship = sponsorshipTone(analysis?.sponsorship)
   const subtitle = noJd ? 'No posting? Track the opportunity with a copy of your general resume, ready to tweak.'
@@ -336,9 +343,9 @@ export function NewApplicationFlow({ onClose, onStateChange }: { onClose?: () =>
             </label>
             <label className="block">
               <span className="block text-sm font-medium">Start from</span>
-              <select value={resume} onChange={(e) => setAnalysis({ ...analysis, baseCv: e.target.value as BaseCv })} className={field}>
-                {BASE_CVS.map((base) => (
-                  <option key={base.id} value={base.id}>{base.label} resume{base.id === suggested ? ' (suggested)' : ''}</option>
+              <select value={resume} onChange={(e) => setAnalysis({ ...analysis, baseCv: e.target.value })} className={field}>
+                {bases.map((base) => (
+                  <option key={base.id} value={base.id}>{base.name} resume{base.id === suggested ? ' (suggested)' : ''}</option>
                 ))}
               </select>
               <span className="mt-1.5 block text-xs text-[var(--color-faint)]">

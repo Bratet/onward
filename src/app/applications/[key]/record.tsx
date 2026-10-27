@@ -35,7 +35,7 @@ function useCopy() {
 const tile = 'group flex w-full items-center gap-3 rounded-lg border border-[var(--color-border)] px-3 py-2.5 text-left transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]'
 
 function TileIcon({ muted, children }: { muted?: boolean; children: ReactNode }) {
-  return <span aria-hidden="true" className={cn('grid size-9 shrink-0 place-items-center rounded-lg', muted ? 'bg-[var(--color-surface-2)] text-[var(--color-muted)]' : 'bg-[var(--color-accent-soft)] text-[var(--color-accent)]')}>{children}</span>
+  return <span aria-hidden="true" className={cn('grid size-9 shrink-0 place-items-center rounded-lg bg-[var(--color-surface-2)]', muted ? 'text-[var(--color-muted)]' : 'text-[var(--color-text)]')}>{children}</span>
 }
 
 function TileText({ title, meta }: { title: string; meta: string }) {

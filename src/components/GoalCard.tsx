@@ -368,7 +368,7 @@ function GoalForm({ goal, onDone }: { goal: Goal | null; onDone: () => void }) {
       <div className="mt-1 flex items-center gap-2">
         <button
           disabled={busy}
-          className="flex h-9 items-center gap-2 rounded-md bg-[var(--color-accent)] px-3 text-xs font-medium text-[var(--color-bg)] disabled:opacity-50"
+          className="flex h-9 items-center gap-2 rounded-md bg-[var(--color-accent)] px-3 text-xs font-medium text-[var(--color-on-solid)] disabled:opacity-50"
         >
           {busy ? <Spinner /> : null}Save goal
         </button>

@@ -1,6 +1,7 @@
 import { readFile } from 'fs/promises'
 import { parse, stringify } from 'yaml'
 import { PATHS, baseCvPath, type Lang } from '../paths'
+import { readProfiles } from '../resumeProfiles'
 import { rankedRequirements, type JdAnalysis } from './jd'
 import { defaultBaseCv } from './baseCv'
 
@@ -15,7 +16,7 @@ import { defaultBaseCv } from './baseCv'
 
 export async function seedYaml(analysis: JdAnalysis): Promise<string> {
   const lang: Lang = analysis.language === 'fr' ? 'fr' : 'en'
-  const base = analysis.baseCv ?? defaultBaseCv(analysis.archetype)
+  const base = analysis.baseCv ?? defaultBaseCv(analysis.archetype, await readProfiles())
   const general = parse(await readFile(baseCvPath(base, lang), 'utf-8')) as Record<string, unknown>
   const design = parse(await readFile(PATHS.tailoredDesign, 'utf-8')) as { design: Record<string, unknown> }
 

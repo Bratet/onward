@@ -40,9 +40,6 @@ try {
     assert.equal(await readFile(PATHS.ownCv[language], 'utf-8'), edited)
     assert.equal((await readWorkspace(key)).draftYaml, yaml + '# company edit\n')
     const variantYaml = `cv:\n  name: ML ${language}\n`
-    assert.equal((await PUT(new Request(`http://localhost/api/masters/${language}?family=ownCv&variant=ml`, { method: 'PUT', body: JSON.stringify({ yaml: variantYaml }) }), { params: Promise.resolve({ lang: language }) })).status, 200)
-    assert.equal(await readFile(PATHS.ownCvVariants.ml[language], 'utf-8'), variantYaml)
-    assert.equal(await readFile(PATHS.ownCv[language], 'utf-8'), edited, 'a variant save leaves the all-round resume alone')
     for (const query of ['family=ownCv&variant=../x', 'family=masters&variant=ml']) {
       assert.equal((await PUT(new Request(`http://localhost/api/masters/${language}?${query}`, { method: 'PUT', body: JSON.stringify({ yaml: variantYaml }) }), { params: Promise.resolve({ lang: language }) })).status, 400)
     }
@@ -50,7 +47,7 @@ try {
   for (const body of [{ company: '', language: 'en' }, { company: 'Bad|row', language: 'en' }, { company: 'Acme', language: '../en' }]) {
     assert.equal((await POST(new Request('http://localhost', { method: 'POST', body: JSON.stringify(body) }))).status, 400)
   }
-  console.log('General applications: both languages, profile and variant saves, isolated drafts, preserved design, no fit analysis, duplicates and invalid inputs pass')
+  console.log('General applications: both languages, profile saves, isolated drafts, preserved design, no fit analysis, duplicates and invalid inputs pass')
 } finally {
   process.chdir(original)
   await rm(root, { recursive: true, force: true })

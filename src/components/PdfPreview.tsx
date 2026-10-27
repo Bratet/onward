@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Empty } from './ui/primitives'
+import { cn } from '@/lib/utils'
 
 interface PreviewPage {
   url: string
@@ -9,7 +10,7 @@ interface PreviewPage {
   height: number
 }
 
-export function PdfPreview({ token, src, document: label = 'CV', engine = 'RenderCV', source = 'YAML' }: {
+export function PdfPreview({ token, src, document: label = 'CV', engine = 'RenderCV', source = 'YAML', grow = false }: {
   token: string | null
   /** A saved PDF to show instead of a render token's. */
   src?: string
@@ -17,6 +18,8 @@ export function PdfPreview({ token, src, document: label = 'CV', engine = 'Rende
   document?: string
   engine?: string
   source?: string
+  /** Take the pages' full height instead of scrolling inside the pane, so the whole document shows at once. */
+  grow?: boolean
 }) {
   const [pages, setPages] = useState<PreviewPage[]>([])
   const [loading, setLoading] = useState(false)
@@ -95,7 +98,7 @@ export function PdfPreview({ token, src, document: label = 'CV', engine = 'Rende
   if (!pages.length) return <Empty title="No preview yet" hint={`The ${label} appears here once the ${source} renders.`} />
 
   return (
-    <div className="relative h-full overflow-y-auto bg-[var(--color-surface-2)] p-3 sm:p-5">
+    <div className={cn('relative bg-[var(--color-surface-2)] p-3 sm:p-5', grow ? 'h-auto' : 'h-full overflow-y-auto')}>
       <div className="mx-auto flex max-w-[900px] flex-col gap-4">
         {pages.map((page, index) => (
           // The whole page set swaps only after the new PDF has rendered, avoiding
