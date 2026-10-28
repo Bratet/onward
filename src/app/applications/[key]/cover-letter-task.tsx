@@ -34,9 +34,11 @@ function chatKey(key: string) {
 }
 
 /** The same document-and-companion workspace as Resume, with an explicit AI review before saving. */
-export function CoverLetterTask({ app, active = true, initialLetter, savedLetter, finalizedAtLoad, onLetterSaved, onLetterFinalized, resumeReady, onGoToResume }: {
+export function CoverLetterTask({ app, active = true, asked, initialLetter, savedLetter, finalizedAtLoad, onLetterSaved, onLetterFinalized, resumeReady, onGoToResume }: {
   app: Application
   active?: boolean
+  /** The posting asks for a cover letter; only then does a new chat open with a draft request waiting. */
+  asked: boolean
   resumeReady: boolean
   onGoToResume: () => void
   onLetterFinalized?: (pdfName: string) => void
@@ -104,7 +106,9 @@ export function CoverLetterTask({ app, active = true, initialLetter, savedLetter
     let saved = null
     try { saved = parseLetterChat(window.localStorage.getItem(chatKey(app.key))) } catch { /* in-memory chat still works */ }
     setTurns(saved?.turns ?? [])
-    setMessage(saved?.message || (!initialLetter.content.trim() && !saved?.turns.length ? STARTER : ''))
+    // A request this panel once filled in itself is not kept when the posting does not ask for a letter.
+    const savedMessage = !asked && saved?.message === STARTER ? '' : saved?.message
+    setMessage(savedMessage || (asked && !initialLetter.content.trim() && !saved?.turns.length ? STARTER : ''))
     if (saved?.review) {
       const matches = savedLetter
         ? letterKey(saved.review.before) === letterKey(savedLetter)
@@ -283,7 +287,7 @@ export function CoverLetterTask({ app, active = true, initialLetter, savedLetter
 
   function newChat() {
     if (busy || review) return
-    setTurns([]); setMessage(empty ? STARTER : ''); setError(null); setRetry(null)
+    setTurns([]); setMessage(asked && empty ? STARTER : ''); setError(null); setRetry(null)
     window.requestAnimationFrame(() => messageRef.current?.focus({ preventScroll: true }))
   }
 
@@ -298,134 +302,133 @@ export function CoverLetterTask({ app, active = true, initialLetter, savedLetter
   const inputBlocked = !hydrated || conflict || !resumeReady || finalizing
   const sendBlocked = inputBlocked || !!review || !message.trim()
 
-  return <div className="space-y-3">
-    {conflict ? <div role="alert" className="flex flex-wrap items-center gap-3 rounded-lg border border-[var(--color-bad-soft)] bg-[var(--color-bad-soft)] px-4 py-3 text-sm">
-      <p className="min-w-0 flex-1">This letter changed in another tab. Copy any edits you want to keep, then reload the latest version.</p>
-      <button type="button" onClick={() => window.location.reload()} className={secondary}>Reload latest</button>
-    </div> : null}
-    <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-      <section aria-label="Cover letter document" className="min-w-0 lg:sticky lg:top-20">
-        <Card ref={documentPanel} className={cn('flex min-h-0 flex-col', empty && view === 'preview' ? 'min-h-80 lg:h-[max(420px,70dvh)]' : 'h-[max(420px,70dvh)]')}>
-          <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
-            <div className="min-w-0 flex-1">
-              <h2 className="text-[15px] font-semibold">Cover letter</h2>
-              <p role="status" className={cn('mt-0.5 text-xs', statusTone)}>{status}</p>
+  return <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+    <section aria-label="Cover letter document" className="min-w-0 lg:sticky lg:top-20">
+      {/* The first folder tab opens onto this sheet, so its top-left corner is the tab's. */}
+      <Card ref={documentPanel} className={cn('flex min-h-0 flex-col rounded-tl-none', empty && view === 'preview' ? 'min-h-80 lg:h-[max(420px,70dvh)]' : 'h-[max(420px,70dvh)]')}>
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-5 py-3.5">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-[17px]">Cover letter</h2>
+            <p role="status" className={cn('mt-0.5 text-xs', statusTone)}>{status}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {finalizedPdf ? <>
+              <a href={`/api/applications/${encodeURIComponent(app.key)}/file/${encodeURIComponent(finalizedPdf)}`} target="_blank" rel="noreferrer" className={secondary}><FileText size={13} aria-hidden="true" /> Open PDF</a>
+              <Menu label="Cover letter file actions" width="w-48">
+                {(close) => <>
+                  <MenuItem label="Show file in Finder" onSelect={() => { close(); void locate(true) }} />
+                  <MenuItem label="Copy file path" onSelect={() => { close(); void locate(false) }} />
+                </>}
+              </Menu>
+            </> : null}
+            <button type="button" aria-pressed={view === 'edit'} onClick={() => setView(view === 'edit' ? 'preview' : 'edit')} className={secondary}>
+              {view === 'edit' ? <><Eye size={13} aria-hidden="true" /> Preview</> : <><Pencil size={13} aria-hidden="true" /> Edit text</>}
+            </button>
+          </div>
+        </div>
+        {conflict ? <div role="alert" className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-bad-soft)] px-5 py-3 text-sm">
+          <p className="min-w-0 flex-1">This letter changed in another tab. Copy any edits you want to keep, then reload the latest version.</p>
+          <button type="button" onClick={() => window.location.reload()} className={secondary}>Reload latest</button>
+        </div> : null}
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <div className={cn('h-full', view !== 'preview' && 'hidden')}>
+          {empty ? <div className="flex h-full min-h-56 flex-col items-center justify-center px-6 py-8 text-center">
+            <h3 className="text-lg font-semibold">Your cover letter starts here</h3>
+            <p className="mt-2 max-w-sm text-sm leading-relaxed text-[var(--color-muted)]">Ask the AI for a first draft from your finalized resume and this role, or write it yourself.</p>
+            <button type="button" onClick={writeMyself} disabled={busy || !!review} className={cn(secondary, 'mt-5')}><Pencil size={14} aria-hidden="true" /> Write it myself</button>
+          </div> : <PdfPreview token={preview.token} document="cover letter" engine="the preview" source="letter" />}
+          </div>
+            <div className={cn('flex h-full flex-col gap-4 overflow-y-auto p-4 sm:p-5', view !== 'edit' && 'hidden')}>
+              <details className="shrink-0 border-b border-[var(--color-border)] pb-3">
+                <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden"><ChevronDown size={14} aria-hidden="true" /> Recipient & letter details <span className="ml-auto text-xs font-normal text-[var(--color-muted)]">{letter.paper === 'a4' ? 'A4' : 'US Letter'}</span></summary>
+                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <LetterField label="Recipient name" value={letter.recipientName} disabled={busy || !!review} readOnly={conflict} placeholder="Optional" onChange={(recipientName) => edit({ recipientName })} />
+                  <LetterField label="Recipient title" value={letter.recipientTitle} disabled={busy || !!review} readOnly={conflict} placeholder="Optional" onChange={(recipientTitle) => edit({ recipientTitle })} />
+                  <LetterField label="Company" value={letter.companyName} disabled={busy || !!review} readOnly={conflict} onChange={(companyName) => edit({ companyName })} />
+                  <LetterField label="Company address" value={letter.companyAddress} disabled={busy || !!review} readOnly={conflict} placeholder="Optional" onChange={(companyAddress) => edit({ companyAddress })} />
+                  <LetterField label="Greeting" value={letter.salutation} disabled={busy || !!review} readOnly={conflict} placeholder="Dear Hiring Manager," onChange={(salutation) => edit({ salutation })} />
+                  <LetterField label="Closing" value={letter.closing} disabled={busy || !!review} readOnly={conflict} onChange={(closing) => edit({ closing })} />
+                  <LetterField label="Date" value={letter.date} disabled={busy || !!review} readOnly={conflict} onChange={(date) => edit({ date })} />
+                  <label className="block space-y-1 text-xs text-[var(--color-muted)]"><span>Paper</span>
+                    <select value={letter.paper} disabled={busy || !!review || conflict} onChange={(event) => edit({ paper: event.target.value as CoverLetter['paper'] })} className={field}>
+                      <option value="a4">A4</option><option value="us-letter">US Letter</option>
+                    </select>
+                  </label>
+                </div>
+              </details>
+              <label className="flex min-h-64 flex-1 flex-col gap-2 text-sm font-medium">
+                <span>Letter body</span>
+                <textarea ref={bodyRef} value={letter.content} disabled={busy || !!review} readOnly={conflict} onChange={(event) => edit({ content: event.target.value })} placeholder="Explain why this role interests you and what you can contribute…" className={cn(field, 'min-h-56 flex-1 resize-y leading-7')} />
+                <span className="text-xs font-normal text-[var(--color-muted)]">Separate paragraphs with a blank line. Your edits save automatically.</span>
+              </label>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {finalizedPdf ? <>
-                <a href={`/api/applications/${encodeURIComponent(app.key)}/file/${encodeURIComponent(finalizedPdf)}`} target="_blank" rel="noreferrer" className={secondary}><FileText size={13} aria-hidden="true" /> Open PDF</a>
-                <Menu label="Cover letter file actions" width="w-48">
-                  {(close) => <>
-                    <MenuItem label="Show file in Finder" onSelect={() => { close(); void locate(true) }} />
-                    <MenuItem label="Copy file path" onSelect={() => { close(); void locate(false) }} />
-                  </>}
-                </Menu>
-              </> : null}
-              <button type="button" aria-pressed={view === 'edit'} onClick={() => setView(view === 'edit' ? 'preview' : 'edit')} className={secondary}>
-                {view === 'edit' ? <><Eye size={13} aria-hidden="true" /> Preview</> : <><Pencil size={13} aria-hidden="true" /> Edit text</>}
-              </button>
+        </div>
+        {preview.failures.length ? <div role="alert" className="shrink-0 space-y-2 border-t border-[var(--color-border)] bg-[var(--color-bad-soft)] px-4 py-3 text-xs text-[var(--color-bad)]">
+          <ul className="list-disc space-y-1 pl-4">{preview.failures.map((failure, index) => <li key={index}>{failure.why}</li>)}</ul>
+          <button type="button" onClick={() => setPreviewAttempt((attempt) => attempt + 1)} className={secondary}>Retry preview</button>
+        </div> : null}
+        <div className="shrink-0 space-y-2 rounded-b-xl border-t border-[var(--color-border)] px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]">
+              <span className={cn('tabular-nums', words > LETTER_WORD_TARGET.max + 50 && 'text-[var(--color-warn)]')}>{words} words <span className="text-[var(--color-muted)]">· aim {LETTER_WORD_TARGET.min}–{LETTER_WORD_TARGET.max}</span></span>
+              {rendering ? <span className="inline-flex items-center gap-1.5"><Spinner /> Updating preview…</span> : currentPreview && preview.pages ? <Badge tone={preview.pages === 1 ? 'ok' : 'warn'}>{preview.pages} page{preview.pages === 1 ? '' : 's'}</Badge> : null}
             </div>
+            <button type="button" disabled={!!finalizeBlocked} title={finalizeBlocked ?? 'Save the PDF you send'} aria-describedby={finalizeHintId} onClick={() => void finalize()} className={primary}>
+              {finalizing ? <Spinner /> : <Check size={14} aria-hidden="true" />}{finalizing ? 'Finalizing…' : upToDate ? 'Finalized' : finalizedPdf ? 'Finalize again' : 'Finalize letter'}
+            </button>
           </div>
-          <div className="min-h-0 flex-1 overflow-hidden">
-            <div className={cn('h-full', view !== 'preview' && 'hidden')}>
-            {empty ? <div className="flex h-full min-h-56 flex-col items-center justify-center px-6 py-8 text-center">
-              <h3 className="text-lg font-semibold">Your cover letter starts here</h3>
-              <p className="mt-2 max-w-sm text-sm leading-relaxed text-[var(--color-muted)]">Ask the AI for a first draft from your finalized resume and this role, or write it yourself.</p>
-              <button type="button" onClick={writeMyself} disabled={busy || !!review} className={cn(secondary, 'mt-5')}><Pencil size={14} aria-hidden="true" /> Write it myself</button>
-            </div> : <PdfPreview token={preview.token} document="cover letter" engine="the preview" source="letter" />}
+          <p id={finalizeHintId} className={cn('text-xs text-[var(--color-muted)]', (!finalizeBlocked || empty || upToDate) && 'sr-only')}>{finalizeBlocked ?? 'Save the PDF you send'}</p>
+          {notice ? <p role="status" className="text-xs text-[var(--color-muted)]">{notice}</p> : null}
+          {saveState === 'error' && !conflict ? <button type="button" onClick={() => { setError(null); setSaveAttempt((attempt) => attempt + 1) }} className={secondary}>Retry saving</button> : null}
+        </div>
+      </Card>
+    </section>
+    <section aria-label="Cover letter AI" className="min-w-0 lg:sticky lg:top-20">
+      <Card ref={aiPanel} className="flex h-[max(480px,70dvh)] min-h-0 flex-col overflow-hidden">
+        <AiPanelHeader title="Cover letter AI" hint="Uses your finalized resume and the posting">
+          <AiNewChat disabled={!hydrated || busy || !!review || !turns.length} onClear={newChat} />
+          <AiSettingsToggle open={settingsOpen} controls={settingsId} onToggle={() => setSettingsOpen((open) => !open)} />
+        </AiPanelHeader>
+        <div id={settingsId} hidden={!settingsOpen} className="max-h-60 shrink-0 space-y-3 overflow-y-auto border-b border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
+          {settingsOpen ? <FeatureEnginePicker feature="editor-chat" disabled={busy || !!review} compact /> : null}
+          {turns.length >= 2 ? <LearnFromChat embedded skillId="write-cover-letter" turns={turns} disabled={busy || !!review} /> : null}
+        </div>
+        <div ref={listRef} onScroll={() => { const list = listRef.current; if (list) followReply.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80 }} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
+          {turns.length ? turns.map((turn, index) => <div key={index} className="space-y-3">
+            <div className={turn.role === 'user' ? aiUserBubble : aiReply}>
+              {turn.role === 'assistant' ? <ChatMarkdown text={turn.content} /> : <p className="whitespace-pre-wrap break-words">{turn.content}</p>}
             </div>
-              <div className={cn('flex h-full flex-col gap-4 overflow-y-auto p-4 sm:p-5', view !== 'edit' && 'hidden')}>
-                <details className="shrink-0 border-b border-[var(--color-border)] pb-3">
-                  <summary className="flex min-h-8 cursor-pointer list-none items-center gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden"><ChevronDown size={14} aria-hidden="true" /> Recipient & letter details <span className="ml-auto text-xs font-normal text-[var(--color-muted)]">{letter.paper === 'a4' ? 'A4' : 'US Letter'}</span></summary>
-                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                    <LetterField label="Recipient name" value={letter.recipientName} disabled={busy || !!review} readOnly={conflict} placeholder="Optional" onChange={(recipientName) => edit({ recipientName })} />
-                    <LetterField label="Recipient title" value={letter.recipientTitle} disabled={busy || !!review} readOnly={conflict} placeholder="Optional" onChange={(recipientTitle) => edit({ recipientTitle })} />
-                    <LetterField label="Company" value={letter.companyName} disabled={busy || !!review} readOnly={conflict} onChange={(companyName) => edit({ companyName })} />
-                    <LetterField label="Company address" value={letter.companyAddress} disabled={busy || !!review} readOnly={conflict} placeholder="Optional" onChange={(companyAddress) => edit({ companyAddress })} />
-                    <LetterField label="Greeting" value={letter.salutation} disabled={busy || !!review} readOnly={conflict} placeholder="Dear Hiring Manager," onChange={(salutation) => edit({ salutation })} />
-                    <LetterField label="Closing" value={letter.closing} disabled={busy || !!review} readOnly={conflict} onChange={(closing) => edit({ closing })} />
-                    <LetterField label="Date" value={letter.date} disabled={busy || !!review} readOnly={conflict} onChange={(date) => edit({ date })} />
-                    <label className="block space-y-1 text-xs text-[var(--color-muted)]"><span>Paper</span>
-                      <select value={letter.paper} disabled={busy || !!review || conflict} onChange={(event) => edit({ paper: event.target.value as CoverLetter['paper'] })} className={field}>
-                        <option value="a4">A4</option><option value="us-letter">US Letter</option>
-                      </select>
-                    </label>
-                  </div>
-                </details>
-                <label className="flex min-h-64 flex-1 flex-col gap-2 text-sm font-medium">
-                  <span>Letter body</span>
-                  <textarea ref={bodyRef} value={letter.content} disabled={busy || !!review} readOnly={conflict} onChange={(event) => edit({ content: event.target.value })} placeholder="Explain why this role interests you and what you can contribute…" className={cn(field, 'min-h-56 flex-1 resize-y leading-7')} />
-                  <span className="text-xs font-normal text-[var(--color-muted)]">Separate paragraphs with a blank line. Your edits save automatically.</span>
-                </label>
-              </div>
-          </div>
-          {preview.failures.length ? <div role="alert" className="shrink-0 space-y-2 border-t border-[var(--color-border)] bg-[var(--color-bad-soft)] px-4 py-3 text-xs text-[var(--color-bad)]">
-            <ul className="list-disc space-y-1 pl-4">{preview.failures.map((failure, index) => <li key={index}>{failure.why}</li>)}</ul>
-            <button type="button" onClick={() => setPreviewAttempt((attempt) => attempt + 1)} className={secondary}>Retry preview</button>
-          </div> : null}
-          <div className="shrink-0 space-y-2 rounded-b-xl border-t border-[var(--color-border)] px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--color-muted)]">
-                <span className={cn('tabular-nums', words > LETTER_WORD_TARGET.max + 50 && 'text-[var(--color-warn)]')}>{words} words <span className="text-[var(--color-muted)]">· aim {LETTER_WORD_TARGET.min}–{LETTER_WORD_TARGET.max}</span></span>
-                {rendering ? <span className="inline-flex items-center gap-1.5"><Spinner /> Updating preview…</span> : currentPreview && preview.pages ? <Badge tone={preview.pages === 1 ? 'ok' : 'warn'}>{preview.pages} page{preview.pages === 1 ? '' : 's'}</Badge> : null}
-              </div>
-              <button type="button" disabled={!!finalizeBlocked} title={finalizeBlocked ?? 'Save the PDF you send'} aria-describedby={finalizeHintId} onClick={() => void finalize()} className={primary}>
-                {finalizing ? <Spinner /> : <Check size={14} aria-hidden="true" />}{finalizing ? 'Finalizing…' : upToDate ? 'Finalized' : finalizedPdf ? 'Finalize again' : 'Finalize letter'}
-              </button>
-            </div>
-            <p id={finalizeHintId} className={cn('text-xs text-[var(--color-muted)]', (!finalizeBlocked || empty || upToDate) && 'sr-only')}>{finalizeBlocked ?? 'Save the PDF you send'}</p>
-            {notice ? <p role="status" className="text-xs text-[var(--color-muted)]">{notice}</p> : null}
-            {saveState === 'error' && !conflict ? <button type="button" onClick={() => { setError(null); setSaveAttempt((attempt) => attempt + 1) }} className={secondary}>Retry saving</button> : null}
-          </div>
-        </Card>
-      </section>
-      <section aria-label="Cover letter AI" className="min-w-0 lg:sticky lg:top-20">
-        <Card ref={aiPanel} className="flex h-[max(480px,70dvh)] min-h-0 flex-col overflow-hidden">
-          <AiPanelHeader title="Cover letter AI" hint="Uses your finalized resume and the posting">
-            <AiNewChat disabled={!hydrated || busy || !!review || !turns.length} onClear={newChat} />
-            <AiSettingsToggle open={settingsOpen} controls={settingsId} onToggle={() => setSettingsOpen((open) => !open)} />
-          </AiPanelHeader>
-          <div id={settingsId} hidden={!settingsOpen} className="max-h-60 shrink-0 space-y-3 overflow-y-auto border-b border-[var(--color-border)] bg-[var(--color-bg)] px-4 py-3">
-            {settingsOpen ? <FeatureEnginePicker feature="editor-chat" disabled={busy || !!review} compact /> : null}
-            {turns.length >= 2 ? <LearnFromChat embedded skillId="write-cover-letter" turns={turns} disabled={busy || !!review} /> : null}
-          </div>
-          <div ref={listRef} onScroll={() => { const list = listRef.current; if (list) followReply.current = list.scrollHeight - list.scrollTop - list.clientHeight < 80 }} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-4">
-            {turns.length ? turns.map((turn, index) => <div key={index} className="space-y-3">
-              <div className={turn.role === 'user' ? aiUserBubble : aiReply}>
-                {turn.role === 'assistant' ? <ChatMarkdown text={turn.content} /> : <p className="whitespace-pre-wrap break-words">{turn.content}</p>}
-              </div>
-              {review && index === turns.length - 1 && turn.role === 'assistant' ? <AiReview title="Review your letter" hint="The preview shows the AI draft. Keep it to save it, or undo to restore your previous letter.">
-                <button type="button" onClick={() => resolveReview(true)} className={secondary}><Check size={14} aria-hidden="true" /> Keep draft</button>
-                <button type="button" onClick={() => resolveReview(false)} className={secondary}><Undo2 size={14} aria-hidden="true" /> Undo</button>
-              </AiReview> : null}
-            </div>) : <AiEmpty
-              title="What should this letter emphasize?"
-              hint="Start with a draft for this role. You can then refine the tone, highlight a project, or make it more concise."
-              prompts={!empty ? ['Make it shorter and more direct.', 'Focus on my most relevant project.'] : undefined}
-              disabled={busy || !!review}
-              onPick={(prompt) => { setMessage(prompt); messageRef.current?.focus({ preventScroll: true }) }}
-            />}
-            {thinking ? <div role="status" className="flex items-center gap-2 py-2 text-sm text-[var(--color-muted)]"><Spinner /> Writing your draft…</div> : null}
-          </div>
-          {error && !conflict ? <ErrorNotice error={error} className="shrink-0 border-t border-[var(--color-border)]" onRetry={retry && !busy ? () => void send(retry) : undefined} onDismiss={() => { setError(null); setRetry(null) }} /> : null}
-          {!resumeReady ? <AiBlocked title="Finalize your resume to start" hint="The AI needs the version you’ll send with this letter." action={<button type="button" onClick={onGoToResume} className={secondary}>Go to Resume</button>} /> : <AiComposer
-            value={message}
-            onChange={setMessage}
-            onSubmit={() => void send()}
-            onStop={() => abortRef.current?.abort()}
-            busy={thinking}
-            blocked={sendBlocked}
-            disabled={inputBlocked}
-            highlight={starterReady}
-            label="Message the cover letter companion"
-            placeholder={empty ? 'Draft a letter for this role, or tell the AI what to emphasize…' : 'Ask for an edit: tone, length, a project to highlight…'}
-            hint={thinking ? 'Writing… Esc stops the reply' : review ? 'Keep or undo the AI draft to continue' : starterReady ? 'Press Enter to draft, or edit the request first' : 'Enter to send · Shift+Enter for a new line'}
-            maxLength={8000}
-            textareaRef={messageRef}
+            {review && index === turns.length - 1 && turn.role === 'assistant' ? <AiReview title="Review your letter" hint="The preview shows the AI draft. Keep it to save it, or undo to restore your previous letter.">
+              <button type="button" onClick={() => resolveReview(true)} className={secondary}><Check size={14} aria-hidden="true" /> Keep draft</button>
+              <button type="button" onClick={() => resolveReview(false)} className={secondary}><Undo2 size={14} aria-hidden="true" /> Undo</button>
+            </AiReview> : null}
+          </div>) : <AiEmpty
+            title="What should this letter emphasize?"
+            hint="Start with a draft for this role. You can then refine the tone, highlight a project, or make it more concise."
+            prompts={!empty ? ['Make it shorter and more direct.', 'Focus on my most relevant project.'] : undefined}
+            disabled={busy || !!review}
+            onPick={(prompt) => { setMessage(prompt); messageRef.current?.focus({ preventScroll: true }) }}
           />}
-        </Card>
-      </section>
-    </div>
+          {thinking ? <div role="status" className="flex items-center gap-2 py-2 text-sm text-[var(--color-muted)]"><Spinner /> Writing your draft…</div> : null}
+        </div>
+        {error && !conflict ? <ErrorNotice error={error} className="shrink-0 border-t border-[var(--color-border)]" onRetry={retry && !busy ? () => void send(retry) : undefined} onDismiss={() => { setError(null); setRetry(null) }} /> : null}
+        {!resumeReady ? <AiBlocked title="Finalize your resume to start" hint="The AI needs the version you’ll send with this letter." action={<button type="button" onClick={onGoToResume} className={secondary}>Go to Resume</button>} /> : <AiComposer
+          value={message}
+          onChange={setMessage}
+          onSubmit={() => void send()}
+          onStop={() => abortRef.current?.abort()}
+          busy={thinking}
+          blocked={sendBlocked}
+          disabled={inputBlocked}
+          highlight={starterReady}
+          label="Message the cover letter companion"
+          placeholder={empty ? 'Draft a letter for this role, or tell the AI what to emphasize…' : 'Ask for an edit: tone, length, a project to highlight…'}
+          hint={thinking ? 'Writing… Esc stops the reply' : review ? 'Keep or undo the AI draft to continue' : starterReady ? 'Press Enter to draft, or edit the request first' : 'Enter to send · Shift+Enter for a new line'}
+          maxLength={8000}
+          textareaRef={messageRef}
+        />}
+      </Card>
+    </section>
   </div>
 }
 

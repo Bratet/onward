@@ -114,7 +114,7 @@ export function PdfPreview({ token, src, document: label = 'CV', engine = 'Rende
           />
         ))}
       </div>
-      {error ? <p className="sticky bottom-2 mx-auto mt-2 w-fit rounded-md bg-[var(--color-bad-soft)] px-2 py-1 text-[10px] text-[var(--color-bad)]">{error}</p> : null}
+      {error ? <p className="sticky bottom-2 mx-auto mt-2 w-fit rounded-md bg-[var(--color-bad-soft)] px-2 py-1 text-xs text-[var(--color-bad)]">{error}</p> : null}
     </div>
   )
 }

@@ -140,6 +140,9 @@ export function profileFitPrompt(instructions: string, analysis: JdAnalysis, mas
     .replace('{{JD_ANALYSIS}}', JSON.stringify(analysis, null, 2))
     .replace('{{MASTER_RESUME}}', masterYaml.slice(0, 60_000))}
 
+EVIDENCE WORDING:
+The candidate reads each evidence line directly, so write it to them: "your resume", "you", never "the master", "the candidate", "he" or "she". Keep the "User-confirmed:" prefix where it applies. When nothing in the sources bears on a requirement, return an empty evidence array; do not write a line saying it is missing.
+
 KEYWORD WORDING:
 Return keywordMappings alongside the requirement assessment. For each posting keyword whose wording differs from the master, confirmed guidance or CURRENT_RESUME_WORDING, map the actual short phrases used in those sources. Copy keyword from JD_ANALYSIS.keywords exactly; omit entries with no useful mapping. This is a reusable, directional wording dictionary, not additional evidence or a list of everything the candidate might know.
 - equivalents: the same capability expressed differently, including acronyms, plurals, translations and coordinated phrases (for example, "prompt and context engineering" includes "prompt engineering", and "REST APIs" is a form of "REST API"). A match will count as present in the current resume only while that equivalent phrase actually occurs there.

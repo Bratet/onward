@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { AlertTriangle, ArrowLeft, ArrowRight, Check, Code2, Eye, FileText, MessageSquareText, X } from 'lucide-react'
 import type { ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import type { Application } from '@/lib/applications'
@@ -17,6 +17,7 @@ import type { ApplicationWorkspace, WorkspaceProposal } from '@/lib/workspaces'
 import type { Op } from '@/lib/tailoring/ops'
 import type { RequirementAction } from '@/lib/tailoring/rules'
 import { EditorChat } from '@/components/EditorChat'
+import { aiHeaderButton } from '@/components/AiPanel'
 import type { EditorApi } from '@/components/EditorPane'
 import { Card, Spinner } from '@/components/ui/primitives'
 import { YamlEditor } from '@/components/YamlEditor'
@@ -168,11 +169,30 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   const savedDraft = useRef(initialWorkspace.draftYaml)
   const revision = useRef(initialWorkspace.revision)
   const editorRef = useRef<ReactCodeMirrorRef>(null)
-  const editorCardRef = useRef<HTMLDivElement>(null)
+  const editorCardRef = useRef<HTMLElement>(null)
   const fitChatRef = useRef<HTMLDivElement>(null)
-  // Below the wide layout the Fit AI would sit far under the list; it opens as a sheet over it instead.
+  // Below the wide layout the Fit AI would sit far under the list; it opens as a modal sheet over it instead.
+  const fitDialogRef = useRef<HTMLDialogElement>(null)
   const [fitSheet, setFitSheet] = useState(false)
   useFillHeight(fitChatRef, step === 'fit', 80)
+  // Wide screens show the Fit AI beside the list, as a dialog element styled open but
+  // never opened, so nothing takes focus on load. Below that it opens modally: the page
+  // behind is inert, Esc closes it, and closing returns focus to what opened it.
+  useEffect(() => {
+    const dialog = fitDialogRef.current
+    if (!dialog) return
+    const wide = window.matchMedia('(min-width: 1024px)')
+    const sync = () => {
+      if (fitSheet && step === 'fit' && !wide.matches) {
+        if (dialog.open) return
+        dialog.showModal()
+        dialog.querySelector<HTMLTextAreaElement>('textarea.ai-composer-field')?.focus()
+      } else if (dialog.open) dialog.close()
+    }
+    sync()
+    wide.addEventListener('change', sync)
+    return () => wide.removeEventListener('change', sync)
+  }, [fitSheet, step])
   const resumePaneRef = useRef<HTMLElement>(null)
 
   useEffect(() => { revision.current = workspace.revision }, [workspace.revision])
@@ -635,15 +655,16 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
 
   function askFit(text: string) {
     setFitSeed({ text, at: Date.now() })
-    setFitSheet(true)
     if (window.matchMedia('(min-width: 1024px)').matches) editorCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    else setFitSheet(true)
   }
 
   /** Fit saves confirmed Skills into the working copy; Resume proposes full tailoring for review. */
-  function stepChat(surface: 'overview' | 'resume', title: string, hint: string) {
+  function stepChat(surface: 'overview' | 'resume', title: string, hint: string, headerActions?: ReactNode) {
     return <EditorChat
       title={title}
       hint={hint}
+      headerActions={headerActions}
       onProfileUpdated={refreshAfterProfileUpdate}
       reviewOnly={surface === 'overview'}
       api={surface === 'overview' ? { ...editorApi, reviewPending: false } : editorApi}
@@ -680,12 +701,12 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
     : { tone: 'ok', title: 'Finalized and ready to send', detail: 'The PDF matches this draft.' }
   const fitsPage = preview.pages === 1 && !preview.failures.length
 
-  // Each step's way forward sits in the step strip; the Resume step offers it once the PDF is current.
-  const next = reviewing ? null
-    : step === 'fit' ? { to: 'resume' as const, label: 'Continue to Resume' }
-    : step === 'resume' ? (finalized && resumeCurrent ? { to: 'documents' as const, label: 'Continue to Documents' } : null)
-    : step === 'documents' ? { to: 'send' as const, label: 'Continue to Send' }
-    : null
+  // Each step's way forward sits in the step strip: the first later step not done yet, or the last one.
+  // The Resume step offers it once the PDF is current.
+  const later = steps.slice(steps.findIndex((each) => each.value === step) + 1)
+  const ahead = later.find((each) => !each.done) ?? later[later.length - 1]
+  const next = reviewing || !ahead || (step === 'resume' && !(finalized && resumeCurrent)) ? null
+    : { to: ahead.value, label: `Continue to ${ahead.label}` }
   // A role you set aside or skipped can still be worked on, but nothing on it is the page's next move.
   const closedByYou = status === 'Discarded' || status === 'SKIP'
   const finalizeAction = !reviewing && step === 'resume' && !(finalized && resumeCurrent)
@@ -712,9 +733,11 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
         action={nextAction}
       />
       {error ? <Card className="overflow-hidden border-[var(--color-bad-soft)]"><ErrorNotice error={error} onDismiss={() => setError(null)} /></Card> : null}
-      {undoStatus ? <div role="status" className="anim-rise flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
-        <p className="flex-1 text-sm"><span className="font-semibold">{undoStatus.label}.</span> <span className="text-[var(--color-muted)]">This application is closed. Everything you prepared is kept.</span></p>
-        <button type="button" disabled={busy} onClick={() => { const back = undoStatus.previous; setUndoStatus(null); void patchStatus(back) }} className={toolButton}>Undo</button>
+      {undoStatus || closedByYou ? <div role="status" className="anim-rise flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
+        <p className="flex-1 text-sm"><span className="font-semibold">{undoStatus?.label ?? statusLabel(status)}.</span> <span className="text-[var(--color-muted)]">This application is closed. Everything you prepared is kept, and you can still open every step.</span></p>
+        {undoStatus
+          ? <button type="button" disabled={busy} onClick={() => { const back = undoStatus.previous; setUndoStatus(null); void patchStatus(back) }} className={toolButton}>Undo</button>
+          : <button type="button" disabled={busy} onClick={() => void patchStatus('Preparing')} className={toolButton}>Reopen</button>}
       </div> : null}
       {reviewing ? <div className="anim-rise flex flex-wrap items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3">
         <p className="min-w-48 flex-1 text-xs text-[var(--color-muted)]">You’ve already sent this application. These are the tools you prepared it with. Changes here don’t change what they received.</p>
@@ -732,19 +755,18 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
               onRetry={() => setWorkspace((current) => ({ ...current, fit: { ...current.fit, status: 'queued' } }))}
               onAsk={askFit} />
           </div>
-          {fitSheet ? <div aria-hidden="true" onClick={() => setFitSheet(false)} className="anim-fade fixed inset-0 z-40 bg-[oklch(0.1_0.01_65/0.55)] lg:hidden" /> : null}
-          <div ref={editorCardRef} onKeyDown={(event) => { if (event.key === 'Escape' && !event.defaultPrevented) setFitSheet(false) }}
-            className={cn('min-w-0 lg:sticky lg:top-20', 'max-lg:fixed max-lg:inset-x-0 max-lg:bottom-0 max-lg:z-50 max-lg:px-2 max-lg:pb-2', !fitSheet && 'max-lg:hidden')}>
+          <dialog ref={(node) => { fitDialogRef.current = node; editorCardRef.current = node }} aria-label="Fit AI"
+            onClose={() => setFitSheet(false)}
+            onClick={(event) => { if (event.target === event.currentTarget) fitDialogRef.current?.close() }}
+            className="static m-0 h-auto max-h-none w-full min-w-0 max-w-none border-0 bg-transparent p-0 text-[var(--color-text)] backdrop:bg-[oklch(0.1_0.01_65/0.55)] lg:sticky lg:top-20 lg:block max-lg:fixed max-lg:inset-x-0 max-lg:top-auto max-lg:bottom-0 max-lg:px-2 max-lg:pb-2">
             <div ref={fitChatRef} className="flex h-[max(420px,70vh)] flex-col max-lg:h-[85dvh]">
               <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                <div className="flex shrink-0 justify-end border-b border-[var(--color-border)] px-2 py-1 lg:hidden">
-                  <button type="button" onClick={() => setFitSheet(false)} className="inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded-md px-2 text-xs text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><X size={14} aria-hidden="true" />Close</button>
-                </div>
-                {stepChat('overview', 'Fit AI', 'Adds confirmed Skills to this application’s resume')}
+                {stepChat('overview', 'Fit AI', 'Adds confirmed Skills to this application’s resume',
+                  <button type="button" onClick={() => fitDialogRef.current?.close()} className={cn(aiHeaderButton, 'lg:hidden')}><X size={14} aria-hidden="true" />Close</button>)}
               </Card>
             </div>
-          </div>
-          {!fitSheet ? <button type="button" onClick={() => setFitSheet(true)} className="ask-button fixed bottom-4 right-4 z-30 h-10 bg-[var(--color-surface)] px-3.5 text-sm shadow-[var(--shadow-sheet)] lg:hidden"><MessageSquareText size={15} aria-hidden="true" />Fit AI</button> : null}
+          </dialog>
+          <button type="button" onClick={() => setFitSheet(true)} className="ask-button fixed bottom-4 right-4 z-30 h-10 bg-[var(--color-surface)] px-3.5 text-sm shadow-[var(--shadow-sheet)] lg:hidden"><MessageSquareText size={15} aria-hidden="true" />Fit AI</button>
         </div>
       </div>
 
@@ -756,7 +778,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
             <Card className="workspace-pane flex min-h-0 flex-col overflow-hidden">
               <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-[var(--color-border)] px-4 py-2">
                 <div className="flex min-w-0 flex-1 basis-64 items-center gap-2.5" role="status">
-                  <span aria-hidden="true" className={cn('grid size-6 shrink-0 place-items-center rounded-full',
+                  <span aria-hidden="true" className={cn('grid size-6 shrink-0 place-items-center rounded-[var(--radius-md)]',
                     resumeState.tone === 'ok' ? 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]' : resumeState.tone === 'bad' ? 'bg-[var(--color-bad-soft)] text-[var(--color-bad)]' : 'bg-[var(--color-warn-soft)] text-[var(--color-warn)]')}>
                     {resumeState.tone === 'ok' ? <Check size={13} strokeWidth={3} /> : <AlertTriangle size={12} strokeWidth={2.5} />}
                   </span>
@@ -785,7 +807,7 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
           </section>
           <div className="min-w-0 lg:sticky lg:top-20">
             <Card className={chatCard}>
-              {stepChat('resume', 'Resume AI', workspace.general ? 'Ask for changes to this copy of your general resume.' : 'You review every change before it’s saved')}
+              {stepChat('resume', 'Resume AI', workspace.general ? 'Ask for changes to this copy of your general resume.' : 'Also reads your Fit conversation. You review every change before it’s saved.')}
             </Card>
           </div>
         </div>

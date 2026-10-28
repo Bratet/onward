@@ -34,7 +34,7 @@ export function ResumeReview({ review, current, stale, onDiscuss }: {
                   <li key={index} className="rounded-lg border bg-[var(--color-bg)] p-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <p className="text-xs font-semibold">{finding.location}</p>
-                      <span className="text-[10px] text-[var(--color-muted)]">{finding.kind === 'question' ? 'Needs your input' : finding.kind === 'render-check' ? 'Check the PDF' : 'Supported edit'}</span>
+                      <span className="text-xs text-[var(--color-muted)]">{finding.kind === 'question' ? 'Needs your input' : finding.kind === 'render-check' ? 'Check the PDF' : 'Supported edit'}</span>
                     </div>
                     {finding.excerpt && <blockquote className="mt-2 border-l pl-3 text-xs text-[var(--color-muted)]">“{finding.excerpt}”</blockquote>}
                     <p className="mt-2 text-xs leading-relaxed">{finding.issue}</p>

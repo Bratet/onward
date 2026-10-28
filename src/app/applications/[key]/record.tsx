@@ -79,9 +79,9 @@ export function SentApplication({ app, record, workspace, analysis, sentAt, onPr
 
   return <div className="space-y-5">
     {feedback}
-    <section aria-labelledby="packet-title" className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+    <section aria-labelledby="packet-title" className="sheet p-4">
       <header className="mb-3 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-        <h2 id="packet-title" className="text-base font-semibold tracking-tight">Application packet</h2>
+        <h2 id="packet-title" className="text-[17px]">Application packet</h2>
         <p className="text-sm text-[var(--color-muted)]">{sentAt ? <>Sent <When iso={sentAt} /></> : 'What went with this application'}</p>
         <button type="button" onClick={onPreparation} className="ml-auto inline-flex items-center gap-1.5 text-xs text-[var(--color-muted)] hover:text-[var(--color-accent)]" title="The fit analysis and resume you prepared this application with"><Wrench size={13} aria-hidden="true" />Preparation tools</button>
       </header>
@@ -124,7 +124,7 @@ function Reader({ reading, onClose, onCopy }: { reading: Reading | null; onClose
   return <dialog ref={dialog} onClose={onClose} onClick={(event) => { if (event.target === dialog.current) onClose() }} aria-labelledby="reader-title" className="fixed inset-y-0 right-0 m-0 ml-auto h-full max-h-none w-[min(42rem,100vw)] max-w-none border-l border-[var(--color-border)] bg-[var(--color-surface)] p-0 text-[var(--color-text)] shadow-2xl backdrop:bg-black/30">
     {reading ? <div className="flex h-full flex-col">
       <header className="flex items-center gap-3 border-b border-[var(--color-border)] px-6 py-4">
-        <h2 id="reader-title" className="min-w-0 flex-1 truncate text-base font-semibold tracking-tight">{reading.title}</h2>
+        <h2 id="reader-title" className="min-w-0 flex-1 truncate text-[17px]">{reading.title}</h2>
         {'text' in reading ? <button type="button" onClick={() => onCopy(reading.text, reading.title)} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-[var(--color-border)] px-2.5 text-xs text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><Copy size={13} aria-hidden="true" />Copy</button> : null}
         <button type="button" onClick={onClose} aria-label="Close" className="grid size-8 place-items-center rounded-lg text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><X size={16} aria-hidden="true" /></button>
       </header>

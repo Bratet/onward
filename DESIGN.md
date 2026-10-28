@@ -91,7 +91,7 @@ components:
     textColor: "{colors.cinnabar}"
     rounded: "{rounded.md}"
     padding: "0 10px"
-    height: "28px"
+    height: "32px"
   button-ask-hover:
     backgroundColor: "{colors.cinnabar-wash}"
   sheet:
@@ -235,7 +235,7 @@ Corners are small so that sheets read as paper and not as bubbles. They are 5px 
 ### Buttons
 - **Primary:** a solid cinnabar fill with on-solid text, 600 weight, 7px corners, 36-40px tall and 14-16px horizontal padding, plus the button contact shadow. Hover raises brightness by about 10%. When disabled it drops to sheet-shade with faint text. Keep one per view.
 - **Secondary:** a sheet fill with a strong-rule stroke, 5px corners, 32px tall and 12px label text. Hover shades to sheet-shade.
-- **Ask:** a transparent fill with a cinnabar stroke at 35% and cinnabar text, 28px tall. Hover deepens the stroke and adds the cinnabar wash, and the icon tilts slightly. Pressing it nudges it down 1px.
+- **Ask:** a transparent fill with a cinnabar stroke at 35% and cinnabar text, 32px tall. Hover deepens the stroke and adds the cinnabar wash, and the icon tilts slightly. Pressing it nudges it down 1px.
 - **Focus:** always a 2px cinnabar outline offset by 2px.
 
 ### Badges
@@ -249,13 +249,13 @@ Small 5px-corner labels (12px, 500) in a wash fill with the matching solid text,
 - **Internal Padding:** 16px by 20px. Header bands are 10-14px tall and divided by a rule.
 
 ### Folder Tabs (signature)
-Index tabs stand on top of the sheet they open. Unselected tabs sit 5px lower, on a half-mixed sheet/ground fill with muted text, and their 3px top edge shows the standing tone at half opacity. On hover a tab rises 3px. The selected tab rises fully, takes the sheet fill, shows its top edge at full tone, and covers the sheet's top border so that tab and sheet are one piece. Each tab carries an icon and short label (12px, coloured by standing) over a serif numeral count. Tabs move over 320ms on the soft ease-out, and arrow keys move between them.
+Index tabs stand on top of the sheet they open. Unselected tabs sit 5px lower, on a half-mixed sheet/ground fill with muted text, and their 3px top edge shows the standing tone at half opacity. On hover a tab rises 3px. The selected tab rises fully, takes the sheet fill, shows its top edge at full tone, and covers the sheet's top border so that tab and sheet are one piece. On Fit each tab carries an icon and short label (12px, coloured by standing) over a serif numeral count. On Documents each tab carries the document's name over its state word, which takes the standing colour: Final in moss, Asked for in straw, anything else muted. Tabs move over 320ms on the soft ease-out, and arrow keys move between them. The strip sits over the document column only, so the AI pane beside it starts level with the sheet.
 
 ### Verdict and Ledger
 The verdict is set as display type in its standing colour, beside a muted sentence that gives the must-have count. Under it is a 6px ledger bar: one stroke per standing, sized by count and separated by 3px gaps. The strokes ink in from the left once, staggered 140ms apart.
 
 ### Requirement Rows
-These are rows inside the folder sheet, divided by rules. Each has a 15px title, a must-have marker (a filled text-colour dot for must, a hollow faint ring for nice-to-have), evidence behind a 1px strong-rule line, and an Ask button on the right. Hover tints the row with sheet-shade at 45%. Rows settle in staggered 45ms apart, and the stagger is capped after eight rows.
+These are rows inside the folder sheet, divided by rules. Each has a 15px title, a must-have marker (a filled text-colour dot for must, a hollow faint ring for nice-to-have), evidence behind a 1px strong-rule line, and an Ask button on the right. With a mouse, Ask appears on the hovered or focused row only; on touch it always shows. Hover tints the row with sheet-shade at 45%. Rows settle in staggered 45ms apart, and the stagger is capped after eight rows. Form questions use the same ruled rows: a serif number (faint, moss once answered, cinnabar while the AI works on it), the question, and its answer.
 
 ### Navigation
 A sticky top bar on the walnut ground with a hairline bottom rule. Links are 13px/500 with an icon, muted at rest. Hover shows a sheet fill. The active link sits on the cinnabar wash with full text. The brand mark is a solid cinnabar square with on-solid lettering.

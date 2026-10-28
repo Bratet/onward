@@ -41,10 +41,13 @@ export function EditorChat({
   seed,
   title,
   hint,
+  headerActions,
 }: {
   /** Names the chat in its own top bar, beside New chat and the settings. */
   title?: string
   hint?: string
+  /** Controls the host adds at the end of the top bar, such as Close on a sheet. */
+  headerActions?: ReactNode
   onProfileUpdated?: () => Promise<void>
   reviewOnly?: boolean
   api: EditorApi
@@ -608,6 +611,7 @@ export function EditorChat({
         ) : null}
         <AiNewChat disabled={!hydrated || busy || api.reviewPending || pendingProposal || !turns.length} onClear={newChat} />
         <AiSettingsToggle open={settingsOpen} controls={settingsId} onToggle={() => setSettingsOpen((open) => !open)} />
+        {headerActions}
       </AiPanelHeader>
 
       {/* Stays mounted while closed, so a skill update being drafted is not lost. */}
@@ -718,7 +722,7 @@ export function EditorChat({
             onPick={(text) => { setMessage(text); messageRef.current?.focus() }}
             title={reviewOnly ? 'Let’s check whether this role works for you' : reviewSource ? 'Review or edit this resume' : tailoringSkill ? 'What should we do with this resume?' : 'Edit with a CLI agent'}
             hint={reviewOnly ? 'Discuss a gap or correct the analysis. Confirmed Skills are added to this application’s working resume; full tailoring starts when you request it.' : tailoringSkill
-              ? 'Discuss the tailored draft, ask for changes, or compare it with anything in your repository. I can consult your masters, earlier applications, and notes.'
+              ? 'Discuss the tailored draft or ask for changes. It can also read your master resume, your earlier applications and your notes.'
               : reviewSource ? 'Run a structured review, then challenge findings or answer its questions here. Switch back to editing whenever you want to change the draft.'
                 : 'This is a persistent Claude/Codex session with file tools and buffer history. Ask it to edit, explain, compare, restore, or undo.'}
           />
@@ -748,7 +752,7 @@ export function EditorChat({
         <button
           type="button"
           onClick={scrollToLatest}
-          className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-1 text-xs font-medium shadow-[0_2px_8px_rgb(0_0_0/0.12)] hover:bg-[var(--color-surface-2)]"
+          className="absolute bottom-3 left-1/2 min-h-8 -translate-x-1/2 rounded-[var(--radius-lg)] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-1 text-xs font-medium shadow-[var(--shadow-sheet)] hover:bg-[var(--color-surface-2)]"
         >
           {busy ? 'Reply in progress · jump to latest' : 'New reply · jump to latest'}
         </button>

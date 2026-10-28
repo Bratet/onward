@@ -67,7 +67,7 @@ export function ApplicationHeader<T extends string>({ app, status, interviewed, 
         { status: 'Preparing', label: 'Undo sent', hint: 'Marked as sent by mistake' },
       ]
       : null
-  const link = 'inline-flex h-7 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 text-xs text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)]'
+  const link = 'inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 text-xs text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)]'
 
   return <header className="anim-rise relative z-30 space-y-2">
     <div className="flex flex-wrap items-center gap-2.5">
@@ -126,7 +126,7 @@ export function ApplicationHeader<T extends string>({ app, status, interviewed, 
               return <li key={each} className={cn(position === at && !closed ? 'font-semibold text-[var(--color-text)]' : 'text-[var(--color-muted)]')}>{position ? <span aria-hidden="true" className="mr-2 text-[var(--color-faint)]">›</span> : null}{each}</li>
             })}
           </ol>
-          : <span className="text-xs text-[var(--color-muted)]">Once they invite you</span>}
+          : closed ? null : <span className="text-xs text-[var(--color-muted)]">Once they invite you</span>}
       </Segment>
       {/* Set aside and Skipped are your own calls, so they read in the select's words; a rejection keeps its outcome. */}
       {closed ? <Badge tone={statusTone(status)}>{status === 'Discarded' || status === 'SKIP' ? statusLabel(status) : stageLabelForStatus(status)}</Badge> : null}

@@ -254,14 +254,17 @@ export function FitStep({ appKey, analysis, workspace, posting, hasJd, items, re
             {current.list.map((item, position) => {
               const standing = item.group === 'eligibility' && item.standing ? STANDING[item.standing] : null
               return <li key={item.id} style={{ '--delay': `${Math.min(position, 8) * 45}ms` } as CSSProperties}
-                className="anim-settle grid grid-cols-[0.5rem_minmax(0,1fr)] gap-x-3 px-5 py-4 transition-colors duration-200 last:rounded-b-xl hover:bg-[color-mix(in_oklab,var(--color-surface-2)_45%,transparent)] sm:grid-cols-[0.5rem_minmax(0,1fr)_auto] sm:gap-x-4">
+                className="group anim-settle grid grid-cols-[0.5rem_minmax(0,1fr)] gap-x-3 px-5 py-4 transition-colors duration-200 last:rounded-b-xl hover:bg-[color-mix(in_oklab,var(--color-surface-2)_45%,transparent)] sm:grid-cols-[0.5rem_minmax(0,1fr)_auto] sm:gap-x-4">
                 <span className="pt-[0.4375rem]">{item.weight ? <WeightMark weight={item.weight} /> : null}</span>
                 <div className="min-w-0">
                   {standing ? <p className={cn('mb-1 flex items-center gap-1 text-xs font-medium', standing.text)}>{standing.icon(13)}{standing.label}</p> : null}
                   <p className="text-[15px] font-medium leading-snug">{item.weight ? <span className="sr-only">{item.weight === 'must' ? 'Must-have: ' : 'Nice to have: '}</span> : null}{item.title}</p>
-                  {item.note || item.evidence.length ? <DetailBody item={item} /> : null}
+                  {item.note || readableEvidence(item.evidence).length ? <DetailBody item={item} /> : null}
                 </div>
-                {item.standing ? <div className="col-start-2 mt-3 sm:col-start-3 sm:row-start-1 sm:mt-0"><AskButton item={item} onAsk={onAsk} /></div> : null}
+                {/* With a mouse on a wide row, Ask shows on the row under the pointer or holding focus, so a dozen
+                    rows do not repeat it. On touch, or below sm where it takes its own line, it always shows.
+                    It stays in the tab order either way. */}
+                {item.standing ? <div className="col-start-2 mt-3 transition-opacity duration-200 sm:col-start-3 sm:row-start-1 sm:mt-0 sm:pointer-fine:opacity-0 sm:pointer-fine:group-focus-within:opacity-100 sm:pointer-fine:group-hover:opacity-100"><AskButton item={item} onAsk={onAsk} /></div> : null}
               </li>
             })}
           </ol>
@@ -281,13 +284,32 @@ function WeightMark({ weight }: { weight: 'must' | 'nice' }) {
     className={cn('block size-2 rounded-full', weight === 'must' ? 'bg-[var(--color-text)]' : 'border border-[var(--color-faint)]')} />
 }
 
+/**
+ * Evidence as the candidate reads it. A line that only says nothing was found
+ * is dropped (the Gaps folder already says so), and the report's own words for
+ * its sources become the candidate's: "the master" is their resume, and a
+ * "User-confirmed:" line is something they confirmed.
+ */
+function readableEvidence(evidence: string[]): { confirmed: boolean; text: string }[] {
+  return evidence
+    .filter((line) => !/^\s*(not|nothing)( (recorded|found|stated))? in the master( or (in )?(the )?confirmed guidance)?\.?\s*$/iu.test(line))
+    .map((line) => {
+      const confirmed = /^\s*user[- ]confirmed( skill)?:\s*/iu.test(line)
+      const text = line.replace(/^\s*user[- ]confirmed( skill)?:\s*/iu, '')
+        .replace(/\bthe master( resume)?\b/giu, 'your resume')
+        .replace(/\b(the )?confirmed guidance\b/giu, 'what you confirmed')
+      return { confirmed, text: text.charAt(0).toUpperCase() + text.slice(1) }
+    })
+}
+
 function DetailBody({ item }: { item: FitItem }) {
+  const evidence = readableEvidence(item.evidence)
   return <div className="mt-2 space-y-2">
     {item.note ? <p className="text-sm leading-relaxed">{item.note}</p> : null}
-    {item.evidence.length ? <div className="border-l border-[var(--color-border-strong)] pl-3">
+    {evidence.length ? <div className="border-l border-[var(--color-border-strong)] pl-3">
       <p className="text-xs font-medium text-[var(--color-muted)]">{item.standing === 'gap' ? 'The closest your resume gets' : 'What you can point to'}</p>
       <ul className="mt-1 space-y-1 text-sm leading-relaxed">
-        {item.evidence.map((line, index) => <li key={index}>{line}</li>)}
+        {evidence.map((line, index) => <li key={index}>{line.confirmed ? <span className="text-[var(--color-muted)]">You confirmed: </span> : null}{line.text}</li>)}
       </ul>
     </div> : null}
   </div>

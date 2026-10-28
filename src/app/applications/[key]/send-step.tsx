@@ -25,7 +25,7 @@ export interface SendChecks {
 }
 
 const ring = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]'
-const small = `inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2.5 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] ${ring}`
+const small = `inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2.5 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] ${ring}`
 const go = `group inline-flex min-h-8 cursor-pointer items-center gap-1 rounded text-xs font-medium text-[var(--color-accent)] underline-offset-4 hover:underline ${ring}`
 
 /**
@@ -57,12 +57,12 @@ export function SendStep({ app, status, pdfName, letterPdf, letterDrafted, lette
   const attention = (checks.resumeFinalized ? 0 : 1) + (checks.resumeFinalized && !checks.resumeCurrent ? 1 : 0) + (checks.pendingEdit ? 1 : 0) + (checks.invalidDraft ? 1 : 0)
     + (letterAsked && !letterPdf ? 1 : 0) + (answers.length && answered < answers.length ? 1 : 0)
 
-  return <section aria-labelledby="send-title" className="mx-auto max-w-2xl overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
-    <header className="border-b border-[var(--color-border)] px-6 py-5">
+  return <section aria-labelledby="send-title" className="sheet anim-settle mx-auto max-w-2xl overflow-hidden">
+    <header className="border-b border-[var(--color-border)] px-6 py-4">
       <h2 id="send-title" className="text-[17px]">Send it</h2>
       <p className="mt-1 text-sm leading-relaxed text-[var(--color-muted)]">Check the packet, send it where the posting says, then record it here.</p>
     </header>
-    <ul className="space-y-5 px-6 py-5" aria-label="Your packet">
+    <ul className="divide-y divide-[var(--color-border)]" aria-label="Your packet">
       {!checks.resumeFinalized ? <Check tone="bad" title="Your resume isn’t finalized" detail="Finalizing saves the PDF you send." action={<button type="button" onClick={onResume} className={go}>Go to the Resume step<ChevronRight size={13} aria-hidden="true" className="transition-transform group-hover:translate-x-0.5" /></button>} />
         : <Check
           tone={checks.resumeCurrent ? 'ok' : 'warn'}
@@ -124,14 +124,14 @@ export function SendStep({ app, status, pdfName, letterPdf, letterDrafted, lette
   </section>
 }
 
-/** One line of the packet: done, needs attention, or just information. */
+/** One ruled line of the packet: done, needs attention, or just information. */
 function Check({ tone, title, detail, action }: { tone: 'ok' | 'warn' | 'bad' | 'info'; title: string; detail?: ReactNode; action?: ReactNode }) {
-  return <li className="flex items-start gap-3">
-    <span className={cn('mt-0.5 grid size-5 shrink-0 place-items-center rounded-full', tone === 'ok' ? 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]' : tone === 'warn' ? 'bg-[var(--color-warn-soft)] text-[var(--color-warn)]' : tone === 'bad' ? 'bg-[var(--color-bad-soft)] text-[var(--color-bad)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]')} aria-hidden="true">
-      {tone === 'ok' ? <CheckIcon size={12} strokeWidth={3} /> : tone === 'info' ? <span className="size-1.5 rounded-full bg-current" /> : <AlertTriangle size={11} strokeWidth={2.5} />}
+  return <li className="flex items-start gap-3 px-6 py-4">
+    <span className={cn('mt-0.5 grid size-5 shrink-0 place-items-center rounded-[var(--radius-md)]', tone === 'ok' ? 'bg-[var(--color-ok-soft)] text-[var(--color-ok)]' : tone === 'warn' ? 'bg-[var(--color-warn-soft)] text-[var(--color-warn)]' : tone === 'bad' ? 'bg-[var(--color-bad-soft)] text-[var(--color-bad)]' : 'bg-[var(--color-surface-2)] text-[var(--color-muted)]')} aria-hidden="true">
+      {tone === 'ok' ? <CheckIcon size={12} strokeWidth={3} /> : tone === 'info' ? <span className="size-1.5 rounded-[1px] bg-current" /> : <AlertTriangle size={11} strokeWidth={2.5} />}
     </span>
     <div className="min-w-0 flex-1">
-      <p className="text-sm font-medium leading-snug">{title}<span className="sr-only">{tone === 'ok' ? ' (done)' : tone === 'info' ? '' : ' (needs attention)'}</span></p>
+      <p className="text-[15px] font-medium leading-snug">{title}<span className="sr-only">{tone === 'ok' ? ' (done)' : tone === 'info' ? '' : ' (needs attention)'}</span></p>
       {detail ? <p className="mt-0.5 break-words text-xs leading-relaxed text-[var(--color-muted)]">{detail}</p> : null}
       {action ? <div className="mt-2 flex flex-wrap items-center gap-3">{action}</div> : null}
     </div>

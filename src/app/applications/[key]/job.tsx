@@ -33,7 +33,7 @@ export function FitSummary({ rows, fit }: { rows: Requirement[]; fit: NonNullabl
   const mustRelated = rows.filter((row) => row.weight === 'must' && row.classification === 'supporting').length
   return <div className="min-w-0">
     <p className="text-sm text-[var(--color-muted)]"><span className="font-semibold text-[var(--color-text)] tnum">{mustDirect} of {fit.coverage.must.total}</span> must-haves backed{mustRelated ? <>, <span className="tnum">{mustRelated}</span> by related experience</> : null} · {fit.verdict} fit</p>
-    <div className="mt-2 flex h-1.5 max-w-md overflow-hidden rounded-full bg-[var(--color-surface-2)]" aria-hidden="true">
+    <div className="mt-2 flex h-1.5 max-w-md overflow-hidden rounded-[2px] bg-[var(--color-surface-2)]" aria-hidden="true">
       {counts.map(({ key, count }) => count ? <span key={key} style={{ flexGrow: count }} className={cn(key === 'direct' ? 'bg-[var(--color-ok)]' : key === 'supporting' ? 'bg-[var(--color-warn)]' : 'bg-[var(--color-bad)]')} /> : null)}
     </div>
   </div>
@@ -60,8 +60,8 @@ export function Requirements({ rows, fit, onAsk, summary = true, between }: { ro
   const backed = group('direct')
 
   return <section aria-labelledby="asked-title" className="@container/requirements min-w-0 space-y-6">
-    {summary ? <header className="rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
-      <h2 id="asked-title" className="mb-1 text-base font-semibold tracking-tight">What they asked for</h2>
+    {summary ? <header className="sheet p-4">
+      <h2 id="asked-title" className="mb-1 text-[17px]">What they asked for</h2>
       {fit ? <FitSummary rows={rows} fit={fit} /> : <p className="text-sm text-[var(--color-muted)]">Not checked against your resume yet.</p>}
     </header> : <h2 id="asked-title" className="sr-only">What they asked for</h2>}
 
@@ -143,7 +143,7 @@ export function PostingDocument({ appKey, posting, keywords, hasJd, onCopy, extr
   return <article aria-labelledby="posting-title" className="min-w-0 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)]">
     <header className="sticky top-16 z-10 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-t-xl border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 sm:px-6">
       <div className="min-w-0 flex-1">
-        <h2 id="posting-title" className="text-base font-semibold tracking-tight">The job description</h2>
+        <h2 id="posting-title" className="text-[17px]">The job description</h2>
         {body && posting.savedAt ? <p className="text-xs text-[var(--color-faint)]">Saved <When iso={posting.savedAt} />, kept after the listing goes down</p> : null}
       </div>
       {body ? <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
@@ -267,7 +267,8 @@ function highlightParts(line: string, pattern: RegExp | null, query: string): Re
   return parts.map((part, index) => {
     if (index % 2 === 0) return <Fragment key={index}>{part}</Fragment>
     const hit = !!query && part.toLowerCase() === query.trim().toLowerCase()
-    return <mark key={index} data-hit={hit ? '' : undefined} className={cn('rounded-[3px] px-0.5', hit ? 'bg-[var(--color-warn-soft)] text-[var(--color-warn)] ring-1 ring-[var(--color-warn)]' : 'bg-[var(--color-accent-soft)] text-[var(--color-text)]')}>{part}</mark>
+    // Keywords are marked in ink, not colour; only the search hit, the current place, takes the action colour.
+    return <mark key={index} data-hit={hit ? '' : undefined} className={cn('rounded-[3px] px-0.5 text-[var(--color-text)]', hit ? 'bg-[var(--color-accent-soft)] ring-1 ring-[var(--color-accent)]' : 'bg-[var(--color-surface-2)] shadow-[inset_0_-1px_0_var(--color-border-strong)]')}>{part}</mark>
   })
 }
 function countMatches(text: string, query: string): number {

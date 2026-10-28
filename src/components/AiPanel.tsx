@@ -26,7 +26,7 @@ const promptButton = 'inline-flex min-h-8 cursor-pointer items-center rounded-md
 export function AiPanelHeader({ title, hint, children }: { title?: string; hint?: string; children?: ReactNode }) {
   return <div className="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-[var(--color-border)] px-4 py-2.5">
     <div className="min-w-0 flex-1 basis-48">
-      {title ? <h2 className="text-[15px] leading-tight">{title}</h2> : null}
+      {title ? <h2 className="text-[17px] leading-tight">{title}</h2> : null}
       {hint ? <p className="mt-0.5 text-xs leading-snug text-[var(--color-muted)]">{hint}</p> : null}
     </div>
     {children ? <div className="flex flex-wrap items-center gap-1">{children}</div> : null}

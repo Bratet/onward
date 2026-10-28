@@ -67,7 +67,7 @@ export function reconcileConfirmedSkills(
       mentions(line, term) && /\b(?:absent|missing|does not|not confirmed|not used|no evidence)\b/iu.test(line)))
     for (const term of confirmed) {
       if (!evidence.some((line) => /user[- ]confirmed/iu.test(line) && mentions(line, term))) {
-        evidence.unshift(`User-confirmed: ${term} is a skill the candidate has`)
+        evidence.unshift(`User-confirmed: ${term} is a skill you have`)
       }
     }
     return { ...row, classification: 'direct' as const, evidence: evidence.slice(0, 6) }
