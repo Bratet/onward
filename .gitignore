@@ -14,9 +14,16 @@ rendercv_output/
 # Claude Code local
 .claude/settings.local.json
 
-# Impeccable design tool: local config, caches, and critique snapshots that
-# describe the user's own applications
-.impeccable/
+# Impeccable design tool. The design sidecar (design.json), surface briefs and
+# critique snapshots are tracked so design progress follows the repo across
+# devices; keep real application details out of them, since the repo is public.
+# Machine-local state stays out: live-mode logs, review screenshots of real
+# data, the hook cache, decision-page scratch and local config.
+.impeccable/config.local.json
+.impeccable/hook.cache.json
+.impeccable/live/
+.impeccable/review/
+.impeccable/questions/
 
 # Python
 __pycache__/

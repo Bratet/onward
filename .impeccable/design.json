@@ -1,0 +1,568 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-21T20:57:24.372Z",
+  "title": "Design System: Onward",
+  "extensions": {
+    "themes": {
+      "default": "system",
+      "daily": "dark",
+      "note": "Frontmatter colors are the dark values. colorMeta.<token>.light holds the light value; the system theme follows prefers-color-scheme. Tokens live as CSS custom properties in src/app/globals.css (cssVar)."
+    },
+    "colorMeta": {
+      "cinnabar": {
+        "role": "primary",
+        "displayName": "Cinnabar",
+        "canonical": "oklch(0.74 0.135 50)",
+        "light": "oklch(0.53 0.15 44)",
+        "tonalRamp": [
+          "oklch(0.15 0.135 50)",
+          "oklch(0.26 0.135 50)",
+          "oklch(0.37 0.135 50)",
+          "oklch(0.48 0.135 50)",
+          "oklch(0.6 0.135 50)",
+          "oklch(0.72 0.135 50)",
+          "oklch(0.84 0.135 50)",
+          "oklch(0.95 0.135 50)"
+        ],
+        "cssVar": "--color-accent"
+      },
+      "cinnabar-wash": {
+        "role": "primary",
+        "displayName": "Cinnabar Wash",
+        "canonical": "oklch(0.3 0.055 48)",
+        "light": "oklch(0.93 0.04 55)",
+        "tonalRamp": [
+          "oklch(0.15 0.055 48)",
+          "oklch(0.26 0.055 48)",
+          "oklch(0.37 0.055 48)",
+          "oklch(0.48 0.055 48)",
+          "oklch(0.6 0.055 48)",
+          "oklch(0.72 0.055 48)",
+          "oklch(0.84 0.055 48)",
+          "oklch(0.95 0.055 48)"
+        ],
+        "cssVar": "--color-accent-soft"
+      },
+      "moss": {
+        "role": "secondary",
+        "displayName": "Moss",
+        "canonical": "oklch(0.77 0.12 138)",
+        "light": "oklch(0.47 0.11 140)",
+        "tonalRamp": [
+          "oklch(0.15 0.12 138)",
+          "oklch(0.26 0.12 138)",
+          "oklch(0.37 0.12 138)",
+          "oklch(0.48 0.12 138)",
+          "oklch(0.6 0.12 138)",
+          "oklch(0.72 0.12 138)",
+          "oklch(0.84 0.12 138)",
+          "oklch(0.95 0.12 138)"
+        ],
+        "cssVar": "--color-ok"
+      },
+      "moss-wash": {
+        "role": "secondary",
+        "displayName": "Moss Wash",
+        "canonical": "oklch(0.3 0.05 138)",
+        "light": "oklch(0.92 0.045 138)",
+        "tonalRamp": [
+          "oklch(0.15 0.05 138)",
+          "oklch(0.26 0.05 138)",
+          "oklch(0.37 0.05 138)",
+          "oklch(0.48 0.05 138)",
+          "oklch(0.6 0.05 138)",
+          "oklch(0.72 0.05 138)",
+          "oklch(0.84 0.05 138)",
+          "oklch(0.95 0.05 138)"
+        ],
+        "cssVar": "--color-ok-soft"
+      },
+      "straw": {
+        "role": "secondary",
+        "displayName": "Straw",
+        "canonical": "oklch(0.85 0.115 92)",
+        "light": "oklch(0.51 0.11 88)",
+        "tonalRamp": [
+          "oklch(0.15 0.115 92)",
+          "oklch(0.26 0.115 92)",
+          "oklch(0.37 0.115 92)",
+          "oklch(0.48 0.115 92)",
+          "oklch(0.6 0.115 92)",
+          "oklch(0.72 0.115 92)",
+          "oklch(0.84 0.115 92)",
+          "oklch(0.95 0.115 92)"
+        ],
+        "cssVar": "--color-warn"
+      },
+      "straw-wash": {
+        "role": "secondary",
+        "displayName": "Straw Wash",
+        "canonical": "oklch(0.32 0.05 92)",
+        "light": "oklch(0.94 0.055 95)",
+        "tonalRamp": [
+          "oklch(0.15 0.05 92)",
+          "oklch(0.26 0.05 92)",
+          "oklch(0.37 0.05 92)",
+          "oklch(0.48 0.05 92)",
+          "oklch(0.6 0.05 92)",
+          "oklch(0.72 0.05 92)",
+          "oklch(0.84 0.05 92)",
+          "oklch(0.95 0.05 92)"
+        ],
+        "cssVar": "--color-warn-soft"
+      },
+      "crimson": {
+        "role": "secondary",
+        "displayName": "Crimson",
+        "canonical": "oklch(0.69 0.17 16)",
+        "light": "oklch(0.5 0.17 16)",
+        "tonalRamp": [
+          "oklch(0.15 0.17 16)",
+          "oklch(0.26 0.17 16)",
+          "oklch(0.37 0.17 16)",
+          "oklch(0.48 0.17 16)",
+          "oklch(0.6 0.17 16)",
+          "oklch(0.72 0.17 16)",
+          "oklch(0.84 0.17 16)",
+          "oklch(0.95 0.17 16)"
+        ],
+        "cssVar": "--color-bad"
+      },
+      "crimson-wash": {
+        "role": "secondary",
+        "displayName": "Crimson Wash",
+        "canonical": "oklch(0.29 0.07 16)",
+        "light": "oklch(0.93 0.04 16)",
+        "tonalRamp": [
+          "oklch(0.15 0.07 16)",
+          "oklch(0.26 0.07 16)",
+          "oklch(0.37 0.07 16)",
+          "oklch(0.48 0.07 16)",
+          "oklch(0.6 0.07 16)",
+          "oklch(0.72 0.07 16)",
+          "oklch(0.84 0.07 16)",
+          "oklch(0.95 0.07 16)"
+        ],
+        "cssVar": "--color-bad-soft"
+      },
+      "walnut-ground": {
+        "role": "neutral",
+        "displayName": "Walnut Ground",
+        "canonical": "oklch(0.165 0.01 65)",
+        "light": "oklch(0.955 0.009 80)",
+        "tonalRamp": [
+          "oklch(0.15 0.01 65)",
+          "oklch(0.26 0.01 65)",
+          "oklch(0.37 0.01 65)",
+          "oklch(0.48 0.01 65)",
+          "oklch(0.6 0.01 65)",
+          "oklch(0.72 0.01 65)",
+          "oklch(0.84 0.01 65)",
+          "oklch(0.95 0.01 65)"
+        ],
+        "cssVar": "--color-bg"
+      },
+      "sheet": {
+        "role": "neutral",
+        "displayName": "Sheet",
+        "canonical": "oklch(0.225 0.013 68)",
+        "light": "oklch(0.99 0.004 85)",
+        "tonalRamp": [
+          "oklch(0.15 0.013 68)",
+          "oklch(0.26 0.013 68)",
+          "oklch(0.37 0.013 68)",
+          "oklch(0.48 0.013 68)",
+          "oklch(0.6 0.013 68)",
+          "oklch(0.72 0.013 68)",
+          "oklch(0.84 0.013 68)",
+          "oklch(0.95 0.013 68)"
+        ],
+        "cssVar": "--color-surface"
+      },
+      "sheet-shade": {
+        "role": "neutral",
+        "displayName": "Sheet Shade",
+        "canonical": "oklch(0.26 0.014 70)",
+        "light": "oklch(0.935 0.011 80)",
+        "tonalRamp": [
+          "oklch(0.15 0.014 70)",
+          "oklch(0.26 0.014 70)",
+          "oklch(0.37 0.014 70)",
+          "oklch(0.48 0.014 70)",
+          "oklch(0.6 0.014 70)",
+          "oklch(0.72 0.014 70)",
+          "oklch(0.84 0.014 70)",
+          "oklch(0.95 0.014 70)"
+        ],
+        "cssVar": "--color-surface-2"
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "oklch(0.305 0.014 70)",
+        "light": "oklch(0.87 0.014 78)",
+        "tonalRamp": [
+          "oklch(0.15 0.014 70)",
+          "oklch(0.26 0.014 70)",
+          "oklch(0.37 0.014 70)",
+          "oklch(0.48 0.014 70)",
+          "oklch(0.6 0.014 70)",
+          "oklch(0.72 0.014 70)",
+          "oklch(0.84 0.014 70)",
+          "oklch(0.95 0.014 70)"
+        ],
+        "cssVar": "--color-border"
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Strong Rule",
+        "canonical": "oklch(0.4 0.018 72)",
+        "light": "oklch(0.74 0.018 75)",
+        "tonalRamp": [
+          "oklch(0.15 0.018 72)",
+          "oklch(0.26 0.018 72)",
+          "oklch(0.37 0.018 72)",
+          "oklch(0.48 0.018 72)",
+          "oklch(0.6 0.018 72)",
+          "oklch(0.72 0.018 72)",
+          "oklch(0.84 0.018 72)",
+          "oklch(0.95 0.018 72)"
+        ],
+        "cssVar": "--color-border-strong"
+      },
+      "paper-text": {
+        "role": "neutral",
+        "displayName": "Paper Text",
+        "canonical": "oklch(0.93 0.014 82)",
+        "light": "oklch(0.25 0.018 60)",
+        "tonalRamp": [
+          "oklch(0.15 0.014 82)",
+          "oklch(0.26 0.014 82)",
+          "oklch(0.37 0.014 82)",
+          "oklch(0.48 0.014 82)",
+          "oklch(0.6 0.014 82)",
+          "oklch(0.72 0.014 82)",
+          "oklch(0.84 0.014 82)",
+          "oklch(0.95 0.014 82)"
+        ],
+        "cssVar": "--color-text"
+      },
+      "muted-text": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "oklch(0.74 0.018 78)",
+        "light": "oklch(0.44 0.02 65)",
+        "tonalRamp": [
+          "oklch(0.15 0.018 78)",
+          "oklch(0.26 0.018 78)",
+          "oklch(0.37 0.018 78)",
+          "oklch(0.48 0.018 78)",
+          "oklch(0.6 0.018 78)",
+          "oklch(0.72 0.018 78)",
+          "oklch(0.84 0.018 78)",
+          "oklch(0.95 0.018 78)"
+        ],
+        "cssVar": "--color-muted"
+      },
+      "faint-text": {
+        "role": "neutral",
+        "displayName": "Faint",
+        "canonical": "oklch(0.6 0.018 75)",
+        "light": "oklch(0.56 0.018 70)",
+        "tonalRamp": [
+          "oklch(0.15 0.018 75)",
+          "oklch(0.26 0.018 75)",
+          "oklch(0.37 0.018 75)",
+          "oklch(0.48 0.018 75)",
+          "oklch(0.6 0.018 75)",
+          "oklch(0.72 0.018 75)",
+          "oklch(0.84 0.018 75)",
+          "oklch(0.95 0.018 75)"
+        ],
+        "cssVar": "--color-faint"
+      },
+      "on-solid": {
+        "role": "neutral",
+        "displayName": "On Solid",
+        "canonical": "oklch(0.17 0.015 65)",
+        "light": "oklch(0.99 0.004 85)",
+        "tonalRamp": [
+          "oklch(0.15 0.015 65)",
+          "oklch(0.26 0.015 65)",
+          "oklch(0.37 0.015 65)",
+          "oklch(0.48 0.015 65)",
+          "oklch(0.6 0.015 65)",
+          "oklch(0.72 0.015 65)",
+          "oklch(0.84 0.015 65)",
+          "oklch(0.95 0.015 65)"
+        ],
+        "cssVar": "--color-on-solid"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The verdict, in its standing colour. Literata, tabular lining numerals."
+      },
+      "numeral": {
+        "displayName": "Numeral",
+        "purpose": "Counts on folder tabs (.font-display)."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page h1, e.g. company name in the application header."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Sheet h2."
+      },
+      "body-strong": {
+        "displayName": "Body Strong",
+        "purpose": "Requirement titles in list rows."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Evidence, keyword lines, explanations (13-14px)."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Terms, hints, buttons, badges; sentence case, never uppercase-tracked."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sheet-dark",
+        "value": "0 1px 0 rgb(255 240 220 / 0.06) inset, 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -18px rgb(0 0 0 / 0.7)",
+        "purpose": "--shadow-sheet in dark: every sheet, the phase strip, a selected segment."
+      },
+      {
+        "name": "sheet-light",
+        "value": "0 1px 2px rgb(60 40 20 / 0.08), 0 10px 26px -18px rgb(60 40 20 / 0.3)",
+        "purpose": "--shadow-sheet in light and light system."
+      },
+      {
+        "name": "button-contact",
+        "value": "0 1px 2px oklch(0 0 0 / 0.15)",
+        "purpose": "Primary buttons only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out-soft",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "--ease-out-soft: the easing for settle, ink and folder tabs."
+      },
+      {
+        "name": "settle",
+        "value": "settle 420ms ease-out-soft backwards; from opacity 0, translateY(6px), blur(2px)",
+        "purpose": ".anim-settle: sheets and rows appearing; stagger via --delay at 45ms per item, capped at 8."
+      },
+      {
+        "name": "ink",
+        "value": "ink-in 600ms ease-out-soft backwards; scaleX from 0, origin left",
+        "purpose": ".anim-ink: ledger strokes, once, staggered 140ms from 120ms."
+      },
+      {
+        "name": "folder-tab",
+        "value": "transform and background 320ms ease-out-soft",
+        "purpose": "Tab rising to join its sheet."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce -> animation: none; transition: none",
+        "purpose": "Every animation and transition collapses to an instant change."
+      }
+    ],
+    "viz": {
+      "rule": "Chart fills use the theme-aware variables, never hex. Single-hue cinnabar ordinal ramp per theme, validated with the dataviz palette validator (--ordinal) against each theme's sheet.",
+      "dark": {
+        "surface": "#201b15",
+        "viz-1": "#e1773b",
+        "ordinal": [
+          "#f8c4aa",
+          "#f29c6f",
+          "#e1773b",
+          "#bb5c22",
+          "#924413"
+        ],
+        "grid": "#2f2b26",
+        "axis": "#3d3831",
+        "muted": "#8f877c"
+      },
+      "light": {
+        "surface": "#fdfbf7",
+        "viz-1": "#c55f1d",
+        "ordinal": [
+          "#ea9b72",
+          "#da7c48",
+          "#c55f1d",
+          "#a74a04",
+          "#823600"
+        ],
+        "grid": "#e2dbcf",
+        "axis": "#b9ae9c",
+        "muted": "#776d60"
+      },
+      "cssVars": [
+        "--color-viz-1",
+        "--color-viz-ord-1",
+        "--color-viz-ord-2",
+        "--color-viz-ord-3",
+        "--color-viz-ord-4",
+        "--color-viz-ord-5",
+        "--color-viz-grid",
+        "--color-viz-axis",
+        "--color-viz-muted"
+      ]
+    },
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "container",
+        "value": "1600px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action of a view: solid cinnabar, on-solid text.",
+      "html": "<button class=\"ds-btn-primary\">Continue to documents</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; gap: 6px; height: 36px; padding: 0 14px; border: 0; border-radius: 7px; background: var(--color-accent, oklch(0.74 0.135 50)); color: var(--color-on-solid, oklch(0.17 0.015 65)); font: 600 14px/1 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; box-shadow: 0 1px 2px oklch(0 0 0 / 0.15); cursor: pointer; transition: filter 0.2s; } .ds-btn-primary:hover { filter: brightness(1.1); } .ds-btn-primary:focus-visible { outline: 2px solid var(--color-accent, oklch(0.74 0.135 50)); outline-offset: 2px; } .ds-btn-primary:disabled { background: var(--color-surface-2, oklch(0.26 0.014 70)); color: var(--color-faint, oklch(0.6 0.018 75)); box-shadow: none; filter: none; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Supporting actions: sheet fill, strong-rule stroke.",
+      "html": "<button class=\"ds-btn-secondary\">Compare again</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border: 1px solid var(--color-border-strong, oklch(0.4 0.018 72)); border-radius: 5px; background: var(--color-surface, oklch(0.225 0.013 68)); color: var(--color-text, oklch(0.93 0.014 82)); font: 500 12px/1 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; cursor: pointer; transition: background-color 0.2s; } .ds-btn-secondary:hover { background: var(--color-surface-2, oklch(0.26 0.014 70)); } .ds-btn-secondary:focus-visible { outline: 2px solid var(--color-accent, oklch(0.74 0.135 50)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Ask Button",
+      "kind": "button",
+      "refersTo": "button-ask",
+      "description": "Talk to the AI about one row: cinnabar outline at 35%, cinnabar wash on hover.",
+      "html": "<button class=\"ds-btn-ask\"><svg width=\"13\" height=\"13\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z\"/></svg>Have this? Tell the AI</button>",
+      "css": ".ds-btn-ask { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid color-mix(in oklch, var(--color-accent, oklch(0.74 0.135 50)) 35%, transparent); border-radius: 5px; background: transparent; color: var(--color-accent, oklch(0.74 0.135 50)); font: 500 12px/1 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; cursor: pointer; transition: background-color 0.2s, border-color 0.2s; } .ds-btn-ask svg { transition: transform 0.3s; } .ds-btn-ask:hover { background: var(--color-accent-soft, oklch(0.3 0.055 48)); border-color: color-mix(in oklch, var(--color-accent, oklch(0.74 0.135 50)) 60%, transparent); } .ds-btn-ask:hover svg { transform: rotate(-6deg); } .ds-btn-ask:active { transform: translateY(1px); } .ds-btn-ask:focus-visible { outline: 2px solid var(--color-accent, oklch(0.74 0.135 50)); outline-offset: 2px; }"
+    },
+    {
+      "name": "Standing Badges",
+      "kind": "chip",
+      "refersTo": "badge-ok",
+      "description": "One status at a time: wash fill, matching solid text. Never a keyword chip row.",
+      "html": "<span class=\"ds-badge ds-badge-ok\">Offer</span> <span class=\"ds-badge ds-badge-warn\">Applied</span> <span class=\"ds-badge ds-badge-bad\">Rejected</span> <span class=\"ds-badge ds-badge-neutral\">Preparing</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; padding: 2px 6px; border: 1px solid transparent; border-radius: 5px; font: 500 12px/1.33 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; white-space: nowrap; } .ds-badge-ok { background: var(--color-ok-soft, oklch(0.3 0.05 138)); color: var(--color-ok, oklch(0.77 0.12 138)); } .ds-badge-warn { background: var(--color-warn-soft, oklch(0.32 0.05 92)); color: var(--color-warn, oklch(0.85 0.115 92)); } .ds-badge-bad { background: var(--color-bad-soft, oklch(0.29 0.07 16)); color: var(--color-bad, oklch(0.69 0.17 16)); } .ds-badge-neutral { background: var(--color-surface-2, oklch(0.26 0.014 70)); color: var(--color-muted, oklch(0.74 0.018 78)); border-color: var(--color-border, oklch(0.305 0.014 70)); }"
+    },
+    {
+      "name": "Sheet",
+      "kind": "card",
+      "refersTo": "sheet",
+      "description": "The only raised container: small paper corners, hairline rule, sheet shadow.",
+      "html": "<section class=\"ds-sheet\"><h2 class=\"ds-sheet-title\">Posting keywords</h2><p class=\"ds-sheet-hint\"><b>9</b> of 14 already in your tailored resume.</p></section>",
+      "css": ".ds-sheet { background: var(--color-surface, oklch(0.225 0.013 68)); border: 1px solid var(--color-border, oklch(0.305 0.014 70)); border-radius: 9px; box-shadow: var(--shadow-sheet, 0 1px 0 rgb(255 240 220 / 0.06) inset, 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -18px rgb(0 0 0 / 0.7)); padding: 16px 20px; color: var(--color-text, oklch(0.93 0.014 82)); } .ds-sheet-title { margin: 0; font: 600 17px/1.4 'Literata Variable', 'Iowan Old Style', Georgia, serif; letter-spacing: -0.005em; } .ds-sheet-hint { margin: 4px 0 0; font: 400 12px/1.4 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--color-muted, oklch(0.74 0.018 78)); } .ds-sheet-hint b { color: var(--color-ok, oklch(0.77 0.12 138)); font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Keyword Index Line",
+      "kind": "custom",
+      "description": "Short word lists set as a running line parted by faint dots, never boxed.",
+      "html": "<div class=\"ds-index\"><ul><li>PyTorch</li><li>RAG</li><li>Evaluation</li><li>Kubernetes</li><li>LLM serving</li><li>A/B testing</li></ul></div>",
+      "css": ".ds-index { overflow: hidden; color: var(--color-text, oklch(0.93 0.014 82)); } .ds-index ul { display: flex; flex-wrap: wrap; align-items: baseline; row-gap: 4px; margin: 0 0 0 -20px; padding: 2px 0 0; list-style: none; font: 400 13px/1.625 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; } .ds-index li::before { content: '·'; display: inline-block; width: 20px; text-align: center; color: var(--color-faint, oklch(0.6 0.018 75)); }"
+    },
+    {
+      "name": "Verdict and Ledger",
+      "kind": "custom",
+      "description": "Serif verdict in its standing colour over a ledger bar that inks in once.",
+      "html": "<div class=\"ds-verdict\"><p><span class=\"ds-verdict-word\">Medium fit</span> <span class=\"ds-verdict-note\"><b>5 of 8</b> must-haves backed, 2 by related experience</span></p><div class=\"ds-ledger\" aria-hidden=\"true\"><span style=\"flex-grow:5;background:var(--color-ok, oklch(0.77 0.12 138))\"></span><span style=\"flex-grow:2;background:var(--color-warn, oklch(0.85 0.115 92));animation-delay:260ms\"></span><span style=\"flex-grow:1;background:var(--color-bad, oklch(0.69 0.17 16));animation-delay:400ms\"></span></div></div>",
+      "css": ".ds-verdict p { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 0; } .ds-verdict-word { font: 600 28px/1 'Literata Variable', 'Iowan Old Style', Georgia, serif; letter-spacing: -0.015em; font-variant-numeric: lining-nums tabular-nums; color: var(--color-warn, oklch(0.85 0.115 92)); } .ds-verdict-note { font: 400 14px/1.4 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--color-muted, oklch(0.74 0.018 78)); } .ds-verdict-note b { color: var(--color-text, oklch(0.93 0.014 82)); font-variant-numeric: tabular-nums; } .ds-ledger { display: flex; gap: 3px; height: 6px; max-width: 28rem; margin-top: 12px; } .ds-ledger span { border-radius: 2px; transform-origin: left center; animation: ds-ink 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards; animation-delay: 120ms; } @keyframes ds-ink { from { transform: scaleX(0); } } @media (prefers-reduced-motion: reduce) { .ds-ledger span { animation: none; } }"
+    },
+    {
+      "name": "Folder Tabs",
+      "kind": "custom",
+      "refersTo": "folder-tab",
+      "description": "Signature: index tabs standing on their sheet; the selected one rises and joins it, standing tone on its top edge.",
+      "html": "<div><div class=\"ds-folder-tabs\" role=\"tablist\"><button class=\"ds-folder-tab\" role=\"tab\" aria-selected=\"true\" style=\"--tone: var(--color-bad, oklch(0.69 0.17 16))\"><span class=\"ds-ft-label\" style=\"color: var(--color-bad, oklch(0.69 0.17 16))\">Gaps</span><span class=\"ds-ft-count\">3</span></button><button class=\"ds-folder-tab\" role=\"tab\" aria-selected=\"false\" style=\"--tone: var(--color-warn, oklch(0.85 0.115 92))\"><span class=\"ds-ft-label\" style=\"color: var(--color-warn, oklch(0.85 0.115 92))\">Related</span><span class=\"ds-ft-count\">2</span></button><button class=\"ds-folder-tab\" role=\"tab\" aria-selected=\"false\" style=\"--tone: var(--color-ok, oklch(0.77 0.12 138))\"><span class=\"ds-ft-label\" style=\"color: var(--color-ok, oklch(0.77 0.12 138))\">Backed</span><span class=\"ds-ft-count\">9</span></button></div><div class=\"ds-folder-sheet\"><div class=\"ds-row\"><p class=\"ds-row-title\">Production experience with vector databases</p><div class=\"ds-evidence\"><p>The closest your resume gets</p><ul><li>Built a retrieval pipeline over 40k internal documents.</li></ul></div></div></div></div>",
+      "css": ".ds-folder-tabs { display: flex; gap: 6px; padding: 6px 8px 0; margin-bottom: -1px; } .ds-folder-tab { position: relative; z-index: 0; display: block; min-width: 7.5rem; padding: 10px 14px 12px; border: 1px solid var(--color-border, oklch(0.305 0.014 70)); border-bottom: 0; border-radius: 7px 7px 0 0; background: color-mix(in oklch, var(--color-surface, oklch(0.225 0.013 68)) 50%, var(--color-bg, oklch(0.165 0.01 65))); color: var(--color-muted, oklch(0.74 0.018 78)); text-align: left; cursor: pointer; transform: translateY(5px); transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), background-color 0.32s cubic-bezier(0.22, 1, 0.36, 1); } .ds-folder-tab::before { content: ''; position: absolute; inset: -1px -1px auto; height: 3px; border-radius: 7px 7px 0 0; background: var(--tone, var(--color-border-strong, oklch(0.4 0.018 72))); opacity: 0.5; } .ds-folder-tab:hover { transform: translateY(2px); color: var(--color-text, oklch(0.93 0.014 82)); } .ds-folder-tab[aria-selected='true'] { z-index: 2; transform: none; background: var(--color-surface, oklch(0.225 0.013 68)); color: var(--color-text, oklch(0.93 0.014 82)); padding-bottom: 13px; } .ds-folder-tab[aria-selected='true']::before { opacity: 1; } .ds-folder-tab[aria-selected='true']::after { content: ''; position: absolute; left: 0; right: 0; bottom: -3px; height: 3px; background: var(--color-surface, oklch(0.225 0.013 68)); } .ds-folder-tab:focus-visible { outline: 2px solid var(--color-accent, oklch(0.74 0.135 50)); outline-offset: 2px; } .ds-ft-label { display: block; font: 500 12px/1.33 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; } .ds-ft-count { display: block; margin-top: 4px; font: 600 26px/1 'Literata Variable', 'Iowan Old Style', Georgia, serif; font-variant-numeric: lining-nums tabular-nums; } .ds-folder-tab[aria-selected='true'] .ds-ft-count { color: var(--tone); } .ds-folder-sheet { position: relative; z-index: 1; background: var(--color-surface, oklch(0.225 0.013 68)); border: 1px solid var(--color-border, oklch(0.305 0.014 70)); border-radius: 9px; box-shadow: var(--shadow-sheet, 0 1px 0 rgb(255 240 220 / 0.06) inset, 0 1px 2px rgb(0 0 0 / 0.3), 0 10px 28px -18px rgb(0 0 0 / 0.7)); overflow: hidden; } .ds-row { padding: 16px 20px; color: var(--color-text, oklch(0.93 0.014 82)); } .ds-row-title { margin: 0; font: 500 15px/1.375 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; } .ds-evidence { margin-top: 12px; padding-left: 14px; border-left: 1px solid var(--color-border-strong, oklch(0.4 0.018 72)); } .ds-evidence p { margin: 0; font: 500 12px/1.33 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; } .ds-evidence ul { margin: 4px 0 0; padding: 0; list-style: none; font: 400 13px/1.625 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--color-muted, oklch(0.74 0.018 78)); } @media (prefers-reduced-motion: reduce) { .ds-folder-tab { transition: none; } }"
+    },
+    {
+      "name": "Navigation Link",
+      "kind": "nav",
+      "refersTo": "nav-link-active",
+      "description": "Top-bar links: muted at rest, sheet on hover, cinnabar wash when active.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\" class=\"ds-nav-link\">Overview</a><a href=\"#\" class=\"ds-nav-link\" aria-current=\"page\">Applications</a><a href=\"#\" class=\"ds-nav-link\">Profile</a></nav>",
+      "css": ".ds-nav { display: flex; gap: 4px; padding: 8px; background: var(--color-bg, oklch(0.165 0.01 65)); border-bottom: 1px solid var(--color-border, oklch(0.305 0.014 70)); } .ds-nav-link { display: inline-flex; align-items: center; padding: 8px 10px; border-radius: 7px; font: 500 13px/1 ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; color: var(--color-muted, oklch(0.74 0.018 78)); text-decoration: none; transition: background-color 0.15s, color 0.15s; } .ds-nav-link:hover { background: var(--color-surface, oklch(0.225 0.013 68)); color: var(--color-text, oklch(0.93 0.014 82)); } .ds-nav-link[aria-current='page'] { background: var(--color-accent-soft, oklch(0.3 0.055 48)); color: var(--color-text, oklch(0.93 0.014 82)); } .ds-nav-link:focus-visible { outline: 2px solid var(--color-accent, oklch(0.74 0.135 50)); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Case File",
+    "overview": "Onward is a file the candidate keeps on each role: paper sheets on a desk, read and annotated, not a dashboard of tiles. Warm walnut ink at night (the daily theme), warm stone paper by day. Sheets are raised with small paper corners and one soft shadow; Literata sets headings and the numbers that matter, the system sans carries all working text.\n\nColour carries meaning. Cinnabar, a warm orange-red, marks actions and where you are; moss is backed, straw is related or to confirm, crimson is a gap. Nothing else is coloured, so a coloured word is always a judgement.\n\nMotion is quiet and comes once: sheets settle, a ledger bar inks in, folder tabs rise to join their sheet; all of it collapses under reduced motion.",
+    "keyCharacteristics": [
+      "Warm low-chroma ground and sheets",
+      "One action colour (cinnabar) plus three standing tones, each solid and wash",
+      "Literata for h1, h2 and display numerals; system sans for working text",
+      "Small paper corners (5/7/9px) and one sheet shadow",
+      "Folder tabs: the selected tab and its sheet are one piece"
+    ],
+    "rules": [
+      {
+        "name": "The Meaning Rule",
+        "body": "Moss, straw and crimson appear only for standing, never decoration; always paired with a word or icon.",
+        "section": "colors"
+      },
+      {
+        "name": "The On-Solid Rule",
+        "body": "Text on any solid fill uses --color-on-solid, never white and never the ground colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The Hue Distance Rule",
+        "body": "Cinnabar (hue about 45-50) stays clearly apart from crimson (about 16) and straw (about 90); never a plain red or yellow accent, which would read as a status.",
+        "section": "colors"
+      },
+      {
+        "name": "The Chart Variable Rule",
+        "body": "Chart fills use --color-viz-1 and --color-viz-ord-1..5, theme-aware, never hex.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voices Rule",
+        "body": "The serif is for h1, h2 and display numerals only; working text stays in the sans; aligned numerals are tabular.",
+        "section": "typography"
+      },
+      {
+        "name": "The One Sheet Rule",
+        "body": "A surface is on the ground or a sheet; no intermediate elevations, no hard offset shadows.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do set short word lists as a running index line parted by faint dots.",
+      "Do put text on any solid fill in on-solid.",
+      "Do fill charts with --color-viz-1 and --color-viz-ord-1..5.",
+      "Do pair every standing colour with a word or icon.",
+      "Do use the sheet as the only raised container.",
+      "Do reserve the serif for h1, h2 and display numerals.",
+      "Do stagger entrances 45ms, capped, and ink a fill once."
+    ],
+    "donts": [
+      "Don't box each keyword as a chip or pill.",
+      "Don't summarise with a row of stat tiles.",
+      "Don't put uppercase tracked eyebrow labels above headings.",
+      "Don't use gradient fills on avatars or anywhere else.",
+      "Don't use a coloured left border thicker than 1px.",
+      "Don't use white text, or the ground colour, on a solid fill.",
+      "Don't add decorative colours beyond cinnabar and the three standing tones.",
+      "Don't pick a plain red or yellow accent, or move cinnabar toward crimson or straw.",
+      "Don't fill charts with hex values; use the viz variables."
+    ]
+  }
+}
