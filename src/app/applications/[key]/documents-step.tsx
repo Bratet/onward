@@ -104,7 +104,7 @@ export function DocumentsStep(props: {
     </div>
 
     <div id="doc-cover-letter" role="tabpanel" aria-labelledby="doc-tab-cover-letter" hidden={doc !== 'cover-letter'}>
-      <CoverLetterTask key={app.key} app={app} active={props.active !== false && doc === 'cover-letter'} asked={!!contact.coverLetter} initialLetter={initialLetter} savedLetter={props.storedLetter} finalizedAtLoad={props.letterFinalized} onLetterSaved={props.onLetterSaved} onLetterFinalized={props.onLetterFinalized} resumeReady={props.resumeReady} onGoToResume={props.onGoToResume} />
+      <CoverLetterTask key={app.key} app={app} active={props.active !== false && doc === 'cover-letter'} initialLetter={initialLetter} savedLetter={props.storedLetter} finalizedAtLoad={props.letterFinalized} onLetterSaved={props.onLetterSaved} onLetterFinalized={props.onLetterFinalized} resumeReady={props.resumeReady} onGoToResume={props.onGoToResume} />
     </div>
     <div id="doc-answers" role="tabpanel" aria-labelledby="doc-tab-answers" hidden={doc !== 'answers'}>
       <FormAnswersTask appKey={app.key} active={props.active !== false && doc === 'answers'} answers={answers} imported={props.answersImported} onAnswers={props.onAnswers} />

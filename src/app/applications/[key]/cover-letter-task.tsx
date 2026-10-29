@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useId, useRef, useState } from 'react'
-import { Check, ChevronDown, Eye, FileText, Pencil, Undo2 } from 'lucide-react'
-import { AiBlocked, AiComposer, AiEmpty, AiNewChat, AiPanelHeader, AiReview, AiSettingsToggle, AiSheet, AiSheetTrigger, aiReply, aiUserBubble } from '@/components/AiPanel'
+import { Check, ChevronDown, Eye, FileText, PenLine, Pencil, Undo2 } from 'lucide-react'
+import { AiBlocked, AiComposer, AiEmpty, AiNewChat, AiPanelHeader, AiReview, AiSettingsToggle, AiSheet, AiSheetTrigger, aiReply, aiStartButton, aiUserBubble } from '@/components/AiPanel'
 import { Menu, MenuItem } from '@/components/ui/Menu'
 import type { Application } from '@/lib/applications'
 import { CoverLetterConflict, LETTER_WORD_TARGET, coverLetterSchema, letterKey, letterMatchesFinalized, wordCount, type CoverLetter, type LetterTurn } from '@/lib/coverLetter'
@@ -34,11 +34,9 @@ function chatKey(key: string) {
 }
 
 /** The same document-and-companion workspace as Resume, with an explicit AI review before saving. */
-export function CoverLetterTask({ app, active = true, asked, initialLetter, savedLetter, finalizedAtLoad, onLetterSaved, onLetterFinalized, resumeReady, onGoToResume }: {
+export function CoverLetterTask({ app, active = true, initialLetter, savedLetter, finalizedAtLoad, onLetterSaved, onLetterFinalized, resumeReady, onGoToResume }: {
   app: Application
   active?: boolean
-  /** The posting asks for a cover letter; only then does a new chat open with a draft request waiting. */
-  asked: boolean
   resumeReady: boolean
   onGoToResume: () => void
   onLetterFinalized?: (pdfName: string) => void
@@ -101,15 +99,13 @@ export function CoverLetterTask({ app, active = true, asked, initialLetter, save
   const dirty = source !== savedJson.current
   const currentPreview = preview.source === source
   const upToDate = letterMatchesFinalized(letter, letterFinalized?.letter ?? null)
-  const starterReady = hydrated && resumeReady && empty && !review && message === STARTER
 
   useEffect(() => {
     let saved = null
     try { saved = parseLetterChat(window.localStorage.getItem(chatKey(app.key))) } catch { /* in-memory chat still works */ }
     setTurns(saved?.turns ?? [])
-    // A request this panel once filled in itself is not kept when the posting does not ask for a letter.
-    const savedMessage = !asked && saved?.message === STARTER ? '' : saved?.message
-    setMessage(savedMessage || (asked && !initialLetter.content.trim() && !saved?.turns.length ? STARTER : ''))
+    // The draft button replaces the request older chats prefilled in the composer.
+    setMessage(saved?.message && saved.message !== STARTER ? saved.message : '')
     if (saved?.review) {
       const matches = savedLetter
         ? letterKey(saved.review.before) === letterKey(savedLetter)
@@ -288,7 +284,7 @@ export function CoverLetterTask({ app, active = true, asked, initialLetter, save
 
   function newChat() {
     if (busy || review) return
-    setTurns([]); setMessage(asked && empty ? STARTER : ''); setError(null); setRetry(null)
+    setTurns([]); setMessage(''); setError(null); setRetry(null)
     window.requestAnimationFrame(() => messageRef.current?.focus({ preventScroll: true }))
   }
 
@@ -405,10 +401,11 @@ export function CoverLetterTask({ app, active = true, asked, initialLetter, save
               <button type="button" onClick={() => resolveReview(false)} className={secondary}><Undo2 size={14} aria-hidden="true" /> Undo</button>
             </AiReview> : null}
           </div>) : <AiEmpty
-            title="What should this letter emphasize?"
+            title={empty ? 'Draft your cover letter for this role' : 'What should this letter emphasize?'}
             hint="Start with a draft for this role. You can then refine the tone, highlight a project, or make it more concise."
-            prompts={!empty ? ['Make it shorter and more direct.', 'Focus on my most relevant project.'] : resumeReady ? [STARTER] : undefined}
-            disabled={busy || !!review}
+            action={empty ? <button type="button" disabled={inputBlocked || busy || !!review} onClick={() => void send(message.trim() || STARTER)} className={aiStartButton}><PenLine size={15} aria-hidden="true" />Draft cover letter</button> : undefined}
+            prompts={!empty ? ['Make it shorter and more direct.', 'Focus on my most relevant project.'] : undefined}
+            disabled={inputBlocked || busy || !!review}
             onPick={(prompt) => { setMessage(prompt); messageRef.current?.focus({ preventScroll: true }) }}
           />}
           {thinking ? <div role="status" className="flex items-center gap-2 py-2 text-sm text-[var(--color-muted)]"><Spinner /> Writing your draft…</div> : null}
@@ -422,10 +419,9 @@ export function CoverLetterTask({ app, active = true, asked, initialLetter, save
           busy={thinking}
           blocked={sendBlocked}
           disabled={inputBlocked}
-          highlight={starterReady}
           label="Message the Cover letter AI"
-          placeholder={empty ? 'Draft a letter for this role, or tell the AI what to emphasize…' : 'Ask for an edit: tone, length, a project to highlight…'}
-          hint={thinking ? 'Writing… Esc stops the reply' : review ? 'Keep or undo the AI draft to continue' : starterReady ? 'Press Enter to draft, or edit the request first' : 'Enter to send · Shift+Enter for a new line'}
+          placeholder={empty ? 'Tell the AI what to emphasize (optional)…' : 'Ask for an edit: tone, length, a project to highlight…'}
+          hint={thinking ? 'Writing… Esc stops the reply' : review ? 'Keep or undo the AI draft to continue' : 'Enter to send · Shift+Enter for a new line'}
           maxLength={8000}
           textareaRef={messageRef}
         />}

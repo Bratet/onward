@@ -143,8 +143,8 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   const [workspace, setWorkspace] = useState(initialWorkspace)
   const fitList = useMemo(() => fitItems(workspace.fit.report, analysis, eligibility), [workspace.fit.report, analysis, eligibility])
   const [draft, setDraft] = useState(initialWorkspace.draftYaml)
-  // A resume already finalized from this draft does not open with "Tailor my resume" waiting in the
-  // composer, one keystroke from an AI run. Read once, so finalizing later does not reset the chat.
+  // A resume already finalized from this draft does not open on the Tailor button, one click from an
+  // AI run. Read once, so finalizing later does not reset the chat.
   const [offerTailorStarter] = useState(() => !(serverApp.folder?.has.pdf && finalizedAtLoad.resume?.yaml === initialWorkspace.draftYaml))
   const [saveState, setSaveState] = useState<SaveState>('saved')
   const [preview, setPreview] = useState<{ token: string | null; pages: number | null; fill: number | null; failures: { why: string }[] }>({ token: null, pages: null, fill: null, failures: [] })
@@ -653,7 +653,6 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
       applicationKey={app.key}
       chatScope={applicationChatScope(app.key, surface)}
       starterMessage={surface === 'resume' && !workspace.general && offerTailorStarter ? 'Tailor my resume for this role' : undefined}
-      active={surface === 'resume' && step === 'resume'}
       seed={surface === 'overview' ? fitSeed : undefined}
       tailoringSkill={workspace.general ? undefined : {
         run: (handlers) => tailor(handlers, surface),

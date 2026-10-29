@@ -110,14 +110,18 @@ export function AiSettingsToggle({ open, controls, onToggle }: { open: boolean; 
   </button>
 }
 
-/** The conversation before its first message: what this AI is for, and a few ways to start. */
-export function AiEmpty({ title, hint, prompts, disabled, onPick }: { title: string; hint: string; prompts?: string[]; disabled?: boolean; onPick?: (prompt: string) => void }) {
+/** The conversation before its first message: what this AI is for, the one action that starts it, and a few ways to start. */
+export function AiEmpty({ title, hint, action, prompts, disabled, onPick }: { title: string; hint: string; action?: ReactNode; prompts?: string[]; disabled?: boolean; onPick?: (prompt: string) => void }) {
   return <div className="py-2">
     <p className="text-[15px] font-semibold">{title}</p>
     <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-[var(--color-muted)]">{hint}</p>
-    {prompts?.length && onPick ? <AiPrompts className="mt-4" prompts={prompts} disabled={disabled} onPick={onPick} /> : null}
+    {action ? <div className="mt-4">{action}</div> : null}
+    {prompts?.length && onPick ? <AiPrompts className={action ? 'mt-3' : 'mt-4'} prompts={prompts} disabled={disabled} onPick={onPick} /> : null}
   </div>
 }
+
+/** Starts the panel's main run in one click. In the action colour but never a solid primary: the step keeps that. */
+export const aiStartButton = 'inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-lg border border-[color-mix(in_oklab,var(--color-accent)_45%,transparent)] px-3.5 text-sm font-semibold text-[var(--color-accent)] transition-colors hover:border-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] active:translate-y-px disabled:cursor-not-allowed disabled:border-[var(--color-border)] disabled:text-[var(--color-faint)] disabled:hover:bg-transparent max-sm:min-h-11'
 
 export function AiPrompts({ prompts, disabled, onPick, className }: { prompts: string[]; disabled?: boolean; onPick: (prompt: string) => void; className?: string }) {
   return <div className={cn('flex flex-wrap gap-1.5', className)}>
@@ -152,7 +156,7 @@ export function AiBlocked({ title, hint, action }: { title: string; hint: string
  * LinkedIn) is optional instructions for one draft: its control is a labelled
  * secondary button, and it sends with the field empty.
  */
-export function AiComposer({ value, onChange, onSubmit, onStop, intent = 'chat', busy = false, blocked = false, disabled = false, highlight = false, label, sendLabel = 'Send message', placeholder, hint, maxLength = 8000, rows = 3, textareaRef, children }: {
+export function AiComposer({ value, onChange, onSubmit, onStop, intent = 'chat', busy = false, blocked = false, disabled = false, label, sendLabel = 'Send message', placeholder, hint, maxLength = 8000, rows = 3, textareaRef, children }: {
   value: string
   onChange: (value: string) => void
   onSubmit: () => void
@@ -164,8 +168,6 @@ export function AiComposer({ value, onChange, onSubmit, onStop, intent = 'chat',
   /** Sending is not possible right now (empty, waiting on a review…); typing still is. */
   blocked?: boolean
   disabled?: boolean
-  /** A prepared first request: the field is outlined in the action colour until it is sent or changed. */
-  highlight?: boolean
   label: string
   /** The send control's name; a brief shows it as the button's text. */
   sendLabel?: string
@@ -187,8 +189,7 @@ export function AiComposer({ value, onChange, onSubmit, onStop, intent = 'chat',
   const stop = <button type="button" onClick={onStop} aria-label="Stop the reply" title="Stop (Esc)" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-md border border-[var(--color-bad)] text-[var(--color-bad)] transition-colors hover:bg-[var(--color-bad-soft)]"><Square size={12} aria-hidden="true" /></button>
   return <form onSubmit={(event) => { event.preventDefault(); submit() }} className="shrink-0 space-y-2 border-t border-[var(--color-border)] p-3">
     {children}
-    <div className={cn('flex items-end gap-2 rounded-lg border bg-[var(--color-bg)] py-1.5 pl-3 pr-1.5 transition-colors focus-within:border-[var(--color-accent)] focus-within:shadow-[0_0_0_1px_var(--color-accent)]',
-      highlight ? 'border-[var(--color-accent)]' : 'border-[var(--color-border)]', disabled && 'opacity-60')}>
+    <div className={cn('flex items-end gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] py-1.5 pl-3 pr-1.5 transition-colors focus-within:border-[var(--color-accent)] focus-within:shadow-[0_0_0_1px_var(--color-accent)]', disabled && 'opacity-60')}>
       <textarea ref={textareaRef} value={value} onChange={(event) => onChange(event.target.value)} onKeyDown={onKeyDown} placeholder={placeholder} aria-label={label}
         disabled={disabled} maxLength={maxLength} rows={rows}
         className="ai-composer-field min-w-0 flex-1 resize-none bg-transparent py-1 text-sm leading-relaxed placeholder:text-[var(--color-muted)] disabled:cursor-not-allowed" />

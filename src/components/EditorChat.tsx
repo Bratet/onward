@@ -2,8 +2,8 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import Link from 'next/link'
-import { ChevronRight, ClipboardCheck, Pencil } from 'lucide-react'
-import { AiComposer, AiEmpty, AiNewChat, AiPanelHeader, AiSettingsToggle, aiHeaderButton, aiReply, aiUserBubble } from './AiPanel'
+import { ChevronRight, ClipboardCheck, PenLine, Pencil } from 'lucide-react'
+import { AiComposer, AiEmpty, AiNewChat, AiPanelHeader, AiPrompts, AiSettingsToggle, aiHeaderButton, aiReply, aiStartButton, aiUserBubble } from './AiPanel'
 import { Badge, Spinner } from './ui/primitives'
 import { ResumeReview } from './ResumeReview'
 import { ChatMarkdown } from './ChatMarkdown'
@@ -37,7 +37,6 @@ export function EditorChat({
   tailoring,
   tailoringSkill,
   starterMessage,
-  active = false,
   seed,
   title,
   hint,
@@ -66,9 +65,8 @@ export function EditorChat({
     /** How the latest proposal was settled; written onto the tailoring turn that made it. */
     outcome?: { text: string; at: number }
   }
-  /** An editable first request for a new chat on an active step. */
+  /** The request the empty conversation's Tailor button sends. */
   starterMessage?: string
-  active?: boolean
 }) {
   const storageKey = editorChatStorageKey(chatScope)
   const [turns, setTurns] = useState<DisplayTurn[]>([])
@@ -119,7 +117,6 @@ export function EditorChat({
   const reviewLocked = resumeReviewMode && (staleResumeReview || !latestResumeReview)
   /** Typing stays possible while these hold; only sending waits. */
   const sendBlocked = !hydrated || busy || api.reviewPending || editingIndex !== null || reviewLocked
-  const starterReady = active && !sendBlocked && !hasTailoringRun && Boolean(starterMessage) && message === starterMessage
 
   useEffect(() => () => {
     abortRef.current?.abort()
@@ -131,8 +128,8 @@ export function EditorChat({
     setHydrated(false)
     const saved = parseEditorChatSnapshot(readEditorChat(storageKey))
     const nextTurns = saved?.turns ?? []
-    const tailoredBefore = nextTurns.some((turn) => turn.skillRun?.skillId === 'tailor-cv')
-    const nextMessage = saved?.draft || (!tailoredBefore ? starterMessage ?? '' : '')
+    // Earlier versions left the starter request waiting in the composer; the Tailor button sends it now.
+    const nextMessage = saved?.draft && saved.draft !== starterMessage ? saved.draft : ''
     scrolledTailoringRef.current = -1
     sessionRef.current = saved?.sessionId ?? crypto.randomUUID()
     setTurns(nextTurns)
@@ -247,7 +244,7 @@ export function EditorChat({
 
   function newChat() {
     if (pendingProposal || busy) return
-    const nextDraft = starterMessage ?? ''
+    const nextDraft = ''
     sessionRef.current = crypto.randomUUID()
     setTurns([])
     setMessage(nextDraft)
@@ -716,8 +713,22 @@ export function EditorChat({
           </div>
           )
         )) : !tailoring ? (
+          tailoringSkill && starterMessage ? (
+            <AiEmpty
+              title="Tailor your resume for this role"
+              hint="It proposes a draft aimed at this posting, as changes you accept or reject one by one."
+              action={<div className="space-y-3">
+                <div className="flex justify-center py-2"><button type="button" disabled={sendBlocked} onClick={() => void send(starterMessage)} className={cn(aiStartButton, 'h-11 w-full max-w-sm justify-center bg-[var(--color-accent-soft)]')}><PenLine size={18} aria-hidden="true" />Tailor resume</button></div>
+                <AiPrompts
+                  className="justify-center"
+                  prompts={busy || !hydrated ? [] : ['Which must-haves does the draft still miss?', 'Make it fit on one page']}
+                  onPick={(text) => { setMessage(text); messageRef.current?.focus() }}
+                />
+              </div>}
+            />
+          ) : (
           <AiEmpty
-            prompts={busy || !hydrated ? [] : reviewOnly ? ['Is this role a good fit for me?', 'Which gap matters most here?'] : tailoringSkill ? [starterMessage ?? 'Tailor my resume for this role', 'Which must-haves does the draft still miss?', 'Make it fit on one page'] : []}
+            prompts={busy || !hydrated ? [] : reviewOnly ? ['Is this role a good fit for me?', 'Which gap matters most here?'] : tailoringSkill ? ['Tailor my resume for this role', 'Which must-haves does the draft still miss?', 'Make it fit on one page'] : []}
             onPick={(text) => { setMessage(text); messageRef.current?.focus() }}
             title={reviewOnly ? 'Let’s check whether this role works for you' : reviewSource ? 'Review or edit this resume' : tailoringSkill ? 'What should we do with this resume?' : 'Edit with a CLI agent'}
             hint={reviewOnly ? 'Discuss a gap or correct the analysis. Confirmed Skills are added to this application’s working resume; full tailoring starts when you request it.' : tailoringSkill
@@ -725,6 +736,7 @@ export function EditorChat({
               : reviewSource ? 'Run a structured review, then challenge findings or answer its questions here. Switch back to editing whenever you want to change the draft.'
                 : 'This is a persistent Claude/Codex session with file tools and buffer history. Ask it to edit, explain, compare, restore, or undo.'}
           />
+          )
         ) : null}
         {busy && liveReasoning ? (
           <div className={aiReply}>
@@ -772,10 +784,9 @@ export function EditorChat({
         busy={busy}
         blocked={sendBlocked || !message.trim()}
         disabled={!hydrated}
-        highlight={starterReady}
         label={title ? `Message the ${title}` : 'Message the resume editor'}
-        placeholder={resumeReviewMode ? 'Question a finding or add context…' : reviewOnly ? 'What should we clarify before I apply?' : tailoringSkill ? 'Try “Tailor my resume for this role”…' : tailoring ? 'Ask for another edit, explanation, or undo…' : 'Ask the Claude/Codex editor agent…'}
-        hint={busy ? 'Working… Esc stops the reply' : editingIndex !== null ? 'Editing a previous message — save to rerun from there' : api.reviewPending ? 'Accept or reject the current proposal before sending another edit' : resumeReviewMode ? 'Your feedback updates the review, not the resume' : reviewOnly ? 'Confirmed corrections update the fit analysis and relevant Skills in this application’s resume' : starterReady ? 'Press Enter to start tailoring, or edit this request first' : 'AI edits are previewed before they can be saved'}
+        placeholder={resumeReviewMode ? 'Question a finding or add context…' : reviewOnly ? 'What should we clarify before I apply?' : tailoringSkill ? (hasTailoringRun ? 'Ask for an edit, or “Tailor my resume” to run it again…' : 'Ask for a specific edit…') : tailoring ? 'Ask for another edit, explanation, or undo…' : 'Ask the Claude/Codex editor agent…'}
+        hint={busy ? 'Working… Esc stops the reply' : editingIndex !== null ? 'Editing a previous message — save to rerun from there' : api.reviewPending ? 'Accept or reject the current proposal before sending another edit' : resumeReviewMode ? 'Your feedback updates the review, not the resume' : reviewOnly ? 'Confirmed corrections update the fit analysis and relevant Skills in this application’s resume' : 'AI edits are previewed before they can be saved'}
         maxLength={8000}
         textareaRef={messageRef}
       />
