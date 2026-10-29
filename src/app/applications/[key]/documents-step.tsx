@@ -1,13 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
-import { ClipboardList, Copy, FileText, Linkedin, ListPlus, Mail, MessageSquareText, Plus, Trash2, X } from 'lucide-react'
+import { ClipboardList, Copy, FileText, Linkedin, Mail, MessageSquareText, Plus, Trash2, X } from 'lucide-react'
 import type { Application } from '@/lib/applications'
 import type { CoverLetter } from '@/lib/coverLetter'
 import type { PostingContact } from '@/lib/postingContact'
 import type { FinalizedState } from '@/components/FinalizeStatus'
 import type { OutreachDrafts } from '@/lib/outreach'
-import { isAnswered, newFormAnswer, overLimit, splitQuestions, type AnswerTurn, type FormAnswer } from '@/lib/formAnswers'
+import { isAnswered, newFormAnswer, overLimit, type AnswerTurn, type FormAnswer } from '@/lib/formAnswers'
 import { ErrorNotice } from '@/components/ErrorNotice'
 import { LearnFromChat } from '@/components/LearnFromChat'
 import { AiBlocked, AiComposer, AiEmpty, AiPanelHeader, AiPrompts, AiReview, AiSheet, AiSheetTrigger, aiReply, aiUserBubble } from '@/components/AiPanel'
@@ -137,8 +137,9 @@ function FormAnswersTask({ appKey, active, answers, imported, onAnswers }: { app
   const base = `/api/applications/${encodeURIComponent(appKey)}/form-answers`
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'error' | 'imported'>(imported ? 'imported' : 'saved')
   const savedJson = useRef(JSON.stringify(answers))
-  const [paste, setPaste] = useState('')
-  const [pasting, setPasting] = useState(!answers.length)
+  // The question just added, so its row takes the caret when it appears.
+  const [added, setAdded] = useState<string | null>(null)
+  const formBody = useRef<HTMLDivElement>(null)
   const [focus, setFocus] = useState<string | null>(null)
   const [turns, setTurns] = useState<AnswerTurn[]>([])
   const [message, setMessage] = useState('')
@@ -148,9 +149,12 @@ function FormAnswersTask({ appKey, active, answers, imported, onAnswers }: { app
   const [copied, setCopied] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
+  // The form's sheet and its AI run the same height, from under the tabs to the bottom of the window.
+  const formPanel = useRef<HTMLElement>(null)
   const aiPanel = useRef<HTMLElement>(null)
   const [sheet, setSheet] = useState(false)
   const composer = useRef<HTMLTextAreaElement>(null)
+  useFillHeight(formPanel, active, 80)
   useFillHeight(aiPanel, active, 80)
   const focused = answers.find((entry) => entry.id === focus) ?? null
   const answered = answers.filter(isAnswered).length
@@ -188,11 +192,13 @@ function FormAnswersTask({ appKey, active, answers, imported, onAnswers }: { app
     onAnswers(answers.map((entry) => entry.id === id ? { ...entry, ...patch } : entry))
   }
 
-  function addQuestions(questions: string[]) {
-    const added = questions.map((question) => newFormAnswer(question))
-    onAnswers([...answers, ...added])
-    setPaste(''); setPasting(false)
-    if (added.length) setFocus(added[0].id)
+  /** Adds an empty question at the end of the form, ready to type into. */
+  function addQuestion() {
+    const entry = newFormAnswer()
+    onAnswers([...answers, entry])
+    setAdded(entry.id)
+    // Show the whole new row, answer included, above the Add button.
+    window.requestAnimationFrame(() => formBody.current?.scrollTo({ top: formBody.current.scrollHeight }))
   }
 
   async function copy(text: string, what: string) {
@@ -226,15 +232,12 @@ function FormAnswersTask({ appKey, active, answers, imported, onAnswers }: { app
     ? [focused.answer.trim() ? 'Make this answer shorter.' : 'Draft this answer.', 'Make it sound more like me.']
     : [answered < answers.length ? 'Draft every unanswered question.' : 'Check every answer against the limits.']
 
-  const addActions = <div className="flex flex-wrap items-center gap-x-5 gap-y-1 border-t border-[var(--color-border)] px-5 py-2.5">
-    <button type="button" onClick={() => addQuestions([''])} className={linkButton}><Plus size={13} aria-hidden="true" />Add a question</button>
-    <button type="button" onClick={() => setPasting(true)} className={linkButton}><ListPlus size={13} aria-hidden="true" />Paste several questions</button>
-  </div>
+  const addButton = <button type="button" onClick={addQuestion} className={answers.length ? secondaryButton : primaryButton}><Plus size={14} aria-hidden="true" />Add a question</button>
 
   return <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
-    {/* One sheet: the form's questions as ruled rows, under its folder tab. */}
-    <section aria-labelledby="form-title" className="sheet min-w-0 overflow-hidden">
-      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--color-border)] px-5 py-3.5">
+    {/* One sheet: the form's questions as ruled rows, under its folder tab, with Add a question under the last one. The title stays put; the rows scroll. */}
+    <section ref={formPanel} aria-labelledby="form-title" className="sheet workspace-pane flex min-h-0 min-w-0 flex-col overflow-hidden lg:sticky lg:top-20">
+      <header className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b border-[var(--color-border)] px-5 py-3.5">
         <div className="min-w-0 flex-1">
           <h2 id="form-title" className="text-[17px]">Form questions</h2>
           <p role="status" className="mt-0.5 text-xs text-[var(--color-muted)]">
@@ -245,41 +248,35 @@ function FormAnswersTask({ appKey, active, answers, imported, onAnswers }: { app
         </div>
         {answered ? <button type="button" onClick={() => void copy(answers.filter(isAnswered).map((entry) => `${entry.question}\n${entry.answer}`).join('\n\n'), 'All answers')} className={secondaryButton}><Copy size={13} aria-hidden="true" />Copy all</button> : null}
       </header>
-      {error ? <ErrorNotice error={error} className="border-b border-[var(--color-border)]" onDismiss={() => setError(null)} /> : null}
+      {error ? <ErrorNotice error={error} className="shrink-0 border-b border-[var(--color-border)]" onDismiss={() => setError(null)} /> : null}
 
-      {answers.length ? <ol className="divide-y divide-[var(--color-border)]">
-        {answers.map((entry, index) => <QuestionRow
-          key={entry.id}
-          index={index}
-          entry={entry}
-          focused={entry.id === focus}
-          busy={thinking}
-          onFocus={() => setFocus(entry.id)}
-          onChange={(patch) => update(entry.id, patch)}
-          onRemove={() => { onAnswers(answers.filter((item) => item.id !== entry.id)); if (focus === entry.id) setFocus(null) }}
-          onCopy={() => void copy(entry.answer, 'Answer')}
-          onDraft={() => {
-            setFocus(entry.id)
-            // On a narrow screen the AI's progress and its Keep / Undo live in the sheet, so it opens with the request.
-            if (!window.matchMedia('(min-width: 1024px)').matches) setSheet(true)
-            void send(entry.answer.trim() ? 'Improve this answer.' : 'Draft this answer.', entry.id)
-          }}
-        />)}
-      </ol> : null}
-
-      {pasting ? <div className={cn('px-5 py-4', answers.length > 0 && 'border-t border-[var(--color-border)]')}>
-        {/* With no questions yet the sheet's title already says what this is; the label stays for screen readers. */}
-        <label htmlFor="form-paste" className={answers.length ? 'block text-sm font-semibold' : 'sr-only'}>{answers.length ? 'Paste more questions' : 'Paste the form’s questions'}</label>
-        <p className={cn('text-xs text-[var(--color-muted)]', answers.length > 0 && 'mt-0.5')}>Paste the questions one per line. Numbering, bullets and “required” marks are removed.</p>
-        <textarea id="form-paste" value={paste} onChange={(event) => setPaste(event.target.value)} rows={5} placeholder={'For example:\nWhy do you want to join us?\nWhat is your notice period?'} className={cn(field, 'mt-3')} />
-        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <button type="button" disabled={!splitQuestions(paste).length} onClick={() => addQuestions(splitQuestions(paste))} className={primaryButton}>
-            Add {splitQuestions(paste).length || ''} question{splitQuestions(paste).length === 1 ? '' : 's'}
-          </button>
-          <button type="button" onClick={() => addQuestions([''])} className={linkButton}>Add one empty question instead</button>
-          {answers.length ? <button type="button" onClick={() => { setPaste(''); setPasting(false) }} className={cn(linkButton, 'ml-auto text-[var(--color-muted)]')}>Cancel</button> : null}
-        </div>
-      </div> : addActions}
+      <div ref={formBody} className="min-h-0 flex-1 overflow-y-auto">
+        {answers.length ? <ol className="divide-y divide-[var(--color-border)]">
+          {answers.map((entry, index) => <QuestionRow
+            key={entry.id}
+            index={index}
+            entry={entry}
+            focused={entry.id === focus}
+            autoFocus={entry.id === added}
+            busy={thinking}
+            onFocus={() => setFocus(entry.id)}
+            onChange={(patch) => update(entry.id, patch)}
+            onRemove={() => { onAnswers(answers.filter((item) => item.id !== entry.id)); if (focus === entry.id) setFocus(null) }}
+            onCopy={() => void copy(entry.answer, 'Answer')}
+            onDraft={() => {
+              setFocus(entry.id)
+              // On a narrow screen the AI's progress and its Keep / Undo live in the sheet, so it opens with the request.
+              if (!window.matchMedia('(min-width: 1024px)').matches) setSheet(true)
+              void send(entry.answer.trim() ? 'Improve this answer.' : 'Draft this answer.', entry.id)
+            }}
+          />)}
+        </ol> : <div className="px-5 py-6">
+          <p className="text-[15px] font-semibold">No questions yet</p>
+          <p className="mt-1 max-w-prose text-sm leading-relaxed text-[var(--color-muted)]">Add each question from the job’s application form. Then write the answer yourself, or have the AI draft it.</p>
+        </div>}
+        {/* Under the last question, where the next one goes. */}
+        <div className={cn('px-5 pb-6', answers.length ? 'border-t border-[var(--color-border)] pt-4' : 'pt-0')}>{addButton}</div>
+      </div>
     </section>
 
     <AiSheet label="Form questions AI" open={sheet} onOpenChange={setSheet} active={active}>
@@ -289,7 +286,7 @@ function FormAnswersTask({ appKey, active, answers, imported, onAnswers }: { app
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {turns.length ? turns.map((turn, index) => <div key={index} className={turn.role === 'user' ? aiUserBubble : aiReply}>
             <p className="whitespace-pre-wrap">{turn.content}</p>
-          </div>) : <AiEmpty title={answers.length ? 'Pick a question, or ask about the whole form' : 'Add the form’s questions first'} hint="Answers stay short and plain, the way you would say them. Every change can be undone." />}
+          </div>) : <AiEmpty title={answers.length ? 'Pick a question, or ask about the whole form' : 'Add the form’s questions first'} hint={answers.length ? 'Answers stay short and plain, the way you would say them. Every change can be undone.' : 'Add them on the left. Then the AI can draft every answer, or the one you pick.'} />}
           {thinking ? <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]"><Spinner /> Writing… usually under a minute</div> : null}
           {undo && !thinking ? <AiReview title="Answers updated" hint="The changed answers are in the form. Keep them, or undo to restore the previous answers.">
             <button type="button" onClick={() => setUndo(null)} className={secondaryButton}>Keep</button>
@@ -297,16 +294,16 @@ function FormAnswersTask({ appKey, active, answers, imported, onAnswers }: { app
           </AiReview> : null}
           <div ref={endRef} />
         </div>
-        <AiComposer
+        {/* Until the form has a question there is nothing to talk about, so the AI shows no message box. */}
+        {answers.length ? <AiComposer
           value={message}
           onChange={setMessage}
           onSubmit={() => void send()}
           onStop={() => abortRef.current?.abort()}
           busy={thinking}
           blocked={!message.trim()}
-          disabled={!answers.length}
           label="Message the Form questions AI"
-          placeholder={answers.length ? 'Say what to change, or give a fact the AI needs…' : 'Add the form’s questions first.'}
+          placeholder="Say what to change, or give a fact the AI needs…"
           hint="The AI edits the answers here; nothing goes to the employer."
           textareaRef={composer}
         >
@@ -314,9 +311,9 @@ function FormAnswersTask({ appKey, active, answers, imported, onAnswers }: { app
             <span className="text-[var(--color-muted)]">Working on</span>
             <span className="min-w-0 flex-1 truncate font-medium">Q{answers.indexOf(focused) + 1}. {focused.question || 'Untitled question'}</span>
             <button type="button" onClick={() => setFocus(null)} aria-label="Work on the whole form" title="Work on the whole form" className="grid size-6 cursor-pointer place-items-center rounded-md text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><X size={13} aria-hidden="true" /></button>
-          </p> : answers.length ? <p className="text-xs text-[var(--color-muted)]">Working on the whole form</p> : null}
-          {answers.length ? <AiPrompts prompts={prompts} disabled={thinking} onPick={(prompt) => { setMessage(prompt); composer.current?.focus() }} /> : null}
-        </AiComposer>
+          </p> : <p className="text-xs text-[var(--color-muted)]">Working on the whole form</p>}
+          <AiPrompts prompts={prompts} disabled={thinking} onPick={(prompt) => { setMessage(prompt); composer.current?.focus() }} />
+        </AiComposer> : null}
       </aside>
     </AiSheet>
     <AiSheetTrigger label="Form questions AI" onOpen={() => setSheet(true)} />
@@ -324,10 +321,12 @@ function FormAnswersTask({ appKey, active, answers, imported, onAnswers }: { app
 }
 
 /** One question on the form sheet: a serif number, the question, its answer, and what to do with it. */
-function QuestionRow({ index, entry, focused, busy, onFocus, onChange, onRemove, onCopy, onDraft }: {
+function QuestionRow({ index, entry, focused, autoFocus, busy, onFocus, onChange, onRemove, onCopy, onDraft }: {
   index: number
   entry: FormAnswer
   focused: boolean
+  /** A question just added takes the caret, so it can be typed straight away. */
+  autoFocus: boolean
   busy: boolean
   onFocus: () => void
   onChange: (patch: Partial<FormAnswer>) => void
@@ -342,7 +341,7 @@ function QuestionRow({ index, entry, focused, busy, onFocus, onChange, onRemove,
   return <li onFocusCapture={onFocus} className={cn('px-5 py-4 transition-colors duration-200', focused && 'bg-[color-mix(in_oklab,var(--color-surface-2)_45%,transparent)]')}>
     <div className="flex items-start gap-3">
       <span aria-hidden="true" className={cn('font-display w-5 shrink-0 pt-px text-right text-[15px] leading-snug', focused ? 'text-[var(--color-accent)]' : answeredHere ? 'text-[var(--color-ok)]' : 'text-[var(--color-faint)]')}>{index + 1}</span>
-      <textarea value={entry.question} onChange={(event) => onChange({ question: event.target.value })} rows={1} placeholder="Type the question" aria-label={`Question ${index + 1}`} className="field-sizing-content min-h-7 w-full resize-none rounded bg-transparent py-0.5 text-[15px] font-medium leading-snug outline-none placeholder:font-normal placeholder:text-[var(--color-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]" />
+      <textarea value={entry.question} onChange={(event) => onChange({ question: event.target.value })} autoFocus={autoFocus} rows={1} placeholder="Type the question from the form" aria-label={`Question ${index + 1}`} className="field-sizing-content min-h-7 w-full resize-none rounded bg-transparent py-0.5 text-[15px] font-medium leading-snug outline-none placeholder:font-normal placeholder:text-[var(--color-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]" />
       <button type="button" onClick={onRemove} aria-label={`Remove question ${index + 1}`} title="Remove the question" className="grid size-8 max-sm:size-11 shrink-0 cursor-pointer place-items-center rounded-md text-[var(--color-faint)] transition-colors hover:bg-[var(--color-bad-soft)] hover:text-[var(--color-bad)]"><Trash2 size={14} aria-hidden="true" /></button>
     </div>
     <div className="pl-8 pt-2">

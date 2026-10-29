@@ -1,4 +1,4 @@
-import { answerAgentPrompt, formAnswersSchema, fromMarkdownAnswers, isAnswered, newFormAnswer, overLimit, splitQuestions, toApplicationAnswers } from '../src/lib/formAnswers'
+import { answerAgentPrompt, formAnswersSchema, fromMarkdownAnswers, isAnswered, newFormAnswer, overLimit, toApplicationAnswers } from '../src/lib/formAnswers'
 import { parseAnswers } from '../src/lib/applicationAnswers'
 
 let failed = 0
@@ -8,13 +8,6 @@ function check(name: string, ok: boolean, detail = '') {
 }
 
 console.log('form answers')
-
-const pasted = splitQuestions(`1. Why do you want to join us? *
-- What is your notice period (required)
-
-• Salary expectations
-ok`)
-check('pasted questions lose numbering, bullets and required marks', JSON.stringify(pasted) === JSON.stringify(['Why do you want to join us?', 'What is your notice period', 'Salary expectations']), JSON.stringify(pasted))
 
 const imported = fromMarkdownAnswers(parseAnswers('# Acme\n\n## Why Acme?\n\nBecause.\n\n(Cut a line.)\n'))
 check('a markdown file imports as one answer per question, notes kept', imported.length === 1 && imported[0].answer === 'Because.' && imported[0].note === 'Cut a line.' && !!imported[0].id)

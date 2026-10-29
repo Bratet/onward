@@ -39,19 +39,6 @@ export function toApplicationAnswers(answers: FormAnswer[]): ApplicationAnswers 
   }
 }
 
-/**
- * Questions pasted as a block, one per line: list markers, numbering and a
- * trailing "(required)" or "*" go, and lines that are only noise are dropped.
- */
-export function splitQuestions(text: string): string[] {
-  return text.replace(/\r\n/g, '\n').split('\n')
-    .map((line) => line.trim()
-      .replace(/^(?:[-*•·]|\d{1,2}[.)])\s+/, '')
-      .replace(/\s*(?:\*|\((?:required|optional|obligatoire)\))\s*$/i, '')
-      .trim())
-    .filter((line) => line.length > 2)
-}
-
 export function isAnswered(entry: FormAnswer): boolean {
   return !!entry.question.trim() && !!entry.answer.trim()
 }
