@@ -40,6 +40,7 @@
         { "target": "zip", "arch": ["arm64", "x64"] }
       ]
     },
+    "dmg": { "backgroundColor": "#ffffff" },
     "win": { "executableName": "onward-app", "icon": "resources/icon.ico", "target": [{ "target": "nsis", "arch": ["x64"] }] },
     "nsis": { "oneClick": true, "perMachine": false },
     "linux": {
