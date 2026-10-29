@@ -1,8 +1,8 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { AlertTriangle, ArrowLeft, ArrowRight, Check, Code2, Eye, FileText, MessageSquareText, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { AlertTriangle, ArrowLeft, ArrowRight, Check, Code2, Eye, FileText } from 'lucide-react'
 import type { ReactCodeMirrorRef } from '@uiw/react-codemirror'
 import type { Application } from '@/lib/applications'
 import type { ApplicationRecord } from '@/lib/applicationRecord'
@@ -17,7 +17,7 @@ import type { ApplicationWorkspace, WorkspaceProposal } from '@/lib/workspaces'
 import type { Op } from '@/lib/tailoring/ops'
 import type { RequirementAction } from '@/lib/tailoring/rules'
 import { EditorChat } from '@/components/EditorChat'
-import { aiHeaderButton } from '@/components/AiPanel'
+import { AiSheet, AiSheetTrigger } from '@/components/AiPanel'
 import type { EditorApi } from '@/components/EditorPane'
 import { Card, Spinner } from '@/components/ui/primitives'
 import { YamlEditor } from '@/components/YamlEditor'
@@ -169,30 +169,11 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   const savedDraft = useRef(initialWorkspace.draftYaml)
   const revision = useRef(initialWorkspace.revision)
   const editorRef = useRef<ReactCodeMirrorRef>(null)
-  const editorCardRef = useRef<HTMLElement>(null)
   const fitChatRef = useRef<HTMLDivElement>(null)
-  // Below the wide layout the Fit AI would sit far under the list; it opens as a modal sheet over it instead.
-  const fitDialogRef = useRef<HTMLDialogElement>(null)
+  // Below the wide layout each step's AI opens as a sheet over the step (AiSheet).
   const [fitSheet, setFitSheet] = useState(false)
+  const [resumeSheet, setResumeSheet] = useState(false)
   useFillHeight(fitChatRef, step === 'fit', 80)
-  // Wide screens show the Fit AI beside the list, as a dialog element styled open but
-  // never opened, so nothing takes focus on load. Below that it opens modally: the page
-  // behind is inert, Esc closes it, and closing returns focus to what opened it.
-  useEffect(() => {
-    const dialog = fitDialogRef.current
-    if (!dialog) return
-    const wide = window.matchMedia('(min-width: 1024px)')
-    const sync = () => {
-      if (fitSheet && step === 'fit' && !wide.matches) {
-        if (dialog.open) return
-        dialog.showModal()
-        dialog.querySelector<HTMLTextAreaElement>('textarea.ai-composer-field')?.focus()
-      } else if (dialog.open) dialog.close()
-    }
-    sync()
-    wide.addEventListener('change', sync)
-    return () => wide.removeEventListener('change', sync)
-  }, [fitSheet, step])
   const resumePaneRef = useRef<HTMLElement>(null)
 
   useEffect(() => { revision.current = workspace.revision }, [workspace.revision])
@@ -630,9 +611,10 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
     { value: 'documents', label: 'Documents', done: documentsDone, hint: 'Cover letter, form questions and messages, all optional' },
     ...(reviewing ? [] : [{ value: 'send' as const, label: 'Send', done: false, hint: 'Check the packet and record that you sent it' }]),
   ]
-  const toolButton = 'inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]'
-  const mainButton = 'inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 text-sm font-semibold text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] disabled:cursor-not-allowed disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-faint)] disabled:shadow-none'
-  const chatCard = 'workspace-pane flex min-h-0 flex-col overflow-hidden lg:sticky lg:top-20'
+  // 32px on a desk, 44px under a thumb.
+  const toolButton = 'inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] max-sm:min-h-11'
+  const mainButton = 'inline-flex h-9 cursor-pointer items-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 text-sm font-semibold text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] transition-[filter] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] disabled:cursor-not-allowed disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-faint)] disabled:shadow-none max-sm:min-h-11'
+  const chatCard = 'workspace-pane flex min-h-0 flex-col overflow-hidden'
 
   async function refreshAfterProfileUpdate() {
     const response = await fetch(`/api/applications/${encodeURIComponent(app.key)}/workspace`, { cache: 'no-store' })
@@ -655,16 +637,15 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
 
   function askFit(text: string) {
     setFitSeed({ text, at: Date.now() })
-    if (window.matchMedia('(min-width: 1024px)').matches) editorCardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
+    if (window.matchMedia('(min-width: 1024px)').matches) fitChatRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     else setFitSheet(true)
   }
 
   /** Fit saves confirmed Skills into the working copy; Resume proposes full tailoring for review. */
-  function stepChat(surface: 'overview' | 'resume', title: string, hint: string, headerActions?: ReactNode) {
+  function stepChat(surface: 'overview' | 'resume', title: string, hint: string) {
     return <EditorChat
       title={title}
       hint={hint}
-      headerActions={headerActions}
       onProfileUpdated={refreshAfterProfileUpdate}
       reviewOnly={surface === 'overview'}
       api={surface === 'overview' ? { ...editorApi, reviewPending: false } : editorApi}
@@ -717,7 +698,8 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
   const nextAction = finalizeAction ?? (next ? <button type="button" onClick={() => goTo(next.to)} className={step === 'documents' || closedByYou ? toolButton : cn(mainButton, 'h-8')}>{next.label} <ArrowRight size={14} aria-hidden="true" /></button> : null)
 
   return (
-    <div className="-mt-2 space-y-2 sm:-mt-3">
+    // On a phone each step ends with room for its floating AI button, so the last row is never under it.
+    <div className="-mt-2 space-y-2 max-lg:pb-16 sm:-mt-3">
       <ApplicationHeader
         app={app}
         status={status}
@@ -755,18 +737,14 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
               onRetry={() => setWorkspace((current) => ({ ...current, fit: { ...current.fit, status: 'queued' } }))}
               onAsk={askFit} />
           </div>
-          <dialog ref={(node) => { fitDialogRef.current = node; editorCardRef.current = node }} aria-label="Fit AI"
-            onClose={() => setFitSheet(false)}
-            onClick={(event) => { if (event.target === event.currentTarget) fitDialogRef.current?.close() }}
-            className="static m-0 h-auto max-h-none w-full min-w-0 max-w-none border-0 bg-transparent p-0 text-[var(--color-text)] backdrop:bg-[oklch(0.1_0.01_65/0.55)] lg:sticky lg:top-20 lg:block max-lg:fixed max-lg:inset-x-0 max-lg:top-auto max-lg:bottom-0 max-lg:px-2 max-lg:pb-2">
-            <div ref={fitChatRef} className="flex h-[max(420px,70vh)] flex-col max-lg:h-[85dvh]">
+          <AiSheet label="Fit AI" open={fitSheet} onOpenChange={setFitSheet} active={step === 'fit'}>
+            <div ref={fitChatRef} className="flex h-[max(420px,70vh)] flex-col">
               <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                {stepChat('overview', 'Fit AI', 'Adds confirmed Skills to this application’s resume',
-                  <button type="button" onClick={() => fitDialogRef.current?.close()} className={cn(aiHeaderButton, 'lg:hidden')}><X size={14} aria-hidden="true" />Close</button>)}
+                {stepChat('overview', 'Fit AI', 'Adds confirmed Skills to this application’s resume')}
               </Card>
             </div>
-          </dialog>
-          <button type="button" onClick={() => setFitSheet(true)} className="ask-button fixed bottom-4 right-4 z-30 h-10 bg-[var(--color-surface)] px-3.5 text-sm shadow-[var(--shadow-sheet)] lg:hidden"><MessageSquareText size={15} aria-hidden="true" />Fit AI</button>
+          </AiSheet>
+          <AiSheetTrigger label="Fit AI" onOpen={() => setFitSheet(true)} />
         </div>
       </div>
 
@@ -805,11 +783,12 @@ export function ApplicationWorkspaceView({ app: serverApp, initialWorkspace, ana
               <div className={cn('min-h-0 flex-1 overflow-hidden', pane !== 'source' && 'hidden')}><YamlEditor ref={editorRef} value={draft} onChange={setDraft} /></div>
             </Card>
           </section>
-          <div className="min-w-0 lg:sticky lg:top-20">
+          <AiSheet label="Resume AI" open={resumeSheet} onOpenChange={setResumeSheet} active={step === 'resume'}>
             <Card className={chatCard}>
               {stepChat('resume', 'Resume AI', workspace.general ? 'Ask for changes to this copy of your general resume.' : 'Also reads your Fit conversation. You review every change before it’s saved.')}
             </Card>
-          </div>
+          </AiSheet>
+          <AiSheetTrigger label="Resume AI" onOpen={() => setResumeSheet(true)} />
         </div>
       </div>
 

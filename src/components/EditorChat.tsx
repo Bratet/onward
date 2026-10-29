@@ -41,13 +41,10 @@ export function EditorChat({
   seed,
   title,
   hint,
-  headerActions,
 }: {
   /** Names the chat in its own top bar, beside New chat and the settings. */
   title?: string
   hint?: string
-  /** Controls the host adds at the end of the top bar, such as Close on a sheet. */
-  headerActions?: ReactNode
   onProfileUpdated?: () => Promise<void>
   reviewOnly?: boolean
   api: EditorApi
@@ -272,12 +269,15 @@ export function EditorChat({
     messageRef.current?.focus()
   }
 
+  // A requirement sent in from outside joins what is already in the box, so several can go in one message.
   useEffect(() => {
     if (!seed || !hydrated) return
-    setMessage(seed.text)
-    persist(storageKey, { sessionId: sessionRef.current, turns, draft: seed.text, reviewMode: resumeReviewMode })
+    const current = message.trim()
+    const next = !current ? seed.text : current.includes(seed.text.trim()) ? message : `${message.trimEnd()}\n\n${seed.text}`
+    setMessage(next)
+    persist(storageKey, { sessionId: sessionRef.current, turns, draft: next, reviewMode: resumeReviewMode })
     const box = messageRef.current
-    if (box) { box.focus(); box.setSelectionRange(seed.text.length, seed.text.length) }
+    if (box) { box.focus({ preventScroll: true }); box.setSelectionRange(next.length, next.length); box.scrollTop = box.scrollHeight }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [seed?.at, hydrated])
 
@@ -611,7 +611,6 @@ export function EditorChat({
         ) : null}
         <AiNewChat disabled={!hydrated || busy || api.reviewPending || pendingProposal || !turns.length} onClear={newChat} />
         <AiSettingsToggle open={settingsOpen} controls={settingsId} onToggle={() => setSettingsOpen((open) => !open)} />
-        {headerActions}
       </AiPanelHeader>
 
       {/* Stays mounted while closed, so a skill update being drafted is not lost. */}
@@ -774,7 +773,7 @@ export function EditorChat({
         blocked={sendBlocked || !message.trim()}
         disabled={!hydrated}
         highlight={starterReady}
-        label="Message CV editor agent"
+        label={title ? `Message the ${title}` : 'Message the resume editor'}
         placeholder={resumeReviewMode ? 'Question a finding or add context…' : reviewOnly ? 'What should we clarify before I apply?' : tailoringSkill ? 'Try “Tailor my resume for this role”…' : tailoring ? 'Ask for another edit, explanation, or undo…' : 'Ask the Claude/Codex editor agent…'}
         hint={busy ? 'Working… Esc stops the reply' : editingIndex !== null ? 'Editing a previous message — save to rerun from there' : api.reviewPending ? 'Accept or reject the current proposal before sending another edit' : resumeReviewMode ? 'Your feedback updates the review, not the resume' : reviewOnly ? 'Confirmed corrections update the fit analysis and relevant Skills in this application’s resume' : starterReady ? 'Press Enter to start tailoring, or edit this request first' : 'AI edits are previewed before they can be saved'}
         maxLength={8000}

@@ -67,11 +67,11 @@ export function ApplicationHeader<T extends string>({ app, status, interviewed, 
         { status: 'Preparing', label: 'Undo sent', hint: 'Marked as sent by mistake' },
       ]
       : null
-  const link = 'inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 text-xs text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)]'
+  const link = 'inline-flex h-8 max-sm:min-h-11 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 text-xs text-[var(--color-muted)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-text)]'
 
   return <header className="anim-rise relative z-30 space-y-2">
     <div className="flex flex-wrap items-center gap-2.5">
-      <Link href="/applications" aria-label="Back to applications" title="Applications" className="grid size-7 place-items-center rounded-lg text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><ArrowLeft size={16} aria-hidden="true" /></Link>
+      <Link href="/applications" aria-label="Back to applications" title="Applications" className="grid size-8 max-sm:size-11 place-items-center rounded-lg text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><ArrowLeft size={16} aria-hidden="true" /></Link>
       <CompanyAvatar name={company} size={28} />
       <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2.5 max-sm:basis-[calc(100%-4.75rem)]">
         <h1 className="truncate text-lg font-semibold leading-tight tracking-tight">{company}</h1>
@@ -85,8 +85,8 @@ export function ApplicationHeader<T extends string>({ app, status, interviewed, 
         {postingUrl ? <a href={postingUrl} target="_blank" rel="noreferrer" title={postingUrl} className={link}><ExternalLink size={13} aria-hidden="true" /> Posting</a> : null}
         {app.folder ? <Link href={`/runs?applicationKey=${encodeURIComponent(app.key)}`} className={link}>AI runs</Link> : null}
         {app.row && menu && !progress ? <ActionMenu busy={busy} items={menu} onSelect={(item) => onStatus(item.status, undefined, item.note)} /> : null}
-        {app.row && !menu && !progress ? <select aria-label="Change status" title="Change status" value={status} disabled={busy} onChange={(event) => onStatus(event.target.value)} className="h-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs text-[var(--color-muted)]">{STATUSES.map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}{!STATUSES.includes(status as never) && status ? <option value={status}>{statusLabel(status)}</option> : null}</select> : null}
-        {app.row && standing === 'waiting' && !progress ? <button disabled={busy} onClick={(event) => onStatus('Responded', { x: event.clientX, y: event.clientY })} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-accent)] px-3 text-xs font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-40">{busy ? <Spinner /> : <CalendarCheck size={13} aria-hidden="true" />} Invited to interview</button> : null}
+        {app.row && !menu && !progress ? <select aria-label="Change status" title="Change status" value={status} disabled={busy} onChange={(event) => onStatus(event.target.value)} className="h-8 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-2 text-xs text-[var(--color-muted)] max-sm:min-h-11">{STATUSES.map((value) => <option key={value} value={value}>{statusLabel(value)}</option>)}{!STATUSES.includes(status as never) && status ? <option value={status}>{statusLabel(status)}</option> : null}</select> : null}
+        {app.row && standing === 'waiting' && !progress ? <button disabled={busy} onClick={(event) => onStatus('Responded', { x: event.clientX, y: event.clientY })} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--color-accent)] max-sm:min-h-11 px-3 text-xs font-semibold text-[var(--color-accent)] hover:bg-[var(--color-accent-soft)] disabled:opacity-40">{busy ? <Spinner /> : <CalendarCheck size={13} aria-hidden="true" />} Invited to interview</button> : null}
       </div>
     </div>
 
@@ -128,8 +128,9 @@ export function ApplicationHeader<T extends string>({ app, status, interviewed, 
           </ol>
           : closed ? null : <span className="text-xs text-[var(--color-muted)]">Once they invite you</span>}
       </Segment>
-      {/* Set aside and Skipped are your own calls, so they read in the select's words; a rejection keeps its outcome. */}
-      {closed ? <Badge tone={statusTone(status)}>{status === 'Discarded' || status === 'SKIP' ? statusLabel(status) : stageLabelForStatus(status)}</Badge> : null}
+      {/* A rejection or other outcome reads here. Set aside and Skipped are your own calls: the workspace's closed
+          note and the status select already say them, so a third label would only repeat them. */}
+      {closed && status !== 'Discarded' && status !== 'SKIP' ? <Badge tone={statusTone(status)}>{stageLabelForStatus(status)}</Badge> : null}
       {action ? <div className="ml-auto max-sm:w-full max-sm:[&>*]:w-full max-sm:[&>*]:justify-center">{action}</div> : null}
     </nav> : null}
   </header>

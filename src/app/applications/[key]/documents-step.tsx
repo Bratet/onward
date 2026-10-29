@@ -10,7 +10,7 @@ import type { OutreachDrafts } from '@/lib/outreach'
 import { isAnswered, newFormAnswer, overLimit, splitQuestions, type AnswerTurn, type FormAnswer } from '@/lib/formAnswers'
 import { ErrorNotice } from '@/components/ErrorNotice'
 import { LearnFromChat } from '@/components/LearnFromChat'
-import { AiBlocked, AiComposer, AiEmpty, AiPanelHeader, AiPrompts, AiReview, aiReply, aiUserBubble } from '@/components/AiPanel'
+import { AiBlocked, AiComposer, AiEmpty, AiPanelHeader, AiPrompts, AiReview, AiSheet, AiSheetTrigger, aiReply, aiUserBubble } from '@/components/AiPanel'
 import { Spinner } from '@/components/ui/primitives'
 import { cn } from '@/lib/utils'
 import { useFillHeight } from '@/components/useFillHeight'
@@ -23,12 +23,12 @@ export const DOCUMENT_KINDS: readonly DocumentKind[] = ['cover-letter', 'answers
 type Standing = 'ok' | 'warn' | undefined
 
 const ring = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]'
-const primaryButton = `inline-flex min-h-9 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-3.5 text-sm font-semibold text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] transition-[filter] hover:brightness-110 ${ring} disabled:cursor-not-allowed disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-faint)] disabled:shadow-none`
-const secondaryButton = `inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] ${ring} disabled:cursor-not-allowed disabled:opacity-40`
-const linkButton = `inline-flex min-h-8 cursor-pointer items-center gap-1.5 rounded text-xs font-medium text-[var(--color-accent)] underline-offset-4 hover:underline ${ring} disabled:cursor-not-allowed disabled:text-[var(--color-faint)] disabled:no-underline`
+const primaryButton = `inline-flex min-h-9 max-sm:min-h-11 cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] px-3.5 text-sm font-semibold text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] transition-[filter] hover:brightness-110 ${ring} disabled:cursor-not-allowed disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-faint)] disabled:shadow-none`
+const secondaryButton = `inline-flex h-8 max-sm:min-h-11 cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] ${ring} disabled:cursor-not-allowed disabled:opacity-40`
+const linkButton = `inline-flex min-h-8 max-sm:min-h-11 cursor-pointer items-center gap-1.5 rounded text-xs font-medium text-[var(--color-accent)] underline-offset-4 hover:underline ${ring} disabled:cursor-not-allowed disabled:text-[var(--color-faint)] disabled:no-underline`
 const field = 'w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm leading-relaxed outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:opacity-60'
 /** An AI pane: a sheet that runs from under the tabs to the bottom of the window, sticking under the top bar. */
-const panel = 'sheet workspace-pane flex min-h-0 flex-col overflow-hidden lg:sticky lg:top-20'
+const panel = 'sheet workspace-pane flex min-h-0 flex-col overflow-hidden'
 
 /**
  * Step 3: everything the application may need besides the resume. Each
@@ -60,11 +60,12 @@ export function DocumentsStep(props: {
 }) {
   const { app, contact, doc, onDoc, letterPdf, initialLetter, drafts, savedDrafts, answers } = props
   const answered = answers.filter(isAnswered).length
+  // Every document is optional, so an untouched one says so; only a letter the posting asks for says more.
   const status = (kind: DocumentKind): { label: string; standing: Standing } => {
     if (kind === 'cover-letter') return letterPdf ? { label: 'Final', standing: 'ok' } : initialLetter.content.trim() ? { label: 'Draft', standing: undefined } : contact.coverLetter ? { label: 'Asked for', standing: 'warn' } : { label: 'Optional', standing: undefined }
-    if (kind === 'answers') return answers.length ? { label: `${answered} of ${answers.length} answered`, standing: answered === answers.length ? 'ok' : undefined } : { label: 'Not started', standing: undefined }
+    if (kind === 'answers') return answers.length ? { label: `${answered} of ${answers.length} answered`, standing: answered === answers.length ? 'ok' : undefined } : { label: 'Optional', standing: undefined }
     const draft = drafts[kind] ?? ''
-    return draft !== (savedDrafts[kind] ?? '') ? { label: 'Saving…', standing: undefined } : draft ? { label: 'Draft saved', standing: 'ok' } : { label: 'Not started', standing: undefined }
+    return draft !== (savedDrafts[kind] ?? '') ? { label: 'Saving…', standing: undefined } : draft ? { label: 'Draft saved', standing: 'ok' } : { label: 'Optional', standing: undefined }
   }
   // Short names on a phone, so all four folders fit across without scrolling.
   const items: { kind: DocumentKind; title: string; short: string; hint: string; icon: ReactNode }[] = [
@@ -106,7 +107,7 @@ export function DocumentsStep(props: {
       <CoverLetterTask key={app.key} app={app} active={props.active !== false && doc === 'cover-letter'} asked={!!contact.coverLetter} initialLetter={initialLetter} savedLetter={props.storedLetter} finalizedAtLoad={props.letterFinalized} onLetterSaved={props.onLetterSaved} onLetterFinalized={props.onLetterFinalized} resumeReady={props.resumeReady} onGoToResume={props.onGoToResume} />
     </div>
     <div id="doc-answers" role="tabpanel" aria-labelledby="doc-tab-answers" hidden={doc !== 'answers'}>
-      <FormAnswersTask appKey={app.key} answers={answers} imported={props.answersImported} onAnswers={props.onAnswers} />
+      <FormAnswersTask appKey={app.key} active={props.active !== false && doc === 'answers'} answers={answers} imported={props.answersImported} onAnswers={props.onAnswers} />
     </div>
     {(['email', 'linkedin'] as const).map((kind) => <div key={kind} id={`doc-${kind}`} role="tabpanel" aria-labelledby={`doc-tab-${kind}`} hidden={doc !== kind}>
       <MessageTask kind={kind} appKey={app.key} active={props.active !== false && doc === kind} contact={contact} resumeReady={props.resumeReady} onGoToResume={props.onGoToResume} draft={drafts[kind] ?? ''} saved={savedDrafts[kind] ?? ''} onDraft={(text) => props.onDraft(kind, text)} onSaved={(text) => props.onDraftSaved(kind, text)} />
@@ -132,7 +133,7 @@ function chatKey(appKey: string) {
  * saved as you type. The AI on the right drafts or revises answers, for the
  * question you are on or for the whole form; each change can be undone.
  */
-function FormAnswersTask({ appKey, answers, imported, onAnswers }: { appKey: string; answers: FormAnswer[]; imported: boolean; onAnswers: (answers: FormAnswer[]) => void }) {
+function FormAnswersTask({ appKey, active, answers, imported, onAnswers }: { appKey: string; active: boolean; answers: FormAnswer[]; imported: boolean; onAnswers: (answers: FormAnswer[]) => void }) {
   const base = `/api/applications/${encodeURIComponent(appKey)}/form-answers`
   const [saveState, setSaveState] = useState<'saved' | 'saving' | 'error' | 'imported'>(imported ? 'imported' : 'saved')
   const savedJson = useRef(JSON.stringify(answers))
@@ -148,8 +149,9 @@ function FormAnswersTask({ appKey, answers, imported, onAnswers }: { appKey: str
   const abortRef = useRef<AbortController | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
   const aiPanel = useRef<HTMLElement>(null)
+  const [sheet, setSheet] = useState(false)
   const composer = useRef<HTMLTextAreaElement>(null)
-  useFillHeight(aiPanel, true, 80)
+  useFillHeight(aiPanel, active, 80)
   const focused = answers.find((entry) => entry.id === focus) ?? null
   const answered = answers.filter(isAnswered).length
 
@@ -237,7 +239,7 @@ function FormAnswersTask({ appKey, answers, imported, onAnswers }: { appKey: str
           <h2 id="form-title" className="text-[17px]">Form questions</h2>
           <p role="status" className="mt-0.5 text-xs text-[var(--color-muted)]">
             {answers.length ? <><span className={cn('tnum', answered === answers.length && 'font-semibold text-[var(--color-ok)]')}>{answered} of {answers.length}</span> answered · </> : null}
-            {saveState === 'saving' ? 'Saving…' : saveState === 'error' ? <span className="text-[var(--color-bad)]">Not saved</span> : saveState === 'imported' ? 'From your application-answers.md, saved here on your first edit' : answers.length ? 'Saved' : 'Paste the questions from the application form'}
+            {saveState === 'saving' ? 'Saving…' : saveState === 'error' ? <span className="text-[var(--color-bad)]">Not saved</span> : saveState === 'imported' ? 'From your application-answers.md, saved here on your first edit' : answers.length ? 'Saved' : 'Optional. Keep the form’s questions and your answers with the application.'}
             {copied ? <span className="text-[var(--color-ok)]"> · {copied} copied</span> : null}
           </p>
         </div>
@@ -256,14 +258,20 @@ function FormAnswersTask({ appKey, answers, imported, onAnswers }: { appKey: str
           onChange={(patch) => update(entry.id, patch)}
           onRemove={() => { onAnswers(answers.filter((item) => item.id !== entry.id)); if (focus === entry.id) setFocus(null) }}
           onCopy={() => void copy(entry.answer, 'Answer')}
-          onDraft={() => { setFocus(entry.id); void send(entry.answer.trim() ? 'Improve this answer.' : 'Draft this answer.', entry.id) }}
+          onDraft={() => {
+            setFocus(entry.id)
+            // On a narrow screen the AI's progress and its Keep / Undo live in the sheet, so it opens with the request.
+            if (!window.matchMedia('(min-width: 1024px)').matches) setSheet(true)
+            void send(entry.answer.trim() ? 'Improve this answer.' : 'Draft this answer.', entry.id)
+          }}
         />)}
       </ol> : null}
 
       {pasting ? <div className={cn('px-5 py-4', answers.length > 0 && 'border-t border-[var(--color-border)]')}>
-        <label htmlFor="form-paste" className="block text-sm font-semibold">{answers.length ? 'Paste more questions' : 'Paste the form’s questions'}</label>
-        <p className="mt-0.5 text-xs text-[var(--color-muted)]">One per line. Numbering, bullets and “required” marks are removed.</p>
-        <textarea id="form-paste" value={paste} onChange={(event) => setPaste(event.target.value)} rows={5} placeholder={'Why do you want to join us?\nWhat is your notice period?\nSalary expectations'} className={cn(field, 'mt-3')} />
+        {/* With no questions yet the sheet's title already says what this is; the label stays for screen readers. */}
+        <label htmlFor="form-paste" className={answers.length ? 'block text-sm font-semibold' : 'sr-only'}>{answers.length ? 'Paste more questions' : 'Paste the form’s questions'}</label>
+        <p className={cn('text-xs text-[var(--color-muted)]', answers.length > 0 && 'mt-0.5')}>Paste the questions one per line. Numbering, bullets and “required” marks are removed.</p>
+        <textarea id="form-paste" value={paste} onChange={(event) => setPaste(event.target.value)} rows={5} placeholder={'For example:\nWhy do you want to join us?\nWhat is your notice period?'} className={cn(field, 'mt-3')} />
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           <button type="button" disabled={!splitQuestions(paste).length} onClick={() => addQuestions(splitQuestions(paste))} className={primaryButton}>
             Add {splitQuestions(paste).length || ''} question{splitQuestions(paste).length === 1 ? '' : 's'}
@@ -274,41 +282,44 @@ function FormAnswersTask({ appKey, answers, imported, onAnswers }: { appKey: str
       </div> : addActions}
     </section>
 
-    <aside ref={aiPanel} aria-label="Form answers AI" className={panel}>
-      <AiPanelHeader title="Form answers AI" hint="Drafts answers in your voice from your resume and guidance. It asks when it needs a fact it doesn't have." />
-      {turns.length >= 2 ? <LearnFromChat skillId="write-form-answers" turns={turns} disabled={thinking} /> : null}
-      <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
-        {turns.length ? turns.map((turn, index) => <div key={index} className={turn.role === 'user' ? aiUserBubble : aiReply}>
-          <p className="whitespace-pre-wrap">{turn.content}</p>
-        </div>) : <AiEmpty title={answers.length ? 'Pick a question, or ask about the whole form' : 'Add the form’s questions first'} hint="Answers stay short and plain, the way you would say them. Every change can be undone." />}
-        {thinking ? <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]"><Spinner /> Writing… usually under a minute</div> : null}
-        {undo && !thinking ? <AiReview title="Answers updated" hint="The changed answers are on the left. Keep them, or undo to restore the previous answers.">
-          <button type="button" onClick={() => setUndo(null)} className={secondaryButton}>Keep</button>
-          <button type="button" onClick={() => { onAnswers(undo); setUndo(null) }} className={secondaryButton}>Undo</button>
-        </AiReview> : null}
-        <div ref={endRef} />
-      </div>
-      <AiComposer
-        value={message}
-        onChange={setMessage}
-        onSubmit={() => void send()}
-        onStop={() => abortRef.current?.abort()}
-        busy={thinking}
-        blocked={!message.trim()}
-        disabled={!answers.length}
-        label="Message the form answers AI"
-        placeholder={answers.length ? 'Say what to change, or give a fact the AI needs…' : 'Add questions on the left to start.'}
-        hint="The AI edits the answers here; nothing goes to the employer."
-        textareaRef={composer}
-      >
-        {focused ? <p className="flex items-center gap-2 text-xs">
-          <span className="text-[var(--color-muted)]">Working on</span>
-          <span className="min-w-0 flex-1 truncate font-medium">Q{answers.indexOf(focused) + 1}. {focused.question || 'Untitled question'}</span>
-          <button type="button" onClick={() => setFocus(null)} aria-label="Work on the whole form" title="Work on the whole form" className="grid size-6 cursor-pointer place-items-center rounded-md text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><X size={13} aria-hidden="true" /></button>
-        </p> : answers.length ? <p className="text-xs text-[var(--color-muted)]">Working on the whole form</p> : null}
-        {answers.length ? <AiPrompts prompts={prompts} disabled={thinking} onPick={(prompt) => { setMessage(prompt); composer.current?.focus() }} /> : null}
-      </AiComposer>
-    </aside>
+    <AiSheet label="Form questions AI" open={sheet} onOpenChange={setSheet} active={active}>
+      <aside ref={aiPanel} aria-label="Form questions AI" className={panel}>
+        <AiPanelHeader title="Form questions AI" hint="Drafts answers in your voice from your resume and what you’ve confirmed. It asks when it needs a fact it doesn’t have." />
+        {turns.length >= 2 ? <LearnFromChat skillId="write-form-answers" turns={turns} disabled={thinking} /> : null}
+        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-4">
+          {turns.length ? turns.map((turn, index) => <div key={index} className={turn.role === 'user' ? aiUserBubble : aiReply}>
+            <p className="whitespace-pre-wrap">{turn.content}</p>
+          </div>) : <AiEmpty title={answers.length ? 'Pick a question, or ask about the whole form' : 'Add the form’s questions first'} hint="Answers stay short and plain, the way you would say them. Every change can be undone." />}
+          {thinking ? <div className="flex items-center gap-2 text-xs text-[var(--color-muted)]"><Spinner /> Writing… usually under a minute</div> : null}
+          {undo && !thinking ? <AiReview title="Answers updated" hint="The changed answers are in the form. Keep them, or undo to restore the previous answers.">
+            <button type="button" onClick={() => setUndo(null)} className={secondaryButton}>Keep</button>
+            <button type="button" onClick={() => { onAnswers(undo); setUndo(null) }} className={secondaryButton}>Undo</button>
+          </AiReview> : null}
+          <div ref={endRef} />
+        </div>
+        <AiComposer
+          value={message}
+          onChange={setMessage}
+          onSubmit={() => void send()}
+          onStop={() => abortRef.current?.abort()}
+          busy={thinking}
+          blocked={!message.trim()}
+          disabled={!answers.length}
+          label="Message the Form questions AI"
+          placeholder={answers.length ? 'Say what to change, or give a fact the AI needs…' : 'Add the form’s questions first.'}
+          hint="The AI edits the answers here; nothing goes to the employer."
+          textareaRef={composer}
+        >
+          {focused ? <p className="flex items-center gap-2 text-xs">
+            <span className="text-[var(--color-muted)]">Working on</span>
+            <span className="min-w-0 flex-1 truncate font-medium">Q{answers.indexOf(focused) + 1}. {focused.question || 'Untitled question'}</span>
+            <button type="button" onClick={() => setFocus(null)} aria-label="Work on the whole form" title="Work on the whole form" className="grid size-6 cursor-pointer place-items-center rounded-md text-[var(--color-muted)] hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]"><X size={13} aria-hidden="true" /></button>
+          </p> : answers.length ? <p className="text-xs text-[var(--color-muted)]">Working on the whole form</p> : null}
+          {answers.length ? <AiPrompts prompts={prompts} disabled={thinking} onPick={(prompt) => { setMessage(prompt); composer.current?.focus() }} /> : null}
+        </AiComposer>
+      </aside>
+    </AiSheet>
+    <AiSheetTrigger label="Form questions AI" onOpen={() => setSheet(true)} />
   </div>
 }
 
@@ -332,7 +343,7 @@ function QuestionRow({ index, entry, focused, busy, onFocus, onChange, onRemove,
     <div className="flex items-start gap-3">
       <span aria-hidden="true" className={cn('font-display w-5 shrink-0 pt-px text-right text-[15px] leading-snug', focused ? 'text-[var(--color-accent)]' : answeredHere ? 'text-[var(--color-ok)]' : 'text-[var(--color-faint)]')}>{index + 1}</span>
       <textarea value={entry.question} onChange={(event) => onChange({ question: event.target.value })} rows={1} placeholder="Type the question" aria-label={`Question ${index + 1}`} className="field-sizing-content min-h-7 w-full resize-none rounded bg-transparent py-0.5 text-[15px] font-medium leading-snug outline-none placeholder:font-normal placeholder:text-[var(--color-muted)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]" />
-      <button type="button" onClick={onRemove} aria-label={`Remove question ${index + 1}`} title="Remove the question" className="grid size-8 shrink-0 cursor-pointer place-items-center rounded-md text-[var(--color-faint)] transition-colors hover:bg-[var(--color-bad-soft)] hover:text-[var(--color-bad)]"><Trash2 size={14} aria-hidden="true" /></button>
+      <button type="button" onClick={onRemove} aria-label={`Remove question ${index + 1}`} title="Remove the question" className="grid size-8 max-sm:size-11 shrink-0 cursor-pointer place-items-center rounded-md text-[var(--color-faint)] transition-colors hover:bg-[var(--color-bad-soft)] hover:text-[var(--color-bad)]"><Trash2 size={14} aria-hidden="true" /></button>
     </div>
     <div className="pl-8 pt-2">
       <textarea value={entry.answer} onChange={(event) => onChange({ answer: event.target.value })} disabled={busy && focused} rows={3} placeholder="Your answer, or ask the AI to draft it" aria-label={`Answer to question ${index + 1}`} className={cn(field, 'field-sizing-content min-h-20', over && 'border-[var(--color-bad)]')} />
@@ -389,6 +400,7 @@ function MessageTask({ kind, appKey, active, contact, resumeReady, onGoToResume,
   // The message's sheet and its AI run the same height, from under the tabs to the bottom of the window.
   const documentPanel = useRef<HTMLElement>(null)
   const aiPanel = useRef<HTMLElement>(null)
+  const [sheet, setSheet] = useState(false)
   useFillHeight(documentPanel, active, 80)
   useFillHeight(aiPanel, active, 80)
   const words = draft.trim() ? draft.trim().split(/\s+/).length : 0
@@ -459,7 +471,7 @@ function MessageTask({ kind, appKey, active, contact, resumeReady, onGoToResume,
         <button type="button" className={cn(secondaryButton, 'ml-auto')} onClick={() => void navigator.clipboard.writeText(contact.email!).then(() => setNotice('Address copied.'))}>Copy address</button>
         <a className={secondaryButton} href={`mailto:${contact.email}${subject ? `?subject=${encodeURIComponent(subject)}` : ''}`}>Open in mail app</a>
       </div> : null}
-      <textarea disabled={generating} maxLength={30000} value={draft} onChange={(event) => { onDraft(event.target.value); setNotice('') }} placeholder="Ask the AI for a draft on the right, or write your own here." aria-label={meta.title}
+      <textarea disabled={generating} maxLength={30000} value={draft} onChange={(event) => { onDraft(event.target.value); setNotice('') }} placeholder="Write your message here, or have the AI draft it." aria-label={meta.title}
         className="min-h-64 w-full flex-1 resize-none bg-transparent px-5 py-4 text-sm leading-7 outline-none placeholder:text-[var(--color-muted)] focus-visible:outline-none disabled:opacity-60" />
       {aiDraft && saved && saved !== aiDraft.text ? <div className="shrink-0 border-t border-[var(--color-border)]">
         <LearnFromChat skillId="write-outreach" disabled={generating} turns={[
@@ -475,28 +487,32 @@ function MessageTask({ kind, appKey, active, contact, resumeReady, onGoToResume,
       </footer>
     </section>
 
-    <aside ref={aiPanel} aria-label={`${meta.title} AI`} className={panel}>
-      <AiPanelHeader title={`${meta.title} AI`} hint="Uses your finalized resume, your cover letter and the posting. It drafts the whole message; you send it yourself." />
-      {resumeReady ? <>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          {replaced !== null && !generating ? <AiReview title="New draft on the left" hint="Keep it, or undo to put back what you had before.">
-            <button type="button" onClick={() => setReplaced(null)} className={secondaryButton}>Keep</button>
-            <button type="button" onClick={() => { onDraft(replaced); setReplaced(null); setAiDraft(null) }} className={secondaryButton}>Undo</button>
-          </AiReview> : <AiEmpty title="What should it know?" hint="Optional: the recipient, where you found the role, the language, first contact or a reply. The draft appears on the left." />}
-        </div>
-        <AiComposer
-          value={instructions}
-          onChange={setInstructions}
-          onSubmit={() => void generate()}
-          onStop={() => abortRef.current?.abort()}
-          busy={generating}
-          label="What should the AI know?"
-          sendLabel={draft ? 'Write a new draft' : 'Draft it with AI'}
-          placeholder={meta.placeholder}
-          rows={4}
-          hint={generating ? 'Writing… up to a minute. Esc stops.' : draft ? 'Enter writes a new draft; you can undo it.' : 'Enter drafts the whole message. You send it yourself.'}
-        />
-      </> : <AiBlocked title="Finalize your resume first" hint="The AI writes from the resume you send, so it needs that version." action={<button type="button" onClick={onGoToResume} className={secondaryButton}>Go to the Resume step</button>} />}
-    </aside>
+    <AiSheet label={`${meta.title} AI`} open={sheet} onOpenChange={setSheet} active={active}>
+      <aside ref={aiPanel} aria-label={`${meta.title} AI`} className={panel}>
+        <AiPanelHeader title={`${meta.title} AI`} hint="Writes the whole message from your finalized resume, your cover letter and the posting. You send it yourself." />
+        {resumeReady ? <>
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+            {replaced !== null && !generating ? <AiReview title="New draft in your message" hint="Keep it, or undo to put back what you had before.">
+              <button type="button" onClick={() => setReplaced(null)} className={secondaryButton}>Keep</button>
+              <button type="button" onClick={() => { onDraft(replaced); setReplaced(null); setAiDraft(null) }} className={secondaryButton}>Undo</button>
+            </AiReview> : <AiEmpty title={draft ? 'Want a different version?' : 'Ready when you are'} hint="Add anything it should know below, such as the recipient, where you found the role, the language, or whether this is a first contact or a reply. All of it is optional." />}
+          </div>
+          <AiComposer
+            intent="brief"
+            value={instructions}
+            onChange={setInstructions}
+            onSubmit={() => void generate()}
+            onStop={() => abortRef.current?.abort()}
+            busy={generating}
+            label={`Instructions for the ${meta.title} AI`}
+            sendLabel={draft ? 'Write a new draft' : 'Draft it'}
+            placeholder={meta.placeholder}
+            rows={3}
+            hint={generating ? 'Writing… up to a minute. Esc stops it.' : draft ? 'Replaces your message. You can undo it.' : 'Enter also drafts it.'}
+          />
+        </> : <AiBlocked title="Finalize your resume first" hint="The AI writes from the resume you send, so it needs that version." action={<button type="button" onClick={onGoToResume} className={secondaryButton}>Go to the Resume step</button>} />}
+      </aside>
+    </AiSheet>
+    <AiSheetTrigger label={`${meta.title} AI`} onOpen={() => setSheet(true)} />
   </div>
 }

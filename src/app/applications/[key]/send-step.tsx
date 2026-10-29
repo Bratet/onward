@@ -25,8 +25,8 @@ export interface SendChecks {
 }
 
 const ring = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]'
-const small = `inline-flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2.5 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] ${ring}`
-const go = `group inline-flex min-h-8 cursor-pointer items-center gap-1 rounded text-xs font-medium text-[var(--color-accent)] underline-offset-4 hover:underline ${ring}`
+const small = `inline-flex h-8 max-sm:min-h-11 cursor-pointer items-center gap-1.5 rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2.5 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] ${ring}`
+const go = `group inline-flex min-h-8 max-sm:min-h-11 cursor-pointer items-center gap-1 rounded text-xs font-medium text-[var(--color-accent)] underline-offset-4 hover:underline ${ring}`
 
 /**
  * Step 4: the packet as it stands, then record that it went out. Nothing
@@ -117,7 +117,7 @@ export function SendStep({ app, status, pdfName, letterPdf, letterDrafted, lette
       <label className="block space-y-1.5 text-xs"><span className="font-medium">Add a note <span className="font-normal text-[var(--color-muted)]">(optional, added to your tracker notes)</span></span>
         <textarea disabled={busy} rows={2} value={note} onChange={(event) => setNote(event.target.value)} placeholder="Where you applied, who you contacted…" className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:opacity-60" />
       </label>
-      <button disabled={busy || status === 'Applied'} className={cn('inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] py-2.5 text-sm font-semibold text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50', ring)}>{busy ? <><Spinner className="border-[var(--color-on-solid)]/30 border-t-[var(--color-on-solid)]" /> Saving…</> : <><Send size={15} aria-hidden="true" /> I sent it</>}</button>
+      <button disabled={busy || status === 'Applied'} className={cn('inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-[var(--color-accent)] py-2.5 max-sm:min-h-11 text-sm font-semibold text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] transition-[filter] hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50', ring)}>{busy ? <><Spinner className="border-[var(--color-on-solid)]/30 border-t-[var(--color-on-solid)]" /> Saving…</> : <><Send size={15} aria-hidden="true" /> I sent it</>}</button>
       <p className="text-center text-xs text-[var(--color-muted)]">{attention ? `${attention} item${attention === 1 ? '' : 's'} above need${attention === 1 ? 's' : ''} attention. You can still record it.` : 'This moves the application to Sent. You can undo it from the ⋯ menu.'}</p>
       {error ? <ErrorNotice error={error} className="w-full rounded-md" /> : null}
     </form> : <p className="border-t border-[var(--color-border)] px-6 py-5 text-xs text-[var(--color-muted)]">This application has no tracker row, so there’s no status to record.</p>}

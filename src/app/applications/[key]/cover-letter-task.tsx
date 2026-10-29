@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react'
 import { Check, ChevronDown, Eye, FileText, Pencil, Undo2 } from 'lucide-react'
-import { AiBlocked, AiComposer, AiEmpty, AiNewChat, AiPanelHeader, AiReview, AiSettingsToggle, aiReply, aiUserBubble } from '@/components/AiPanel'
+import { AiBlocked, AiComposer, AiEmpty, AiNewChat, AiPanelHeader, AiReview, AiSettingsToggle, AiSheet, AiSheetTrigger, aiReply, aiUserBubble } from '@/components/AiPanel'
 import { Menu, MenuItem } from '@/components/ui/Menu'
 import type { Application } from '@/lib/applications'
 import { CoverLetterConflict, LETTER_WORD_TARGET, coverLetterSchema, letterKey, letterMatchesFinalized, wordCount, type CoverLetter, type LetterTurn } from '@/lib/coverLetter'
@@ -26,8 +26,8 @@ const STARTER = 'Draft my cover letter for this role.'
 const EMPTY_PREVIEW: Preview = { token: null, pages: null, failures: [], source: null }
 const focus = 'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)]'
 const field = 'w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg)] px-3 py-2 text-sm text-[var(--color-text)] outline-none placeholder:text-[var(--color-muted)] focus:border-[var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-60'
-const secondary = `inline-flex min-h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2.5 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] ${focus} disabled:cursor-not-allowed disabled:opacity-40`
-const primary = `inline-flex min-h-9 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 text-sm font-semibold text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] transition-[filter] hover:brightness-110 ${focus} disabled:cursor-not-allowed disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-faint)] disabled:shadow-none`
+const secondary = `inline-flex min-h-8 max-sm:min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-2.5 text-xs font-medium transition-colors hover:bg-[var(--color-surface-2)] ${focus} disabled:cursor-not-allowed disabled:opacity-40`
+const primary = `inline-flex min-h-9 max-sm:min-h-11 cursor-pointer items-center justify-center gap-1.5 rounded-lg bg-[var(--color-accent)] px-3.5 text-sm font-semibold text-[var(--color-on-solid)] shadow-[0_1px_2px_oklch(0_0_0/0.15)] transition-[filter] hover:brightness-110 ${focus} disabled:cursor-not-allowed disabled:bg-[var(--color-surface-2)] disabled:text-[var(--color-faint)] disabled:shadow-none`
 
 function chatKey(key: string) {
   return `career-ops-cover-letter-chat:${key}`
@@ -82,6 +82,7 @@ export function CoverLetterTask({ app, active = true, asked, initialLetter, save
   const [error, setError] = useState<string | null>(null)
   const [retry, setRetry] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [sheet, setSheet] = useState(false)
   const settingsId = useId()
   const finalizeHintId = useId()
   const abortRef = useRef<AbortController | null>(null)
@@ -321,9 +322,10 @@ export function CoverLetterTask({ app, active = true, asked, initialLetter, save
                 </>}
               </Menu>
             </> : null}
-            <button type="button" aria-pressed={view === 'edit'} onClick={() => setView(view === 'edit' ? 'preview' : 'edit')} className={secondary}>
+            {/* An empty letter's preview already offers "Write it myself"; the toggle appears once there is text to preview. */}
+            {!empty || view === 'edit' ? <button type="button" aria-pressed={view === 'edit'} onClick={() => setView(view === 'edit' ? 'preview' : 'edit')} className={secondary}>
               {view === 'edit' ? <><Eye size={13} aria-hidden="true" /> Preview</> : <><Pencil size={13} aria-hidden="true" /> Edit text</>}
-            </button>
+            </button> : null}
           </div>
         </div>
         {conflict ? <div role="alert" className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-bad-soft)] px-5 py-3 text-sm">
@@ -383,7 +385,7 @@ export function CoverLetterTask({ app, active = true, asked, initialLetter, save
         </div>
       </Card>
     </section>
-    <section aria-label="Cover letter AI" className="min-w-0 lg:sticky lg:top-20">
+    <AiSheet label="Cover letter AI" open={sheet} onOpenChange={setSheet} active={active}>
       <Card ref={aiPanel} className="flex h-[max(480px,70dvh)] min-h-0 flex-col overflow-hidden">
         <AiPanelHeader title="Cover letter AI" hint="Uses your finalized resume and the posting">
           <AiNewChat disabled={!hydrated || busy || !!review || !turns.length} onClear={newChat} />
@@ -405,7 +407,7 @@ export function CoverLetterTask({ app, active = true, asked, initialLetter, save
           </div>) : <AiEmpty
             title="What should this letter emphasize?"
             hint="Start with a draft for this role. You can then refine the tone, highlight a project, or make it more concise."
-            prompts={!empty ? ['Make it shorter and more direct.', 'Focus on my most relevant project.'] : undefined}
+            prompts={!empty ? ['Make it shorter and more direct.', 'Focus on my most relevant project.'] : resumeReady ? [STARTER] : undefined}
             disabled={busy || !!review}
             onPick={(prompt) => { setMessage(prompt); messageRef.current?.focus({ preventScroll: true }) }}
           />}
@@ -421,14 +423,15 @@ export function CoverLetterTask({ app, active = true, asked, initialLetter, save
           blocked={sendBlocked}
           disabled={inputBlocked}
           highlight={starterReady}
-          label="Message the cover letter companion"
+          label="Message the Cover letter AI"
           placeholder={empty ? 'Draft a letter for this role, or tell the AI what to emphasize…' : 'Ask for an edit: tone, length, a project to highlight…'}
           hint={thinking ? 'Writing… Esc stops the reply' : review ? 'Keep or undo the AI draft to continue' : starterReady ? 'Press Enter to draft, or edit the request first' : 'Enter to send · Shift+Enter for a new line'}
           maxLength={8000}
           textareaRef={messageRef}
         />}
       </Card>
-    </section>
+    </AiSheet>
+    <AiSheetTrigger label="Cover letter AI" onOpen={() => setSheet(true)} />
   </div>
 }
 

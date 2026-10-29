@@ -43,7 +43,7 @@ export function Nav() {
                 key={link.href}
                 href={link.href}
                 className={cn(
-                  'shrink-0 whitespace-nowrap border-b-2 py-2 text-[13px] transition-colors',
+                  'shrink-0 whitespace-nowrap border-b-2 py-2 text-[13px] transition-colors max-sm:py-3',
                   active
                     ? 'border-[var(--color-accent)] font-semibold text-[var(--color-text)]'
                     : 'border-transparent font-medium text-[var(--color-muted)] hover:text-[var(--color-text)]',
@@ -60,7 +60,7 @@ export function Nav() {
             href="/settings"
             aria-label="Settings"
             aria-current={pathname.startsWith('/settings') ? 'page' : undefined}
-            className={cn('grid size-8 place-items-center rounded-md text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)]', pathname.startsWith('/settings') && 'bg-[var(--color-surface-2)] text-[var(--color-text)]')}
+            className={cn('grid size-8 place-items-center rounded-md text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)] max-sm:size-11', pathname.startsWith('/settings') && 'bg-[var(--color-surface-2)] text-[var(--color-text)]')}
           >
             <Settings2 aria-hidden="true" className="size-4" />
           </Link>
