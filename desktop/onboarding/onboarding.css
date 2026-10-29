@@ -65,13 +65,6 @@ main { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: 
 .platform-linux main { padding-top: 24px; }
 main { scrollbar-width: thin; scrollbar-color: var(--border-strong) transparent; }
 
-.progress { margin: 0 0 8px; }
-.progress ol { display: flex; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.progress li { flex: 1; height: 4px; border-radius: 999px; background: var(--border); font-size: 0; transition: background-color .25s; }
-.progress li.done, .progress li.current { background: var(--accent); }
-.progress li.skipped { display: none; }
-.progress-label { margin: 10px 0 0; font-size: 12px; color: var(--faint); }
-
 section { display: none; flex: 1; flex-direction: column; animation: rise .25s ease-out; }
 section.active { display: flex; }
 /* A step's content sits in the middle of the space above its buttons, not stuck to the top. */
@@ -82,18 +75,24 @@ section > :first-child { margin-top: auto; }
 h1 { margin: 0 0 10px; font: 600 26px/1.2 'Literata Variable', 'Iowan Old Style', Georgia, serif; letter-spacing: -0.015em; text-wrap: balance; }
 .lead { margin: 0 0 20px; color: var(--muted); text-wrap: pretty; }
 
-section[data-step="welcome"], section[data-step="done"] { text-align: center; align-items: center; }
-section[data-step="welcome"] h1 { font-size: 30px; }
+section[data-step="start"] { text-align: center; align-items: center; }
+section[data-step="start"] h1 { font-size: 30px; }
+section[data-step="start"] > :last-child { margin-bottom: auto; }
 .mark { display: block; width: 64px; height: 64px; margin: 0 auto 20px; filter: drop-shadow(0 6px 16px oklch(0.4 0.1 50 / .3)); }
 
-.points { margin: 0 auto; padding: 0; list-style: none; display: grid; gap: 14px; width: 100%; max-width: 460px; text-align: left; }
-.points li { display: flex; gap: 14px; align-items: flex-start; color: var(--muted); font-size: 14px; }
-.points svg { flex: none; width: 36px; height: 36px; padding: 8px; border-radius: 10px; background: var(--accent-soft); fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
-.points strong { display: block; color: var(--text); font-size: 15px; }
+/* The two ways in, as sheets on the desk: the whole sheet is the button. */
+.doors { display: grid; gap: 12px; width: 100%; max-width: 480px; margin: 4px auto 0; }
+button.door { display: flex; gap: 14px; align-items: flex-start; height: auto; padding: 16px 18px; border-radius: 9px; text-align: left; font-weight: 400; color: var(--muted); box-shadow: 0 1px 2px oklch(0 0 0 / .08), 0 6px 18px -10px oklch(0.3 0.03 60 / .35); transition: border-color .15s, background-color .15s, transform .15s; }
+button.door:hover { border-color: var(--accent); background: color-mix(in oklch, var(--accent-soft) 45%, var(--surface)); }
+button.door:active { transform: translateY(1px); }
+button.door:disabled { opacity: .6; cursor: progress; }
+.door svg { flex: none; width: 36px; height: 36px; padding: 8px; border-radius: 7px; background: var(--accent-soft); fill: none; stroke: var(--accent); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.door strong { display: block; margin-bottom: 2px; color: var(--text); font-size: 15px; font-weight: 600; }
+.door span { font-size: 13.5px; line-height: 1.45; }
+#start-error { max-width: 480px; margin-top: 12px; }
+@media (prefers-reduced-motion: reduce) { button.door { transition: none; } button.door:active { transform: none; } }
 
 .actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: auto; padding-top: 20px; width: 100%; }
-section[data-step="welcome"] .actions, section[data-step="done"] .actions { justify-content: center; }
-section[data-step="welcome"] .primary, section[data-step="done"] .primary { min-width: 220px; }
 button { font: inherit; font-size: 14px; font-weight: 500; height: 40px; padding: 0 18px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; transition: border-color .15s, filter .15s; }
 button:hover { border-color: var(--border-strong); }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -112,9 +111,11 @@ button.link { height: auto; padding: 0; border: 0; background: none; color: var(
 .aside { margin: 16px 0 0; font-size: 14px; color: var(--muted); }
 
 form { display: grid; gap: 14px; }
-label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+label, .field-label { display: grid; gap: 6px; font-size: 13px; font-weight: 600; }
+.field { display: grid; gap: 6px; margin-top: 6px; }
+.field-label { margin: 0; }
 input { font: inherit; height: 44px; padding: 0 14px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); user-select: text; }
-input::placeholder { color: var(--faint); }
+input::placeholder { color: var(--muted); }
 .hint { margin: 0; font-size: 13px; color: var(--muted); }
 .error { margin: 0; font-size: 13px; color: var(--bad); }
 .error:empty { display: none; }
@@ -132,14 +133,6 @@ code { font: 12.5px ui-monospace, 'Cascadia Mono', Consolas, SFMono-Regular, Men
 .tools li.ok [data-install] { display: none; }
 .tools [data-install] { flex: none; font-size: 13px; }
 
-.check { display: block; width: 64px; height: 64px; margin: 0 auto 20px; }
-.check circle { fill: var(--ok); }
-.check path { fill: none; stroke: var(--on-solid); stroke-width: 4.5; stroke-linecap: round; stroke-linejoin: round; }
-.next-steps { margin: 0; padding: 0; list-style: none; counter-reset: step; display: grid; gap: 10px; width: 100%; text-align: left; color: var(--muted); font-size: 14px; }
-.next-steps[hidden] { display: none; }
-.next-steps li { counter-increment: step; display: flex; gap: 12px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
-.next-steps li::before { content: counter(step); flex: none; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-size: 12px; font-weight: 700; }
-.next-steps strong { color: var(--text); }
 
 .setup { padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-2); font-size: 13px; color: var(--muted); }
 .setup[hidden] { display: none; }
@@ -149,5 +142,5 @@ code { font: 12.5px ui-monospace, 'Cascadia Mono', Consolas, SFMono-Regular, Men
 .commands { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
 .command { display: inline-flex; align-items: center; gap: 6px; padding: 3px 3px 3px 4px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .command code { background: none; }
-.or { color: var(--faint); }
+.or { color: var(--muted); }
 button.copy { height: 24px; padding: 0 8px; font-size: 12px; border-radius: 6px; }

@@ -93,14 +93,18 @@ Node, so there is nothing else to install apart from the CLIs below.
 - **Claude Code and Codex** are still the ones on your computer, signed in with
   your subscription. If the app finds neither, it says so on launch and links to
   both installers. RenderCV is needed for PDFs, and the app warns when it is missing.
-- **First launch** opens a short walkthrough (`desktop/onboarding/`): where to save
-  your documents (`Documents/Onward` is recommended), your name, and a check of the
-  AI tools with install links. Someone who already has an Onward folder, such as a
-  clone of their private data repo, opens it instead.
+- **First launch** (`desktop/onboarding/`) asks one question: start fresh, or open
+  an Onward folder you already have, such as a clone of your private data repo.
+  Starting fresh takes your name (filled in from your computer account where it can
+  be) and a folder (`Documents/Onward` by default). The AI tools are checked in the
+  background, and their install steps appear only when one is missing.
 - **Getting started** (`/welcome`, also in the web app) is where a new folder's
   resumes come from: drop in your current resume as a PDF or paste its text, and
   your AI tool sorts it, word for word, into your master and general resumes. The
   page explains the difference. Until a resume exists, the app opens there.
+- **The tour** (`/?tour=1`) follows: seven stops through the top bar, each lighting
+  up a page and saying what it is for, ending on New application. It can be taken
+  again from Settings → Getting around or Help → Take the Tour.
 - **Settings → App & updates** shows the version, checks for, downloads and
   installs updates, turns automatic updates on or off, and opens or changes the
   workspace folder.

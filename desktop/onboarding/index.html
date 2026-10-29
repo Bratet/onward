@@ -9,73 +9,55 @@
 <body>
   <header class="titlebar"><span class="titlebar-name">Onward setup</span></header>
   <main>
-    <nav class="progress" aria-label="Setup steps">
-      <ol>
-        <li data-step="welcome">Welcome</li>
-        <li data-step="folder">Your folder</li>
-        <li data-step="about">About you</li>
-        <li data-step="tools">AI tools</li>
-        <li data-step="done">Your resume</li>
-      </ol>
-      <p class="progress-label" id="progress-label" aria-hidden="true"></p>
-    </nav>
-
-    <section data-step="welcome">
+    <section data-step="start">
       <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
         <rect width="64" height="64" rx="15" fill="var(--accent)"/>
         <path d="M47 32 L36.17 22.31 A13 13 0 1 0 36.17 41.69 Z" fill="none" stroke="var(--on-solid)" stroke-width="7" stroke-miterlimit="10"/>
       </svg>
       <h1>Welcome to Onward</h1>
-      <p class="lead">Your job application companion. Paste a job posting and Onward reads it, tailors your resume to it, writes a cover letter if you want one, and keeps track of every application until you get an offer.</p>
-      <ul class="points">
-        <li>
+      <p class="lead">Every job you apply to, in one folder on this computer: the posting, a resume tailored to it, your letters, and where each application stands.</p>
+      <div class="doors">
+        <button class="door" id="start-fresh">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          <span><strong>Start fresh</strong>Set up a new folder, then bring in your resume. About five minutes.</span>
+        </button>
+        <button class="door" id="open-existing">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-          <div><strong>Your files stay yours</strong>Resumes, letters and applications are ordinary files in a folder on this computer.</div>
-        </li>
-        <li>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>
-          <div><strong>Your own AI subscription</strong>Onward works through Claude Code or Codex, signed in on this computer.</div>
-        </li>
-        <li>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
-          <div><strong>You stay in charge</strong>Nothing is ever sent or submitted for you.</div>
-        </li>
-      </ul>
-      <p class="aside">Setup takes a few minutes: choose a folder, connect your AI tool, then bring in your resume.</p>
-      <div class="actions"><button class="primary" data-next>Get started</button></div>
-    </section>
-
-    <section data-step="folder">
-      <h1>Where should Onward save your documents?</h1>
-      <p class="lead">Onward keeps everything in one folder: your resumes, every application with its tailored CV and letter, and your progress. We recommend your Documents folder, where it is easy to find and back up.</p>
-      <div class="folder">
-        <svg class="folder-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-        <div class="folder-text">
-          <p class="folder-path" id="folder-path">…</p>
-          <p class="folder-note" id="folder-note"></p>
-        </div>
-        <button id="change-folder">Change…</button>
+          <span><strong>Open my Onward folder</strong>Already use Onward? Pick its folder, for example one synced from another computer.</span>
+        </button>
       </div>
-      <p class="aside">Already use Onward? <button class="link" id="existing-folder">Open your existing folder</button></p>
-      <div class="actions"><button data-back>Back</button><button class="primary" data-next>Continue</button></div>
+      <p class="error" id="start-error" role="alert"></p>
+      <p class="aside">Your files stay on this computer. The AI works through your own Claude Code or Codex, and nothing is ever sent for you.</p>
     </section>
 
-    <section data-step="about">
-      <h1>Tell us about you</h1>
-      <p class="lead">Your name goes at the top of your resumes and in the names of the files you send.</p>
-      <form id="about-form" novalidate>
-        <label>Full name
-          <input id="full-name" name="fullName" autocomplete="name" required placeholder="Your name as it should appear on your resume">
+    <section data-step="setup">
+      <h1>Start fresh</h1>
+      <p class="lead">Two details, then Onward opens and reads your resume.</p>
+      <form id="setup-form" novalidate>
+        <label>Your name
+          <input id="full-name" name="fullName" autocomplete="name" required placeholder="As it should appear on your resume">
         </label>
-        <p class="hint">Your contact details come from your resume in the last step.</p>
-        <p class="error" id="about-error" role="alert"></p>
+        <p class="hint">It goes at the top of your resume and in the names of the files you send.</p>
+        <p class="error" id="name-error" role="alert"></p>
+        <div class="field">
+          <p class="field-label" id="folder-label">Where Onward saves your documents</p>
+          <div class="folder" role="group" aria-labelledby="folder-label">
+            <svg class="folder-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            <div class="folder-text">
+              <p class="folder-path" id="folder-path">…</p>
+              <p class="folder-note" id="folder-note"></p>
+            </div>
+            <button type="button" id="change-folder">Change…</button>
+          </div>
+        </div>
       </form>
-      <div class="actions"><button data-back>Back</button><button class="primary" id="about-next">Continue</button></div>
+      <p class="error" id="setup-error" role="alert"></p>
+      <div class="actions"><button data-back>Back</button><button class="primary" id="setup-next">Continue</button></div>
     </section>
 
     <section data-step="tools">
-      <h1>Connect your AI tools</h1>
-      <p class="lead">Onward's AI runs through Claude Code or Codex, on your own subscription. It needs one of the two, signed in on this computer. RenderCV makes the PDFs.</p>
+      <h1>Connect your AI tool</h1>
+      <p class="lead">Onward's AI runs through Claude Code or Codex, on your own subscription, so one of the two has to be signed in on this computer. RenderCV makes the PDFs.</p>
       <ul class="tools" id="tools">
         <li data-tool="claude"><span class="dot"></span><div><strong>Claude Code</strong><span class="status">Checking…</span></div><button class="link" data-install="claude">How to install</button></li>
         <li data-tool="codex"><span class="dot"></span><div><strong>Codex</strong><span class="status">Checking…</span></div><button class="link" data-install="codex">How to install</button></li>
@@ -95,24 +77,12 @@
           <li>Come back here. Onward checks again on its own.</li>
         </ol>
       </div>
-      <p class="error" id="finish-error" role="alert"></p>
+      <p class="error" id="tools-error" role="alert"></p>
       <div class="actions">
         <button data-back>Back</button>
         <button id="recheck">Check again</button>
         <button class="primary" id="tools-next">Continue</button>
       </div>
-    </section>
-
-    <section data-step="done">
-      <svg class="check" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="26"/><path d="M16 27l7 7 13-15"/></svg>
-      <h1 id="done-title">Your folder is ready</h1>
-      <p class="lead" id="done-lead">One last step, in Onward itself: bring in the resume you have now.</p>
-      <ol class="next-steps" id="next-steps">
-        <li><span><strong>Add your resume.</strong> Drop in its PDF, or paste the text. Your AI tool sorts it into sections, word for word.</span></li>
-        <li><span><strong>It becomes two resumes.</strong> A <em>master</em> that holds everything you have done, and a <em>general</em> one, ready to send.</span></li>
-        <li><span><strong>Then add a job.</strong> Onward tailors a CV from them for each posting, and you send it yourself.</span></li>
-      </ol>
-      <div class="actions"><button class="primary" id="open-app">Continue to your resume</button></div>
     </section>
   </main>
   <script src="onboarding.js"></script>

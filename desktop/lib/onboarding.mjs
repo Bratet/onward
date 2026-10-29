@@ -1,5 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme, screen, shell } from 'electron'
+import { execFile } from 'child_process'
 import { existsSync } from 'fs'
+import { userInfo } from 'os'
 import { basename, join } from 'path'
 import { detectEngines, INSTALL_LINKS } from './environment.mjs'
 import { createWorkspace, isEmptyFolder, looksLikeWorkspace, saveWorkspace } from './workspace.mjs'
@@ -30,7 +32,26 @@ function describeFolder(dir) {
 }
 
 /**
- * The first-launch walkthrough (desktop/onboarding/). Resolves with the chosen
+ * The account's full name, to fill in the name field: macOS keeps it in the
+ * directory service, Linux in the passwd comment. Windows has no quick source,
+ * so the field starts empty there.
+ */
+function accountName() {
+  const command = process.platform === 'darwin' ? ['id', ['-F']] : process.platform === 'linux' ? ['getent', ['passwd', userInfo().username]] : null
+  if (!command) return Promise.resolve('')
+  return new Promise((resolve) => {
+    execFile(command[0], command[1], { timeout: 2000 }, (error, stdout) => {
+      if (error) return resolve('')
+      const text = String(stdout).trim()
+      const name = process.platform === 'linux' ? (text.split(':')[4] ?? '').split(',')[0] : text
+      // A login name ("jdoe") is no better than an empty field.
+      resolve(/\s/.test(name.trim()) ? name.trim() : '')
+    })
+  })
+}
+
+/**
+ * The first-launch setup (desktop/onboarding/). Resolves with the chosen
  * workspace and whether it was just created, or null if the window was closed.
  */
 export function runOnboarding({ here, serverDir, path }) {
@@ -57,7 +78,7 @@ export function runOnboarding({ here, serverDir, path }) {
     nativeTheme.on('updated', retheme)
     let result = null
     const handlers = {
-      'onboarding:defaults': () => describeFolder(join(app.getPath('documents'), 'Onward')),
+      'onboarding:defaults': async () => ({ folder: describeFolder(join(app.getPath('documents'), 'Onward')), fullName: await accountName() }),
       'onboarding:pick-folder': async (_event, purpose) => {
         const { canceled, filePaths } = await dialog.showOpenDialog(window, {
           title: purpose === 'existing' ? 'Choose your Onward folder' : 'Choose where to save your documents',

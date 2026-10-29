@@ -192,6 +192,9 @@ function buildMenu() {
     {
       role: 'help',
       submenu: [
+        // The same tour Settings offers (src/components/Tour.tsx, TOUR_HREF).
+        { label: 'Take the Tour', click: () => { if (window && server) window.loadURL(`${server.url}/?tour=1`) } },
+        { type: 'separator' },
         { label: 'Onward on GitHub', click: () => shell.openExternal('https://github.com/Bratet/onward') },
         { label: 'Get Claude Code', click: () => shell.openExternal(INSTALL_LINKS.claude) },
         { label: 'Get Codex', click: () => shell.openExternal(INSTALL_LINKS.codex) },

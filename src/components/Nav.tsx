@@ -9,12 +9,12 @@ import { useEffect, useRef } from 'react'
 import { Settings2 } from 'lucide-react'
 
 const LINKS = [
-  { href: '/', label: 'Overview' },
-  { href: '/applications', label: 'Applications' },
-  { href: '/plan', label: 'Saved searches' },
-  { href: '/profile', label: 'Profile' },
-  { href: '/skills', label: 'Skills' },
-  { href: '/runs', label: 'AI runs' },
+  { href: '/', label: 'Overview', tour: 'overview' },
+  { href: '/applications', label: 'Applications', tour: 'applications' },
+  { href: '/plan', label: 'Saved searches', tour: 'searches' },
+  { href: '/profile', label: 'Profile', tour: 'profile' },
+  { href: '/skills', label: 'Skills', tour: 'skills' },
+  { href: '/runs', label: 'AI runs', tour: 'runs' },
 ]
 
 export function Nav() {
@@ -42,6 +42,7 @@ export function Nav() {
               <Link
                 key={link.href}
                 href={link.href}
+                data-tour={link.tour}
                 className={cn(
                   'shrink-0 whitespace-nowrap border-b-2 py-2 text-[13px] transition-colors max-sm:py-3',
                   active
@@ -59,6 +60,7 @@ export function Nav() {
           <Link
             href="/settings"
             aria-label="Settings"
+            data-tour="settings"
             aria-current={pathname.startsWith('/settings') ? 'page' : undefined}
             className={cn('grid size-8 place-items-center rounded-md text-[var(--color-muted)] transition-colors hover:bg-[var(--color-surface-2)] hover:text-[var(--color-text)] max-sm:size-11', pathname.startsWith('/settings') && 'bg-[var(--color-surface-2)] text-[var(--color-text)]')}
           >

@@ -6,6 +6,7 @@ import { parse } from 'yaml'
 import { ArrowRight, FileUp, Upload } from 'lucide-react'
 import { ErrorNotice } from '@/components/ErrorNotice'
 import { PdfPreview } from '@/components/PdfPreview'
+import { TOUR_HREF } from '@/components/Tour'
 import { Badge, Spinner } from '@/components/ui/primitives'
 import type { ImportLang, ImportSummary } from '@/lib/resumeImport'
 import { cn } from '@/lib/utils'
@@ -113,7 +114,10 @@ export function WelcomeFlow({ firstName }: { firstName: string }) {
     if (!imported.summary) {
       return (
         <Shell title="Your resumes are set up" lead="Your master and general resumes start with just your name. Write your experience into them in Profile, then come back to add a job.">
-          <Link href={`/profile?src=master-${lang}`} className={primaryButton}>Write my resume<ArrowRight className="size-4" aria-hidden /></Link>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+            <Link href={`/profile?src=master-${lang}`} className={primaryButton}>Write my resume<ArrowRight className="size-4" aria-hidden /></Link>
+            <Link href={TOUR_HREF} className={textButton}>See around the app first</Link>
+          </div>
         </Shell>
       )
     }
@@ -137,8 +141,9 @@ export function WelcomeFlow({ firstName }: { firstName: string }) {
 
           <aside className="lg:sticky lg:top-6">
             <h2 className="text-base font-semibold">What to do next</h2>
-            <Link href="/new" className={cn(primaryButton, 'mt-3 w-full')}>Add your first job<ArrowRight className="size-4" aria-hidden /></Link>
-            <p className="mt-2 text-[13px] leading-relaxed text-[var(--color-muted)]">Paste a posting. Onward reads it, checks your fit, and tailors a CV from your resumes.</p>
+            <Link href={TOUR_HREF} className={cn(primaryButton, 'mt-3 w-full')}>Show me around<ArrowRight className="size-4" aria-hidden /></Link>
+            <p className="mt-2 text-[13px] leading-relaxed text-[var(--color-muted)]">A one-minute look at where everything is. It ends where you add your first job.</p>
+            <Link href="/new" className={cn(textButton, 'mt-2')}>Skip it and add a job now</Link>
 
             <ul className="mt-6 divide-y divide-[var(--color-border)] border-y border-[var(--color-border)]">
               <NextLink href={`/profile?src=general-${lang}`} title="Check your general resume">

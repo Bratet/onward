@@ -1,39 +1,24 @@
-// The first-launch walkthrough. window.onboarding comes from preload.cjs.
+// The first-launch setup. window.onboarding comes from preload.cjs.
+// Two doors: start fresh (name and folder, then the app opens on /welcome for the resume),
+// or open an existing Onward folder. The AI tools screen appears only when something is missing.
 const api = window.onboarding
-const STEPS = ['welcome', 'folder', 'about', 'tools', 'done']
-const state = { step: 'welcome', folder: null, tools: null }
+const state = { step: 'start', door: null, folder: null, existing: null, tools: null, checking: null }
 
 const $ = (selector) => document.querySelector(selector)
 // The stylesheet draws a title bar only where the window has no system one.
 document.documentElement.classList.add(`platform-${api.platform}`)
 
-/** "About you" only applies to a new folder: an existing one already knows who it belongs to. */
-function skipped(step) {
-  return step === 'about' && state.folder?.kind === 'existing'
-}
-
 function show(step) {
   state.step = step
-  const index = STEPS.indexOf(step)
   for (const section of document.querySelectorAll('section')) section.classList.toggle('active', section.dataset.step === step)
-  for (const item of document.querySelectorAll('.progress li')) {
-    const at = STEPS.indexOf(item.dataset.step)
-    item.className = skipped(item.dataset.step) ? 'skipped' : at < index ? 'done' : at === index ? 'current' : ''
-    if (at === index) item.setAttribute('aria-current', 'step')
-    else item.removeAttribute('aria-current')
-  }
-  const counted = STEPS.filter((name) => !skipped(name))
-  const current = document.querySelector(`.progress li[data-step="${step}"]`).textContent
-  $('#progress-label').textContent = `Step ${counted.indexOf(step) + 1} of ${counted.length} · ${current}`
-  const focus = document.querySelector(`section[data-step="${step}"] input, section[data-step="${step}"] .primary`)
+  const section = $(`section[data-step="${step}"]`)
+  const focus = step === 'setup' ? $('#full-name') : section.querySelector('.door, .primary')
   focus?.focus()
-  if (step === 'tools' && !state.tools) void checkTools()
 }
 
-function move(direction) {
-  let index = STEPS.indexOf(state.step) + direction
-  while (skipped(STEPS[index])) index += direction
-  show(STEPS[index])
+function back() {
+  if (state.step === 'tools' && state.door === 'fresh') return show('setup')
+  show('start')
 }
 
 function renderFolder() {
@@ -42,15 +27,8 @@ function renderFolder() {
   const note = $('#folder-note')
   note.textContent = kind === 'existing'
     ? 'This folder already has Onward data. Onward will open it as it is.'
-    : 'Onward will create this folder and set it up for you.'
+    : 'Onward will create this folder. Your Documents folder is easy to find and back up.'
   note.classList.toggle('existing', kind === 'existing')
-}
-
-async function pick(purpose) {
-  const folder = await api.pickFolder(purpose)
-  if (!folder) return
-  state.folder = folder
-  renderFolder()
 }
 
 const TOOL_TEXT = {
@@ -59,65 +37,122 @@ const TOOL_TEXT = {
   rendercv: { missing: 'Not found. Needed to make PDFs: pip install "rendercv>=2.8"' },
 }
 
-async function checkTools() {
-  $('#recheck').disabled = true
-  for (const item of document.querySelectorAll('.tools li')) {
-    item.className = ''
-    item.querySelector('.status').textContent = 'Checking…'
-  }
-  state.tools = await api.checkTools()
-  for (const [tool, version] of Object.entries(state.tools)) {
-    const item = document.querySelector(`.tools li[data-tool="${tool}"]`)
-    const optional = tool !== 'rendercv' && (state.tools.claude || state.tools.codex)
+/** Starts a check, or joins the one already running. */
+function checkTools() {
+  state.checking ??= (async () => {
+    $('#recheck').disabled = true
+    for (const item of document.querySelectorAll('.tools li')) {
+      item.className = ''
+      item.querySelector('.status').textContent = 'Checking…'
+    }
+    try {
+      state.tools = await api.checkTools()
+    } catch {
+      state.tools = { claude: null, codex: null, rendercv: null }
+    } finally {
+      state.checking = null
+      $('#recheck').disabled = false
+    }
+    renderTools()
+    return state.tools
+  })()
+  return state.checking
+}
+
+function renderTools() {
+  const tools = state.tools
+  for (const [tool, version] of Object.entries(tools)) {
+    const item = $(`.tools li[data-tool="${tool}"]`)
+    const optional = tool !== 'rendercv' && (tools.claude || tools.codex)
     item.className = version ? 'ok' : optional ? 'optional-missing' : 'missing'
     item.querySelector('.status').textContent = version ? `Ready · ${version}` : optional ? 'Not found (optional, you have the other one)' : TOOL_TEXT[tool].missing
   }
-  const ready = Boolean(state.tools.claude || state.tools.codex)
-  $('#tools-next').textContent = ready ? 'Continue' : 'Continue anyway'
-  $('#tools-next').classList.toggle('primary', ready)
-  $('#tools-hint').hidden = ready
-  $('#recheck').disabled = false
+  const ai = Boolean(tools.claude || tools.codex)
+  $('#tools-next').textContent = ai ? 'Continue' : 'Continue without AI'
+  $('#tools-next').classList.toggle('primary', ai)
+  $('#tools-hint').hidden = ai
 }
 
-async function finish() {
-  $('#finish-error').textContent = ''
-  $('#tools-next').disabled = true
+/** Every tool found: nothing to ask, so the tools screen is skipped. */
+function toolsReady(tools) {
+  return Boolean((tools.claude || tools.codex) && tools.rendercv)
+}
+
+/** After a door is chosen: the tools screen if something is missing, otherwise straight into Onward. */
+async function proceed(button, errorTarget) {
+  button.disabled = true
   try {
-    await api.finish({ folder: state.folder.path, fullName: $('#full-name').value })
+    const tools = state.tools ?? await checkTools()
+    if (!toolsReady(tools)) return show('tools')
+    await finish(errorTarget)
+  } finally {
+    button.disabled = false
+  }
+}
+
+/** Saves the choice; closing the window hands over to the app. */
+async function finish(errorTarget) {
+  errorTarget.textContent = ''
+  const folder = state.door === 'existing' ? state.existing : state.folder
+  try {
+    await api.finish({ folder: folder.path, fullName: $('#full-name').value })
   } catch (err) {
-    $('#finish-error').textContent = `Couldn't set up the folder: ${String(err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')}`
-    $('#tools-next').disabled = false
+    errorTarget.textContent = `Couldn't set up the folder: ${String(err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')}`
     return
   }
-  if (state.folder.kind === 'existing') {
-    $('#done-title').textContent = 'Welcome back'
-    $('#done-lead').textContent = 'Onward will open your existing folder, just as you left it.'
-    $('#next-steps').hidden = true
-    $('#open-app').textContent = 'Open Onward'
-    document.querySelector('.progress li[data-step="done"]').textContent = 'Ready'
-  }
-  show('done')
+  window.close()
 }
 
-for (const button of document.querySelectorAll('[data-next]')) button.addEventListener('click', () => move(1))
-for (const button of document.querySelectorAll('[data-back]')) button.addEventListener('click', () => move(-1))
-for (const button of document.querySelectorAll('[data-install]')) button.addEventListener('click', () => api.openLink(button.dataset.install))
-$('#change-folder').addEventListener('click', () => pick('new'))
-$('#existing-folder').addEventListener('click', async () => {
-  await pick('existing')
-  if (state.folder?.kind === 'existing') move(1)
+$('#start-fresh').addEventListener('click', () => {
+  state.door = 'fresh'
+  $('#start-error').textContent = ''
+  show('setup')
 })
-$('#about-form').addEventListener('submit', (event) => { event.preventDefault(); $('#about-next').click() })
-$('#about-next').addEventListener('click', () => {
+
+$('#open-existing').addEventListener('click', async () => {
+  $('#start-error').textContent = ''
+  const folder = await api.pickFolder('existing')
+  if (!folder) return
+  if (folder.kind !== 'existing') {
+    $('#start-error').textContent = 'That folder has no Onward data in it. Choose the folder that holds resumes and state, or start fresh.'
+    return
+  }
+  state.door = 'existing'
+  state.existing = folder
+  await proceed($('#open-existing'), $('#start-error'))
+})
+
+$('#change-folder').addEventListener('click', async () => {
+  const folder = await api.pickFolder('new')
+  if (!folder) return
+  state.folder = folder
+  renderFolder()
+})
+
+$('#setup-form').addEventListener('submit', (event) => { event.preventDefault(); $('#setup-next').click() })
+$('#setup-next').addEventListener('click', () => {
   const name = $('#full-name').value.trim()
-  if (!name) return void ($('#about-error').textContent = 'Please enter your name.')
-  $('#about-error').textContent = ''
-  move(1)
+  // A folder that already holds Onward data opens as it is and keeps its own name.
+  if (!name && state.folder.kind !== 'existing') {
+    $('#name-error').textContent = 'Enter your name as it should appear on your resume.'
+    $('#full-name').focus()
+    return
+  }
+  $('#name-error').textContent = ''
+  void proceed($('#setup-next'), $('#setup-error'))
 })
+
+for (const button of document.querySelectorAll('[data-back]')) button.addEventListener('click', back)
+for (const button of document.querySelectorAll('[data-install]')) button.addEventListener('click', () => api.openLink(button.dataset.install))
 $('#recheck').addEventListener('click', () => void checkTools())
 // Someone sent off to install a CLI comes back to this window; check again without being asked.
 window.addEventListener('focus', () => {
-  if (state.step === 'tools' && !$('#recheck').disabled && !(state.tools?.claude || state.tools?.codex)) void checkTools()
+  if (state.step === 'tools' && !state.checking && !toolsReady(state.tools ?? {})) void checkTools()
+})
+$('#tools-next').addEventListener('click', async () => {
+  $('#tools-next').disabled = true
+  await finish($('#tools-error'))
+  $('#tools-next').disabled = false
 })
 for (const button of document.querySelectorAll('[data-copy]')) {
   button.addEventListener('click', async () => {
@@ -128,11 +163,12 @@ for (const button of document.querySelectorAll('[data-copy]')) {
 }
 const TERMINAL = { darwin: 'Terminal (in Applications › Utilities)', win32: 'PowerShell (from the Start menu)' }
 for (const span of document.querySelectorAll('[data-terminal]')) span.textContent = TERMINAL[api.platform] ?? 'a terminal'
-$('#tools-next').addEventListener('click', () => void finish())
-$('#open-app').addEventListener('click', () => window.close())
 
-api.defaults().then((folder) => {
+api.defaults().then(({ folder, fullName }) => {
   state.folder = folder
   renderFolder()
+  if (fullName && !$('#full-name').value) $('#full-name').value = fullName
 })
-show('welcome')
+// The check takes a moment; by the time a door is chosen it has usually finished.
+void checkTools()
+show('start')

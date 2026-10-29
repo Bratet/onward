@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import { Check, CircleAlert, Monitor, Moon, Sun } from 'lucide-react'
 import type { AiFeature } from '@/lib/engine'
 import type { EngineId, EngineStatus, ModelOption } from '@/lib/engine/types'
+import { TOUR_HREF } from '@/components/Tour'
 import { DesktopSection } from './desktop-section'
 
 export type SettingsFeature = AiFeature
@@ -135,6 +136,17 @@ export function SettingsPanel({ initial }: { initial: SettingsData }) {
             </div>
           </div>
           <p className="text-xs text-[var(--color-muted)]">To edit the instructions behind a task, visit <Link href="/skills" className="font-medium text-[var(--color-accent)] underline underline-offset-2">Skills</Link>.</p>
+        </div>
+      </section>
+
+      <section aria-labelledby="tour-heading" className="grid gap-5 md:grid-cols-[220px_minmax(0,1fr)]">
+        <div>
+          <h2 id="tour-heading" className="text-base font-semibold">Getting around</h2>
+          <p className="mt-1 text-sm text-[var(--color-muted)]">The tour from your first day.</p>
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] p-5">
+          <p className="max-w-md text-sm text-[var(--color-muted)]">Seven stops through the top bar: what each page is for, ending where you add a job.</p>
+          <Link href={TOUR_HREF} className="inline-flex min-h-8 items-center rounded-[5px] border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 text-xs font-medium text-[var(--color-text)] transition-colors hover:bg-[var(--color-surface-2)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--color-accent)] max-sm:min-h-11">Take the tour</Link>
         </div>
       </section>
 
