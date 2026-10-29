@@ -13,8 +13,7 @@
     "server": "node scripts/build-server.mjs",
     "start": "electron .",
     "dist": "node scripts/build-server.mjs && electron-builder --publish never",
-    "release": "node scripts/build-server.mjs && electron-builder --publish always",
-    "dmg-background": "node scripts/dmg-background.mjs"
+    "release": "node scripts/build-server.mjs && electron-builder --publish always"
   },
   "dependencies": {
     "electron-updater": "^6.8.9"
@@ -26,7 +25,6 @@
   "build": {
     "appId": "io.github.bratet.onward",
     "productName": "Onward",
-    "executableName": "onward-app",
     "artifactName": "Onward-${version}-${os}-${arch}.${ext}",
     "directories": { "output": "dist", "buildResources": "resources" },
     "files": ["main.mjs", "preload.cjs", "lib/**", "onboarding/**", "resources/icon.png", "package.json"],
@@ -42,20 +40,10 @@
         { "target": "zip", "arch": ["arm64", "x64"] }
       ]
     },
-    "dmg": {
-      "title": "Install Onward",
-      "background": "resources/dmg/background.tiff",
-      "iconSize": 96,
-      "iconTextSize": 13,
-      "window": { "width": 540, "height": 380 },
-      "contents": [
-        { "x": 150, "y": 204 },
-        { "x": 390, "y": 204, "type": "link", "path": "/Applications" }
-      ]
-    },
-    "win": { "icon": "resources/icon.ico", "target": [{ "target": "nsis", "arch": ["x64"] }] },
+    "win": { "executableName": "onward-app", "icon": "resources/icon.ico", "target": [{ "target": "nsis", "arch": ["x64"] }] },
     "nsis": { "oneClick": true, "perMachine": false },
     "linux": {
+      "executableName": "onward",
       "category": "Office",
       "icon": "resources/icon.png",
       "maintainer": "Bratet",

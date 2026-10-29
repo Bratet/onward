@@ -89,10 +89,7 @@ Node, so there is nothing else to install apart from the CLIs below.
 - **Download** the installer for your system from the
   [latest release](https://github.com/Bratet/onward/releases/latest): `.dmg` for
   macOS (Apple silicon `arm64` or Intel `x64`), `.exe` for Windows, `.AppImage` or
-  `.deb` for Linux. The `.dmg` window shows Onward beside Applications with an
-  arrow between them, and says how to get past macOS's first-open warning. Its
-  picture is `desktop/resources/dmg/background.html`, rendered to
-  `background.tiff` by `npm run dmg-background` in `desktop/` (macOS, Chrome).
+  `.deb` for Linux.
 - **Claude Code and Codex** are still the ones on your computer, signed in with
   your subscription. If the app finds neither, it says so on launch and links to
   both installers. RenderCV is needed for PDFs, and the app warns when it is missing.
