@@ -1,24 +1,71 @@
 // The first-launch setup. window.onboarding comes from preload.cjs.
 // Two doors: start fresh (name and folder, then the app opens on /welcome for the resume),
 // or open an existing Onward folder. The AI tools screen appears only when something is missing.
+// The window stays open on "Getting Onward ready" until the app's own window replaces it.
 const api = window.onboarding
-const state = { step: 'start', door: null, folder: null, existing: null, tools: null, checking: null }
+const state = { step: 'start', door: null, folder: null, existing: null, tools: null, checking: null, confirmed: false }
 
 const $ = (selector) => document.querySelector(selector)
 // The stylesheet draws a title bar only where the window has no system one.
 document.documentElement.classList.add(`platform-${api.platform}`)
 
+/** Which stage of the rail each screen belongs to. */
+const STAGE = { start: 'welcome', setup: 'folder', tools: 'tools', launch: 'resume' }
+const STAGES = ['welcome', 'folder', 'tools', 'resume']
+
 function show(step) {
   state.step = step
   for (const section of document.querySelectorAll('section')) section.classList.toggle('active', section.dataset.step === step)
+  renderRail()
   const section = $(`section[data-step="${step}"]`)
   const focus = step === 'setup' ? $('#full-name') : section.querySelector('.door, .primary')
-  focus?.focus()
+  focus?.focus({ preventScroll: true })
 }
 
 function back() {
   if (state.step === 'tools' && state.door === 'fresh') return show('setup')
   show('start')
+}
+
+/** The rail: where you are, what is done, and a short note under each stage. */
+function renderRail() {
+  const at = STAGES.indexOf(STAGE[state.step])
+  const notes = {
+    welcome: state.door === 'fresh' ? 'Starting fresh' : state.door === 'existing' ? 'Opening your folder' : '',
+    folder: folderNote(),
+    tools: toolsNote(),
+    resume: state.door === 'existing' ? '' : 'Next, in Onward',
+  }
+  for (const item of document.querySelectorAll('.journey li')) {
+    const stage = item.dataset.stage
+    const index = STAGES.indexOf(stage)
+    const done = index < at || (stage === 'folder' && state.door === 'existing') || (stage === 'tools' && toolsReady(state.tools ?? {}))
+    const attention = stage === 'tools' && state.tools && !toolsReady(state.tools)
+    item.className = index === at ? 'current' : done ? 'done' : attention ? 'attention' : ''
+    if (index === at) item.setAttribute('aria-current', 'step')
+    else item.removeAttribute('aria-current')
+    item.querySelector('.stage-note').textContent = notes[stage]
+  }
+  $('.journey li[data-stage="resume"] .stage-name').textContent = state.door === 'existing' ? 'Open Onward' : 'Your resume'
+}
+
+/** The last two parts of a path, which say enough in a narrow rail. */
+function shortPath(path) {
+  const parts = path.split(/[\\/]/).filter(Boolean)
+  return parts.length > 2 ? `…/${parts.slice(-2).join('/')}` : path
+}
+
+function folderNote() {
+  if (state.door === 'existing' && state.existing) return shortPath(state.existing.path)
+  if (state.door === 'fresh' && state.confirmed && state.folder) return shortPath(state.folder.path)
+  return ''
+}
+
+function toolsNote() {
+  const tools = state.tools
+  if (!tools) return state.checking ? 'Checking…' : ''
+  if (!toolsReady(tools)) return 'Needs setup'
+  return tools.claude ? 'Claude Code ready' : 'Codex ready'
 }
 
 function renderFolder() {
@@ -29,6 +76,8 @@ function renderFolder() {
     ? 'This folder already has Onward data. Onward will open it as it is.'
     : 'Onward will create this folder. Your Documents folder is easy to find and back up.'
   note.classList.toggle('existing', kind === 'existing')
+  // An existing folder keeps what it has; the outline is for a new one.
+  $('#folder-tree').hidden = kind === 'existing'
 }
 
 const TOOL_TEXT = {
@@ -45,6 +94,7 @@ function checkTools() {
       item.className = ''
       item.querySelector('.status').textContent = 'Checking…'
     }
+    renderRail()
     try {
       state.tools = await api.checkTools()
     } catch {
@@ -54,6 +104,7 @@ function checkTools() {
       $('#recheck').disabled = false
     }
     renderTools()
+    renderRail()
     return state.tools
   })()
   return state.checking
@@ -70,6 +121,7 @@ function renderTools() {
   const ai = Boolean(tools.claude || tools.codex)
   $('#tools-next').textContent = ai ? 'Continue' : 'Continue without AI'
   $('#tools-next').classList.toggle('primary', ai)
+  $('#tools-next').classList.toggle('secondary', !ai)
   $('#tools-hint').hidden = ai
 }
 
@@ -90,9 +142,10 @@ async function proceed(button, errorTarget) {
   }
 }
 
-/** Saves the choice; closing the window hands over to the app. */
+/** Saves the choice, then waits on "Getting Onward ready" until the app's window takes over and closes this one. */
 async function finish(errorTarget) {
   errorTarget.textContent = ''
+  const existing = state.door === 'existing' || state.folder.kind === 'existing'
   const folder = state.door === 'existing' ? state.existing : state.folder
   try {
     await api.finish({ folder: folder.path, fullName: $('#full-name').value })
@@ -100,7 +153,11 @@ async function finish(errorTarget) {
     errorTarget.textContent = `Couldn't set up the folder: ${String(err.message || err).replace(/^Error invoking remote method '[^']+': (Error: )?/, '')}`
     return
   }
-  window.close()
+  $('#launch-title').textContent = existing ? 'Opening your folder' : 'Getting Onward ready'
+  $('#launch-lead').textContent = existing ? 'Everything is where you left it.' : 'Your resume comes next, in Onward itself.'
+  $('#launch-folder').textContent = existing ? 'Folder found' : 'Folder created'
+  $('#launch-path').textContent = folder.path
+  show('launch')
 }
 
 $('#start-fresh').addEventListener('click', () => {
@@ -119,6 +176,7 @@ $('#open-existing').addEventListener('click', async () => {
   }
   state.door = 'existing'
   state.existing = folder
+  renderRail()
   await proceed($('#open-existing'), $('#start-error'))
 })
 
@@ -135,10 +193,13 @@ $('#setup-next').addEventListener('click', () => {
   // A folder that already holds Onward data opens as it is and keeps its own name.
   if (!name && state.folder.kind !== 'existing') {
     $('#name-error').textContent = 'Enter your name as it should appear on your resume.'
+    $('#full-name').setAttribute('aria-invalid', 'true')
     $('#full-name').focus()
     return
   }
   $('#name-error').textContent = ''
+  $('#full-name').removeAttribute('aria-invalid')
+  state.confirmed = true
   void proceed($('#setup-next'), $('#setup-error'))
 })
 

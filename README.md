@@ -97,7 +97,8 @@ Node, so there is nothing else to install apart from the CLIs below.
   an Onward folder you already have, such as a clone of your private data repo.
   Starting fresh takes your name (filled in from your computer account where it can
   be) and a folder (`Documents/Onward` by default). The AI tools are checked in the
-  background, and their install steps appear only when one is missing.
+  background, and their install steps appear only when one is missing. The setup
+  window stays on "Getting Onward ready" until the app's own window opens.
 - **Getting started** (`/welcome`, also in the web app) is where a new folder's
   resumes come from: drop in your current resume as a PDF or paste its text, and
   your AI tool sorts it, word for word, into your master and general resumes. The

@@ -6,11 +6,11 @@ import { basename, join } from 'path'
 import { detectEngines, INSTALL_LINKS } from './environment.mjs'
 import { createWorkspace, isEmptyFolder, looksLikeWorkspace, saveWorkspace } from './workspace.mjs'
 
-/** The walkthrough's --bg and --text (onboarding.css), for the parts of the window the page doesn't paint. */
+/** The setup page's --bg and --surface (onboarding.css), for the parts of the window the page doesn't paint. */
 function theme() {
   const dark = nativeTheme.shouldUseDarkColors
-  const background = dark ? '#151312' : '#f6f2ea'
-  return { background, overlay: { color: background, symbolColor: dark ? '#f4f1ec' : '#2a2522', height: 40 } }
+  const background = dark ? '#110d0a' : '#f3f0ea'
+  return { background, overlay: { color: background, symbolColor: dark ? '#ede7de' : '#282019', height: 40 } }
 }
 
 /**
@@ -51,17 +51,20 @@ function accountName() {
 }
 
 /**
- * The first-launch setup (desktop/onboarding/). Resolves with the chosen
- * workspace and whether it was just created, or null if the window was closed.
+ * The first-launch setup (desktop/onboarding/). Resolves as soon as the user
+ * has chosen, with the workspace, whether it was just created, and `close`:
+ * the window stays on "Getting Onward ready" until the caller's own window is
+ * up and closes it. Resolves with null if the window is closed before that.
  */
 export function runOnboarding({ here, serverDir, path }) {
   return new Promise((resolve) => {
-    // Never taller than the screen: at 150% scaling a laptop has well under 720 points of height.
-    const { height: available } = screen.getPrimaryDisplay().workAreaSize
+    // Never larger than the screen: at 150% scaling a laptop has well under 720 points of height.
+    const { width: wide, height: tall } = screen.getPrimaryDisplay().workAreaSize
     const window = new BrowserWindow({
-      width: 720,
-      height: Math.min(700, available - 40),
-      resizable: false,
+      width: Math.min(1040, wide - 40),
+      height: Math.min(700, tall - 40),
+      minWidth: Math.min(820, wide - 40),
+      minHeight: Math.min(560, tall - 40),
       maximizable: false,
       fullscreenable: false,
       title: 'Welcome to Onward',
@@ -76,6 +79,7 @@ export function runOnboarding({ here, serverDir, path }) {
       if (process.platform === 'win32') window.setTitleBarOverlay(theme().overlay)
     }
     nativeTheme.on('updated', retheme)
+    const close = () => { if (!window.isDestroyed()) window.close() }
     let result = null
     const handlers = {
       'onboarding:defaults': async () => ({ folder: describeFolder(join(app.getPath('documents'), 'Onward')), fullName: await accountName() }),
@@ -100,6 +104,7 @@ export function runOnboarding({ here, serverDir, path }) {
           const workspace = createWorkspace(chosen.path, { fullName: name }, serverDir)
           result = { workspace, isNew: true }
         }
+        resolve({ ...result, close })
         return result
       },
     }
@@ -113,7 +118,7 @@ export function runOnboarding({ here, serverDir, path }) {
     window.on('closed', () => {
       nativeTheme.off('updated', retheme)
       for (const channel of Object.keys(handlers)) ipcMain.removeHandler(channel)
-      resolve(result)
+      resolve(null)
     })
     window.setMenuBarVisibility(false)
     window.loadFile(join(here, 'onboarding', 'index.html'))

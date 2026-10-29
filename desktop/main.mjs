@@ -36,8 +36,10 @@ const buildCommit = (() => {
 let window = null
 let server = null
 let workspace = null
-// Onboarding closes its window before the app's opens; that must not quit the app.
+// Setup can be closed by hand while Onward starts; that must not quit the app.
 let starting = true
+// Closes the setup window, which waits on "Getting Onward ready" until the app's window is up.
+let closeSetup = null
 const path = shellPath()
 
 /**
@@ -97,7 +99,11 @@ function createWindow(page = '') {
     show: false,
     webPreferences: { contextIsolation: true, sandbox: true, preload: join(here, 'preload.cjs') },
   })
-  window.once('ready-to-show', () => window.show())
+  window.once('ready-to-show', () => {
+    window.show()
+    closeSetup?.()
+    closeSetup = null
+  })
   // Postings, company pages and docs open in the user's browser, not inside the app.
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (isLocal(url)) return { action: 'allow' }
@@ -227,6 +233,7 @@ if (!app.requestSingleInstanceLock()) {
         const onboarded = await runOnboarding({ here, serverDir, path })
         if (!onboarded) return app.quit()
         workspace = onboarded.workspace
+        closeSetup = onboarded.close
         // A new user's first job is to replace the example resume with their own.
         if (onboarded.isNew) firstPage = '/welcome'
       }

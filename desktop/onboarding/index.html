@@ -7,84 +7,152 @@
   <link rel="stylesheet" href="onboarding.css">
 </head>
 <body>
-  <header class="titlebar"><span class="titlebar-name">Onward setup</span></header>
-  <main>
-    <section data-step="start">
-      <svg class="mark" viewBox="0 0 64 64" aria-hidden="true">
+  <aside class="rail">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 64 64" aria-hidden="true">
         <rect width="64" height="64" rx="15" fill="var(--accent)"/>
         <path d="M47 32 L36.17 22.31 A13 13 0 1 0 36.17 41.69 Z" fill="none" stroke="var(--on-solid)" stroke-width="7" stroke-miterlimit="10"/>
       </svg>
-      <h1>Welcome to Onward</h1>
-      <p class="lead">Every job you apply to, in one folder on this computer: the posting, a resume tailored to it, your letters, and where each application stands.</p>
-      <div class="doors">
-        <button class="door" id="start-fresh">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-          <span><strong>Start fresh</strong>Set up a new folder, then bring in your resume. About five minutes.</span>
-        </button>
-        <button class="door" id="open-existing">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-          <span><strong>Open my Onward folder</strong>Already use Onward? Pick its folder, for example one synced from another computer.</span>
-        </button>
-      </div>
-      <p class="error" id="start-error" role="alert"></p>
-      <p class="aside">Your files stay on this computer. The AI works through your own Claude Code or Codex, and nothing is ever sent for you.</p>
-    </section>
+      <span class="brand-name">onward</span>
+    </div>
 
-    <section data-step="setup">
-      <h1>Start fresh</h1>
-      <p class="lead">Two details, then Onward opens and reads your resume.</p>
-      <form id="setup-form" novalidate>
-        <label>Your name
-          <input id="full-name" name="fullName" autocomplete="name" required placeholder="As it should appear on your resume">
-        </label>
-        <p class="hint">It goes at the top of your resume and in the names of the files you send.</p>
-        <p class="error" id="name-error" role="alert"></p>
-        <div class="field">
-          <p class="field-label" id="folder-label">Where Onward saves your documents</p>
-          <div class="folder" role="group" aria-labelledby="folder-label">
-            <svg class="folder-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-            <div class="folder-text">
-              <p class="folder-path" id="folder-path">…</p>
-              <p class="folder-note" id="folder-note"></p>
+    <ol class="journey" aria-label="Setup">
+      <li data-stage="welcome"><span class="ring" aria-hidden="true"></span><span class="stage"><span class="stage-name">Welcome</span><span class="stage-note"></span></span></li>
+      <li data-stage="folder"><span class="ring" aria-hidden="true"></span><span class="stage"><span class="stage-name">Your folder</span><span class="stage-note"></span></span></li>
+      <li data-stage="tools"><span class="ring" aria-hidden="true"></span><span class="stage"><span class="stage-name">AI tools</span><span class="stage-note"></span></span></li>
+      <li data-stage="resume"><span class="ring" aria-hidden="true"></span><span class="stage"><span class="stage-name">Your resume</span><span class="stage-note"></span></span></li>
+    </ol>
+
+    <p class="rail-note">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+      <span>Your files stay on this computer, and nothing is ever sent for you.</span>
+    </p>
+  </aside>
+
+  <div class="pane">
+    <div class="pane-bar" aria-hidden="true"></div>
+
+    <section data-step="start" aria-labelledby="start-title">
+      <div class="content">
+        <div class="hero">
+          <div class="hero-text">
+            <h1 id="start-title">Welcome to Onward</h1>
+            <p class="lead">Every job you apply to, kept in one folder on this computer: the posting, a resume tailored to it, your letters, and where each application stands.</p>
+          </div>
+          <div class="glimpse" aria-hidden="true">
+            <div class="paper paper-back"><span class="paper-title">Cover letter</span><i></i><i></i><i></i><i></i><i></i></div>
+            <div class="paper paper-mid"><span class="paper-title">Tailored CV</span><i></i><i></i><i></i><i></i></div>
+            <div class="paper paper-front">
+              <div class="g-head">
+                <span class="g-mono">F</span>
+                <span class="g-role"><strong>Fernhill Analytics</strong><span>Data Analyst</span></span>
+              </div>
+              <div class="g-verdict"><span class="g-fit">Strong fit</span><span class="g-count"><b>9</b> of 11 must-haves backed</span></div>
+              <div class="g-ledger"><i class="ok" style="--n:9"></i><i class="warn" style="--n:1"></i><i class="bad" style="--n:1"></i></div>
+              <ul class="g-rows">
+                <li><span>SQL and dashboards</span><em class="ok">Backed</em></li>
+                <li><span>Forecasting</span><em class="warn">Related</em></li>
+                <li><span>Spoken Dutch</span><em class="bad">Gap</em></li>
+              </ul>
             </div>
-            <button type="button" id="change-folder">Change…</button>
           </div>
         </div>
-      </form>
-      <p class="error" id="setup-error" role="alert"></p>
-      <div class="actions"><button data-back>Back</button><button class="primary" id="setup-next">Continue</button></div>
+
+        <p class="doors-label" id="doors-label">How would you like to start?</p>
+        <div class="doors" role="group" aria-labelledby="doors-label">
+          <button class="door" id="start-fresh">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            <span class="door-text"><strong>Start fresh</strong>Set up a new folder, then bring in your resume. About five minutes.</span>
+            <svg class="door-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+          <button class="door" id="open-existing">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+            <span class="door-text"><strong>Open my Onward folder</strong>Already use Onward? Pick its folder, for example one synced from another computer.</span>
+            <svg class="door-go" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+          </button>
+        </div>
+        <p class="error" id="start-error" role="alert"></p>
+      </div>
     </section>
 
-    <section data-step="tools">
-      <h1>Connect your AI tool</h1>
-      <p class="lead">Onward's AI runs through Claude Code or Codex, on your own subscription, so one of the two has to be signed in on this computer. RenderCV makes the PDFs.</p>
-      <ul class="tools" id="tools">
-        <li data-tool="claude"><span class="dot"></span><div><strong>Claude Code</strong><span class="status">Checking…</span></div><button class="link" data-install="claude">How to install</button></li>
-        <li data-tool="codex"><span class="dot"></span><div><strong>Codex</strong><span class="status">Checking…</span></div><button class="link" data-install="codex">How to install</button></li>
-        <li data-tool="rendercv"><span class="dot"></span><div><strong>RenderCV</strong><span class="status">Checking…</span></div><button class="link" data-install="rendercv">How to install</button></li>
-      </ul>
-      <div class="setup" id="tools-hint">
-        <p class="setup-title">Setting one up takes about five minutes</p>
-        <ol>
-          <li>Follow <strong>How to install</strong> above for Claude Code or Codex.</li>
-          <li>Open <span data-terminal>Terminal</span> and sign in once with the command below. It opens your browser to log in with your subscription.
-            <span class="commands">
-              <span class="command"><code>claude</code><button class="copy" data-copy="claude">Copy</button></span>
-              <span class="or">or</span>
-              <span class="command"><code>codex login</code><button class="copy" data-copy="codex login">Copy</button></span>
-            </span>
-          </li>
-          <li>Come back here. Onward checks again on its own.</li>
-        </ol>
+    <section data-step="setup" aria-labelledby="setup-title">
+      <div class="content narrow">
+        <h1 id="setup-title">Start fresh</h1>
+        <p class="lead">Two details, then Onward opens and reads your resume.</p>
+        <form id="setup-form" novalidate>
+          <label class="field">Your name
+            <input id="full-name" name="fullName" autocomplete="name" required placeholder="As it should appear on your resume" aria-describedby="name-hint name-error">
+          </label>
+          <p class="hint" id="name-hint">It goes at the top of your resume and in the names of the files you send.</p>
+          <p class="error" id="name-error" role="alert"></p>
+
+          <div class="field">
+            <p class="field-label" id="folder-label">Where Onward saves your documents</p>
+            <div class="folder" role="group" aria-labelledby="folder-label">
+              <div class="folder-head">
+                <svg class="folder-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                <div class="folder-text">
+                  <p class="folder-path" id="folder-path">…</p>
+                  <p class="folder-note" id="folder-note"></p>
+                </div>
+                <button type="button" class="secondary" id="change-folder">Change…</button>
+              </div>
+              <dl class="tree" id="folder-tree">
+                <div><dt>resumes</dt><dd>your master and general resumes</dd></div>
+                <div><dt>applications</dt><dd>one folder per job, with its CV and letters</dd></div>
+                <div><dt>state</dt><dd>your tracker, goal and saved searches</dd></div>
+              </dl>
+            </div>
+          </div>
+        </form>
+        <p class="error" id="setup-error" role="alert"></p>
       </div>
-      <p class="error" id="tools-error" role="alert"></p>
-      <div class="actions">
-        <button data-back>Back</button>
-        <button id="recheck">Check again</button>
+      <footer class="actions"><button class="secondary" data-back>Back</button><button class="primary" id="setup-next">Continue</button></footer>
+    </section>
+
+    <section data-step="tools" aria-labelledby="tools-title">
+      <div class="content narrow">
+        <h1 id="tools-title">Connect your AI tool</h1>
+        <p class="lead">Onward's AI runs through Claude Code or Codex, on your own subscription, so one of the two has to be signed in on this computer. RenderCV makes the PDFs.</p>
+        <ul class="tools" id="tools">
+          <li data-tool="claude"><span class="state" aria-hidden="true"></span><div><strong>Claude Code</strong><span class="status">Checking…</span></div><button class="link" data-install="claude">How to install</button></li>
+          <li data-tool="codex"><span class="state" aria-hidden="true"></span><div><strong>Codex</strong><span class="status">Checking…</span></div><button class="link" data-install="codex">How to install</button></li>
+          <li data-tool="rendercv"><span class="state" aria-hidden="true"></span><div><strong>RenderCV</strong><span class="status">Checking…</span></div><button class="link" data-install="rendercv">How to install</button></li>
+        </ul>
+        <div class="setup" id="tools-hint">
+          <p class="setup-title">Setting one up takes about five minutes</p>
+          <ol>
+            <li>Follow <strong>How to install</strong> above for Claude Code or Codex.</li>
+            <li>Open <span data-terminal>Terminal</span> and sign in once with the command below. It opens your browser to log in with your subscription.
+              <span class="commands">
+                <span class="command"><code>claude</code><button class="copy" data-copy="claude">Copy</button></span>
+                <span class="or">or</span>
+                <span class="command"><code>codex login</code><button class="copy" data-copy="codex login">Copy</button></span>
+              </span>
+            </li>
+            <li>Come back here. Onward checks again on its own.</li>
+          </ol>
+        </div>
+        <p class="error" id="tools-error" role="alert"></p>
+      </div>
+      <footer class="actions">
+        <button class="secondary" data-back>Back</button>
+        <button class="secondary" id="recheck">Check again</button>
         <button class="primary" id="tools-next">Continue</button>
+      </footer>
+    </section>
+
+    <section data-step="launch" aria-labelledby="launch-title">
+      <div class="content narrow">
+        <h1 id="launch-title">Getting Onward ready</h1>
+        <p class="lead" id="launch-lead">Your resume comes next, in Onward itself.</p>
+        <ul class="checklist" role="status">
+          <li class="done"><span class="state" aria-hidden="true"></span><div><strong id="launch-folder">Folder ready</strong><span class="status" id="launch-path"></span></div></li>
+          <li class="working"><span class="state" aria-hidden="true"></span><div><strong>Starting Onward</strong><span class="status">It opens in its own window in a few seconds.</span></div></li>
+        </ul>
       </div>
     </section>
-  </main>
+  </div>
   <script src="onboarding.js"></script>
 </body>
 </html>
